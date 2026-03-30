@@ -36,8 +36,11 @@ class CacheService {
 
   // ── Notes ──────────────────────────────────
 
-  List<Note> getAllNotes() => _notes.values.toList()
-    ..sort((a, b) => b.modified.compareTo(a.modified));
+  List<Note> getAllNotes() {
+    if (!_initialized) return [];
+    return _notes.values.toList()
+      ..sort((a, b) => b.modified.compareTo(a.modified));
+  }
 
   List<Note> getInboxNotes() => _notes.values
       .where((n) => n.status == NoteStatus.inbox)
@@ -65,7 +68,7 @@ class CacheService {
   }
 
   List<Note> searchNotes(String query) {
-    if (query.trim().isEmpty) return [];
+    if (!_initialized || query.trim().isEmpty) return [];
     final lower = query.toLowerCase();
     return _notes.values
         .where((n) =>
@@ -113,12 +116,14 @@ class CacheService {
   }
 
   List<String> get recentSearches {
+    if (!_initialized) return [];
     final raw = _meta.get('recent_searches');
     if (raw == null) return [];
     return List<String>.from(raw as List);
   }
 
   Future<void> addRecentSearch(String query) async {
+    if (!_initialized) return;
     final searches = recentSearches.toList();
     searches.removeWhere((s) => s == query);
     searches.insert(0, query);
