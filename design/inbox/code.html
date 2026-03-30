@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Brain - Inbox</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#93000a",
+              "tertiary-fixed-dim": "#ffb95f",
+              "on-tertiary-fixed": "#2a1700",
+              "on-error-container": "#ffdad6",
+              "surface-dim": "#111319",
+              "surface": "#111319",
+              "surface-variant": "#33343b",
+              "surface-container": "#1e1f26",
+              "on-secondary-fixed-variant": "#005137",
+              "on-primary-fixed-variant": "#2f2ebe",
+              "tertiary-fixed": "#ffddb8",
+              "on-primary-fixed": "#07006c",
+              "tertiary": "#ffb95f",
+              "surface-bright": "#373940",
+              "secondary-fixed-dim": "#45dfa4",
+              "inverse-primary": "#494bd6",
+              "inverse-surface": "#e2e2eb",
+              "background": "#111319",
+              "error": "#ffb4ab",
+              "primary": "#c0c1ff",
+              "outline": "#908fa0",
+              "surface-tint": "#c0c1ff",
+              "on-secondary-container": "#00452e",
+              "inverse-on-surface": "#2e3037",
+              "surface-container-highest": "#33343b",
+              "on-surface": "#e2e2eb",
+              "tertiary-container": "#ca8100",
+              "on-tertiary-container": "#3e2400",
+              "on-primary": "#1000a9",
+              "on-primary-container": "#0d0096",
+              "outline-variant": "#464554",
+              "surface-container-high": "#282a30",
+              "secondary-fixed": "#68fcbf",
+              "primary-container": "#8083ff",
+              "on-error": "#690005",
+              "on-surface-variant": "#c7c4d7",
+              "on-tertiary-fixed-variant": "#653e00",
+              "secondary": "#45dfa4",
+              "on-secondary": "#003825",
+              "on-tertiary": "#472a00",
+              "surface-container-lowest": "#0c0e14",
+              "surface-container-low": "#191b22",
+              "on-secondary-fixed": "#002114",
+              "primary-fixed": "#e1e0ff",
+              "primary-fixed-dim": "#c0c1ff",
+              "on-background": "#e2e2eb",
+              "secondary-container": "#00bd85"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #111319;
+            color: #e2e2eb;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex justify-center items-start min-h-screen">
+<!-- Main View Container (Mobile Framed 390x844) -->
+<main class="w-full max-w-[640px] min-h-screen bg-surface flex flex-col relative pb-24">
+<!-- TopAppBar -->
+<header class="bg-[#111319]/80 backdrop-blur-xl text-[#c0c1ff] fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 max-w-[640px] mx-auto">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-xl active:scale-95 transition-transform cursor-pointer" data-icon="menu">menu</span>
+<h1 class="text-lg font-semibold tracking-tight">Inbox</h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="bg-primary/20 px-2 py-0.5 rounded-full">
+<span class="text-[10px] font-medium font-mono text-primary">8 ITEMS</span>
+</div>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-high border border-outline-variant/20">
+<img alt="User" data-alt="minimalist close-up portrait of a digital artist with soft neon rim lighting and a blurred dark studio background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDEfg2b_nSVicJrcHdMgqY0ZO_wo9H5TgkLueeggiSQWH1XT6I6fxturiTRabbuc-EVs4N4sabxJZPWkDizYBaE7_L2DTWS70dmV5VDRITEdMNQfD8kCkOWELPzA1eX2PfVIxdHn-f8plQVaeIFRnCT7VGeGR1oJh5-qtZOtxIwXb761cWDXkxWnLySBKPPDvX74nbFB2CwQX_HNb-wgSTlIV8hTaAE1choRiuhY6EDHaqmYOQE9lrngns-O3Q_2g-IxEiHHbfGZG1p"/>
+</div>
+</div>
+<div class="bg-[#191b22] h-[1px] w-full absolute bottom-0"></div>
+</header>
+<!-- Content Area -->
+<div class="mt-16 flex-1 px-4 py-6">
+<!-- AI Triage Action -->
+<section class="mb-8">
+<button class="w-full h-14 bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-[#1000a9] rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span>Triage All</span>
+</button>
+<div class="mt-3 flex justify-center">
+<span class="text-[10px] font-medium font-mono text-on-surface-variant uppercase tracking-widest">Powered by Second Brain AI</span>
+</div>
+</section>
+<!-- Inbox List -->
+<section class="space-y-4">
+<!-- Thought Node 1 -->
+<div class="relative group">
+<!-- Swipe Actions Background -->
+<div class="absolute inset-0 flex justify-between rounded-xl overflow-hidden">
+<div class="w-1/2 bg-secondary/20 flex items-center pl-6 text-secondary">
+<span class="material-symbols-outlined" data-icon="archive">archive</span>
+</div>
+<div class="w-1/2 bg-primary/20 flex items-center justify-end pr-6 text-primary">
+<span class="material-symbols-outlined" data-icon="folder_special">folder_special</span>
+</div>
+</div>
+<!-- Main Card -->
+<div class="relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-200 rounded-xl p-4 cursor-grab active:cursor-grabbing border-l-2 border-primary">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-medium font-mono text-on-surface-variant">2023-10-24 09:12</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="more_vert">more_vert</span>
+</div>
+<h3 class="text-sm font-medium text-on-surface mb-1">Architecture of Obsidian-style knowledge graphs</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Researching the optimal way to structure bidirectional links in a relational database for speed...</p>
+<div class="mt-3 flex gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-[9px] font-mono text-primary uppercase">Research</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-[9px] font-mono text-primary uppercase">Draft</span>
+</div>
+</div>
+</div>
+<!-- Thought Node 2 -->
+<div class="relative group">
+<div class="absolute inset-0 flex justify-between rounded-xl overflow-hidden opacity-0 group-hover:opacity-10 transition-opacity">
+<div class="w-full bg-surface-bright"></div>
+</div>
+<div class="relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-200 rounded-xl p-4 border-l-2 border-transparent">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-medium font-mono text-on-surface-variant">2023-10-24 08:45</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="link">link</span>
+</div>
+<h3 class="text-sm font-medium text-on-surface mb-1">Weekly Review Protocol</h3>
+<p class="text-xs text-on-surface-variant leading-relaxed">Systematic checklist for cleaning up the 'Ideas' stack every Sunday night.</p>
+<div class="mt-3 flex gap-2">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-[9px] font-mono text-primary uppercase">Productivity</span>
+</div>
+</div>
+</div>
+<!-- Thought Node 3 (Visual Placeholder for empty state triggers) -->
+<div class="relative group">
+<div class="relative bg-surface-container-low hover:bg-surface-container-high transition-all duration-200 rounded-xl p-4 border-l-2 border-primary/40">
+<div class="flex justify-between items-start mb-2">
+<span class="text-[10px] font-medium font-mono text-on-surface-variant">2023-10-23 22:10</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="mic">mic</span>
+</div>
+<h3 class="text-sm font-medium text-on-surface mb-1">Voice Memo: Neural Linkage</h3>
+<div class="h-8 w-full bg-surface-container-highest/50 rounded flex items-center px-3 gap-2">
+<div class="h-1 flex-1 bg-outline-variant/30 rounded-full overflow-hidden">
+<div class="h-full w-1/3 bg-primary"></div>
+</div>
+<span class="text-[9px] font-mono text-on-surface-variant">0:42</span>
+</div>
+</div>
+</div>
+<!-- Empty State (Hidden by default, shown when list is clear) -->
+<div class="hidden py-20 flex flex-col items-center text-center opacity-60">
+<div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-4xl text-primary" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h2 class="text-xl font-headline font-semibold text-on-surface">Inbox zero</h2>
+<p class="text-sm text-on-surface-variant mt-2 font-mono">ALL THOUGHTS CAPTURED AND FILED</p>
+</div>
+</section>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#111319]/60 backdrop-blur-md z-50 rounded-t-2xl border-t border-[#464554]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)] max-w-[640px] mx-auto left-1/2 -translate-x-1/2">
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Search</span>
+</a>
+<!-- FAB: Capture -->
+<div class="relative -top-8">
+<button class="w-14 h-14 rounded-full bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-[#1000a9] shadow-xl flex items-center justify-center active:scale-90 duration-150">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center justify-center text-[#c0c1ff] bg-[#c0c1ff]/10 rounded-xl px-3 py-1 scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="inbox" style="font-variation-settings: 'FILL' 1;">inbox</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Inbox</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Settings</span>
+</a>
+</nav>
+</main>
+</body></html>

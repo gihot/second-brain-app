@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Brain - Capture</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111319;
+        }
+        .mono {
+            font-family: 'JetBrains+Mono', monospace;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for minimalist textarea */
+        textarea::-webkit-scrollbar {
+            width: 4px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #464554;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-tertiary-fixed": "#2a1700",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#111319",
+                        "surface": "#111319",
+                        "surface-variant": "#33343b",
+                        "surface-container": "#1e1f26",
+                        "on-secondary-fixed-variant": "#005137",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "tertiary-fixed": "#ffddb8",
+                        "on-primary-fixed": "#07006c",
+                        "tertiary": "#ffb95f",
+                        "surface-bright": "#373940",
+                        "secondary-fixed-dim": "#45dfa4",
+                        "inverse-primary": "#494bd6",
+                        "inverse-surface": "#e2e2eb",
+                        "background": "#111319",
+                        "error": "#ffb4ab",
+                        "primary": "#c0c1ff",
+                        "outline": "#908fa0",
+                        "surface-tint": "#c0c1ff",
+                        "on-secondary-container": "#00452e",
+                        "inverse-on-surface": "#2e3037",
+                        "surface-container-highest": "#33343b",
+                        "on-surface": "#e2e2eb",
+                        "tertiary-container": "#ca8100",
+                        "on-tertiary-container": "#3e2400",
+                        "on-primary": "#1000a9",
+                        "on-primary-container": "#0d0096",
+                        "outline-variant": "#464554",
+                        "surface-container-high": "#282a30",
+                        "secondary-fixed": "#68fcbf",
+                        "primary-container": "#8083ff",
+                        "on-error": "#690005",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "secondary": "#45dfa4",
+                        "on-secondary": "#003825",
+                        "on-tertiary": "#472a00",
+                        "surface-container-lowest": "#0c0e14",
+                        "surface-container-low": "#191b22",
+                        "on-secondary-fixed": "#002114",
+                        "primary-fixed": "#e1e0ff",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-background": "#e2e2eb",
+                        "secondary-container": "#00bd85"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased flex justify-center items-center min-h-screen">
+<!-- Device Frame (390x844px) -->
+<div class="relative w-[390px] h-[844px] bg-background overflow-hidden shadow-2xl border border-outline-variant/20 rounded-[3rem]">
+<!-- Dashboard Background (Simulated) -->
+<header class="flex justify-between items-center px-6 h-16 w-full fixed top-0 z-10 bg-[#111319]/80 backdrop-blur-xl">
+<span class="text-xl font-bold tracking-tighter text-[#c0c1ff]">Second Brain</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="User Avatar" data-alt="minimalist 3d avatar of a person with stylish glasses and a black turtleneck against a soft purple background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSR6gRnjwHG_AZfFCz6E32fy-W6S_uUr2lgjLzvwfrid2uz5_aRcf-n4Gn3J8W9wRBlHUCXQu4fO4gzqYlGNl96Y8f_8NLgAde4HRslbaHZMX10E3-Ubz1NM9WNprY2lZ2EhMNqwULKLJoSvm-oPnI3mdXksTNnumbzHrXUIKjA7fKIBXeoYIIg-4OxQBtDZm2OL2rFsaVgXGwTxraS9GkEfbsuz1xEdSMfZRoN8q2BHogOpjtyIBSKgHwMqtLw7YJX8mofQlHS5cV"/>
+</div>
+<div class="bg-[#191b22] h-[1px] w-full absolute bottom-0"></div>
+</header>
+<main class="pt-20 px-6 space-y-6">
+<div class="space-y-2">
+<span class="text-[10px] font-medium mono uppercase tracking-widest text-on-surface-variant">Recent Activity</span>
+<div class="grid grid-cols-2 gap-3">
+<div class="p-4 rounded-2xl bg-surface-container-low aspect-square flex flex-col justify-between">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+<p class="text-sm font-medium">Neural Architectures</p>
+</div>
+<div class="p-4 rounded-2xl bg-surface-container-low aspect-square flex flex-col justify-between">
+<span class="material-symbols-outlined text-secondary">bookmark</span>
+<p class="text-sm font-medium">Reading List</p>
+</div>
+</div>
+</div>
+<!-- Bento style node -->
+<div class="p-6 rounded-3xl bg-surface-container-low border border-outline-variant/10 space-y-3">
+<div class="flex justify-between items-start">
+<h3 class="font-semibold text-on-surface">Weekly Synthesis</h3>
+<span class="text-[10px] mono text-on-surface-variant">OCT 24</span>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">The intersection of generative AI and personal knowledge management creates a recursive feedback loop...</p>
+<div class="flex gap-2">
+<span class="px-2 py-1 rounded bg-surface-container-high text-[10px] mono text-primary">#ai</span>
+<span class="px-2 py-1 rounded bg-surface-container-high text-[10px] mono text-primary">#pkm</span>
+</div>
+</div>
+</main>
+<!-- Capture Sheet Overlay (The Core Task) -->
+<!-- Background Blur Overlay -->
+<div class="absolute inset-0 bg-surface-container-lowest/60 backdrop-blur-sm z-40"></div>
+<!-- Bottom Sheet -->
+<div class="absolute bottom-0 left-0 right-0 z-50 bg-surface-container-low rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.6)] flex flex-col max-h-[90%] transition-transform duration-500 ease-out translate-y-0">
+<!-- Drag Handle -->
+<div class="flex justify-center py-4">
+<div class="w-10 h-1.5 bg-outline-variant/30 rounded-full"></div>
+</div>
+<!-- Content Container -->
+<div class="px-8 pt-4 pb-10 flex flex-col h-full">
+<!-- Large Prompt Text -->
+<h2 class="text-3xl font-semibold tracking-tight text-on-surface mb-6">
+                    What are you thinking?
+                </h2>
+<!-- Minimal Textarea -->
+<textarea autofocus="" class="w-full bg-transparent border-none focus:ring-0 text-lg text-on-surface-variant placeholder:text-outline-variant/50 resize-none h-48 leading-relaxed mb-8" placeholder="Capture your thought stream..."></textarea>
+<!-- Controls Row -->
+<div class="flex items-center justify-between">
+<!-- Voice Mic (Left) -->
+<button class="w-12 h-12 flex items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors active:scale-95">
+<span class="material-symbols-outlined text-2xl">mic</span>
+</button>
+<!-- Capture Button (Right - Accent Indigo) -->
+<button class="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-br from-[#6366F1] to-[#4F46E5] text-white font-semibold shadow-lg shadow-[#6366F1]/20 hover:shadow-[#6366F1]/40 transition-all active:scale-95 group">
+<span class="text-sm tracking-tight">Capture</span>
+<span class="material-symbols-outlined text-xl transition-transform group-hover:-translate-y-0.5">north</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation (Shared Component Integration) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#111319]/60 backdrop-blur-md z-50 rounded-t-2xl border-t border-[#464554]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">grid_view</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest mt-1">Search</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c0c1ff] bg-[#c0c1ff]/10 rounded-xl px-3 py-1 scale-90 duration-150">
+<span class="material-symbols-outlined">add</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest mt-1">Capture</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">inbox</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest mt-1">Inbox</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest mt-1">Settings</span>
+</div>
+</nav>
+</div>
+</body></html>

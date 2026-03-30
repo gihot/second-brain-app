@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Brain Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#ffb95f",
+                        "on-tertiary-fixed": "#2a1700",
+                        "on-error-container": "#ffdad6",
+                        "surface-dim": "#111319",
+                        "surface": "#111319",
+                        "surface-variant": "#33343b",
+                        "surface-container": "#1e1f26",
+                        "on-secondary-fixed-variant": "#005137",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "tertiary-fixed": "#ffddb8",
+                        "on-primary-fixed": "#07006c",
+                        "tertiary": "#ffb95f",
+                        "surface-bright": "#373940",
+                        "secondary-fixed-dim": "#45dfa4",
+                        "inverse-primary": "#494bd6",
+                        "inverse-surface": "#e2e2eb",
+                        "background": "#111319",
+                        "error": "#ffb4ab",
+                        "primary": "#c0c1ff",
+                        "outline": "#908fa0",
+                        "surface-tint": "#c0c1ff",
+                        "on-secondary-container": "#00452e",
+                        "inverse-on-surface": "#2e3037",
+                        "surface-container-highest": "#33343b",
+                        "on-surface": "#e2e2eb",
+                        "tertiary-container": "#ca8100",
+                        "on-tertiary-container": "#3e2400",
+                        "on-primary": "#1000a9",
+                        "on-primary-container": "#0d0096",
+                        "outline-variant": "#464554",
+                        "surface-container-high": "#282a30",
+                        "secondary-fixed": "#68fcbf",
+                        "primary-container": "#8083ff",
+                        "on-error": "#690005",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-tertiary-fixed-variant": "#653e00",
+                        "secondary": "#45dfa4",
+                        "on-secondary": "#003825",
+                        "on-tertiary": "#472a00",
+                        "surface-container-lowest": "#0c0e14",
+                        "surface-container-low": "#191b22",
+                        "on-secondary-fixed": "#002114",
+                        "primary-fixed": "#e1e0ff",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-background": "#e2e2eb",
+                        "secondary-container": "#00bd85"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        body {
+            background-color: #111319;
+            color: #e2e2eb;
+            font-family: 'Inter', sans-serif;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col items-center">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#111319]/80 backdrop-blur-xl max-w-[640px] mx-auto">
+<div class="flex justify-between items-center px-6 h-16 w-full relative">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#c0c1ff] cursor-pointer active:scale-95 transition-transform">menu</span>
+<span class="text-xl font-bold tracking-tighter text-[#c0c1ff]">Second Brain</span>
+</div>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30">
+<img alt="User" data-alt="close-up professional portrait of a person with minimalist aesthetic, soft studio lighting, dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeyjgswh9bSv7fN7EHfmdRDtYevLSEMEYnXTp1l0jbxq6awCo8wH2GuMiBUU7DFJiQouKdMtgyHWyOA0xdDi59T12LFL7Pbp9ZI9jlSZ58v-xQhTsq3olkhyD174BnIpYLYlZeSfO3X1pLiFCricNrPGQhPDbXtLtyU29n9Sc1QG02S2TKP4P6nd4gAjfsOS-5SVtlYtCHjIilqiTjyuzg_pQuNZR81TOQywTbO-Tc0OZKpz-WQAS9pWKN-DOCDkJ3mavosvUeKD0u"/>
+</div>
+<div class="bg-[#191b22] h-[1px] w-full absolute bottom-0 left-0"></div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="w-full max-w-[640px] px-6 pt-24 pb-32 flex flex-col gap-10">
+<!-- Hero Greeting -->
+<section class="flex flex-col gap-1">
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest text-on-surface-variant">System Status: Active</span>
+<h1 class="text-5xl font-bold tracking-tight text-on-surface">Good evening</h1>
+</section>
+<!-- Stats Grid (2x2) -->
+<section class="grid grid-cols-2 gap-4">
+<!-- Stat Card 1 -->
+<div class="bg-surface-container-low p-5 rounded-full flex flex-col gap-3 group hover:bg-surface-container-high transition-colors duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-primary/10 px-2 py-1 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm">description</span>
+</div>
+</div>
+<div>
+<div class="text-3xl font-bold tracking-tight text-on-surface">247</div>
+<div class="text-[10px] font-medium font-mono uppercase tracking-widest text-on-surface-variant">Notes</div>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-surface-container-low p-5 rounded-full flex flex-col gap-3 group hover:bg-surface-container-high transition-colors duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-secondary/10 px-2 py-1 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-sm">inbox</span>
+</div>
+</div>
+<div>
+<div class="text-3xl font-bold tracking-tight text-on-surface">12</div>
+<div class="text-[10px] font-medium font-mono uppercase tracking-widest text-on-surface-variant">Inbox</div>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-surface-container-low p-5 rounded-full flex flex-col gap-3 group hover:bg-surface-container-high transition-colors duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-tertiary/10 px-2 py-1 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary text-sm">hub</span>
+</div>
+</div>
+<div>
+<div class="text-3xl font-bold tracking-tight text-on-surface">18</div>
+<div class="text-[10px] font-medium font-mono uppercase tracking-widest text-on-surface-variant">Connected</div>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="bg-surface-container-low p-5 rounded-full flex flex-col gap-3 group hover:bg-surface-container-high transition-colors duration-200">
+<div class="flex justify-between items-start">
+<div class="bg-outline-variant/20 px-2 py-1 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">sync</span>
+</div>
+</div>
+<div>
+<div class="text-xl mt-1 font-bold tracking-tight text-on-surface">Just now</div>
+<div class="text-[10px] font-medium font-mono uppercase tracking-widest text-on-surface-variant">Last Sync</div>
+</div>
+</div>
+</section>
+<!-- Suggested Connections (Horizontal Scroll) -->
+<section class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="text-sm font-semibold text-on-surface">Suggested Connections</h3>
+<span class="text-[10px] font-medium font-mono text-primary cursor-pointer uppercase tracking-widest">AI Insights</span>
+</div>
+<div class="flex gap-4 overflow-x-auto hide-scrollbar -mx-6 px-6">
+<!-- Insight Card 1 -->
+<div class="min-w-[240px] bg-gradient-to-br from-surface-container-low to-surface-container-high p-5 rounded-full border border-outline-variant/10 flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<span class="text-[10px] font-mono text-on-surface-variant uppercase">Neural Link</span>
+</div>
+<p class="text-sm leading-relaxed text-on-surface">Your recent note on <span class="text-primary font-medium">Quantum Computing</span> relates to your '2023 Physics' archive.</p>
+</div>
+<!-- Insight Card 2 -->
+<div class="min-w-[240px] bg-gradient-to-br from-surface-container-low to-surface-container-high p-5 rounded-full border border-outline-variant/10 flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+<span class="text-[10px] font-mono text-on-surface-variant uppercase">Pattern Found</span>
+</div>
+<p class="text-sm leading-relaxed text-on-surface">Recurring theme: <span class="text-secondary font-medium">Stoicism</span> identified across 4 meeting transcripts.</p>
+</div>
+<!-- Insight Card 3 -->
+<div class="min-w-[240px] bg-gradient-to-br from-surface-container-low to-surface-container-high p-5 rounded-full border border-outline-variant/10 flex flex-col gap-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="text-[10px] font-mono text-on-surface-variant uppercase">Recall</span>
+</div>
+<p class="text-sm leading-relaxed text-on-surface">Review <span class="text-tertiary font-medium">Design Strategy</span> draft? It's been untouched for 14 days.</p>
+</div>
+</div>
+</section>
+<!-- Recent Notes List -->
+<section class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="text-sm font-semibold text-on-surface">Recent Notes</h3>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">filter_list</span>
+</div>
+<div class="flex flex-col gap-2">
+<!-- Note Item 1 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-4">
+<div class="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(192,193,255,0.4)]"></div>
+<div>
+<div class="text-sm font-medium text-on-surface">Neural Network Architectures</div>
+<div class="text-[10px] font-mono text-on-surface-variant uppercase tracking-tight">Machine Learning • AI</div>
+</div>
+</div>
+<div class="text-[10px] font-mono text-on-surface-variant">2h ago</div>
+</div>
+<!-- Note Item 2 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-4">
+<div class="w-1.5 h-1.5 rounded-full bg-secondary shadow-[0_0_8px_rgba(69,223,164,0.4)]"></div>
+<div>
+<div class="text-sm font-medium text-on-surface">Sourdough Fermentation Notes</div>
+<div class="text-[10px] font-mono text-on-surface-variant uppercase tracking-tight">Hobby • Culinary</div>
+</div>
+</div>
+<div class="text-[10px] font-mono text-on-surface-variant">5h ago</div>
+</div>
+<!-- Note Item 3 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-4">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary shadow-[0_0_8px_rgba(255,185,95,0.4)]"></div>
+<div>
+<div class="text-sm font-medium text-on-surface">Product Vision 2025</div>
+<div class="text-[10px] font-mono text-on-surface-variant uppercase tracking-tight">Work • Strategy</div>
+</div>
+</div>
+<div class="text-[10px] font-mono text-on-surface-variant">Yesterday</div>
+</div>
+<!-- Note Item 4 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-high transition-all group">
+<div class="flex items-center gap-4">
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant/40"></div>
+<div>
+<div class="text-sm font-medium text-on-surface">Reading List: Q4</div>
+<div class="text-[10px] font-mono text-on-surface-variant uppercase tracking-tight">Personal • Books</div>
+</div>
+</div>
+<div class="text-[10px] font-mono text-on-surface-variant">Oct 24</div>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB -->
+<button class="fixed bottom-24 right-6 z-[60] w-14 h-14 bg-gradient-to-br from-primary to-primary-container text-on-primary rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform duration-150">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'wght' 600;">add</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-[#111319]/60 backdrop-blur-md border-t border-[#464554]/15 rounded-t-2xl max-w-[640px] left-1/2 -translate-x-1/2">
+<div class="flex justify-around items-center px-4 pb-6 pt-3">
+<!-- Home (Active) -->
+<a class="flex flex-col items-center justify-center text-[#c0c1ff] bg-[#c0c1ff]/10 rounded-xl px-3 py-1 scale-90 duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Home</span>
+</a>
+<!-- Search -->
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Search</span>
+</a>
+<!-- Capture Spacer -->
+<div class="w-12 h-12 flex flex-col items-center justify-center text-[#c7c4d7] opacity-60">
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Capture</span>
+</div>
+<!-- Inbox -->
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">inbox</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Inbox</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Settings</span>
+</a>
+</div>
+</nav>
+</body></html>

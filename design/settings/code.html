@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+            font-size: 20px;
+        }
+        .glass-panel {
+            background: rgba(40, 42, 48, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#93000a",
+              "tertiary-fixed-dim": "#ffb95f",
+              "on-tertiary-fixed": "#2a1700",
+              "on-error-container": "#ffdad6",
+              "surface-dim": "#111319",
+              "surface": "#111319",
+              "surface-variant": "#33343b",
+              "surface-container": "#1e1f26",
+              "on-secondary-fixed-variant": "#005137",
+              "on-primary-fixed-variant": "#2f2ebe",
+              "tertiary-fixed": "#ffddb8",
+              "on-primary-fixed": "#07006c",
+              "tertiary": "#ffb95f",
+              "surface-bright": "#373940",
+              "secondary-fixed-dim": "#45dfa4",
+              "inverse-primary": "#494bd6",
+              "inverse-surface": "#e2e2eb",
+              "background": "#111319",
+              "error": "#ffb4ab",
+              "primary": "#c0c1ff",
+              "outline": "#908fa0",
+              "surface-tint": "#c0c1ff",
+              "on-secondary-container": "#00452e",
+              "inverse-on-surface": "#2e3037",
+              "surface-container-highest": "#33343b",
+              "on-surface": "#e2e2eb",
+              "tertiary-container": "#ca8100",
+              "on-tertiary-container": "#3e2400",
+              "on-primary": "#1000a9",
+              "on-primary-container": "#0d0096",
+              "outline-variant": "#464554",
+              "surface-container-high": "#282a30",
+              "secondary-fixed": "#68fcbf",
+              "primary-container": "#8083ff",
+              "on-error": "#690005",
+              "on-surface-variant": "#c7c4d7",
+              "on-tertiary-fixed-variant": "#653e00",
+              "secondary": "#45dfa4",
+              "on-secondary": "#003825",
+              "on-tertiary": "#472a00",
+              "surface-container-lowest": "#0c0e14",
+              "surface-container-low": "#191b22",
+              "on-secondary-fixed": "#002114",
+              "primary-fixed": "#e1e0ff",
+              "primary-fixed-dim": "#c0c1ff",
+              "on-background": "#e2e2eb",
+              "secondary-container": "#00bd85"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#111319]/80 backdrop-blur-xl">
+<div class="flex justify-between items-center px-6 h-16 w-full max-w-[640px] mx-auto relative">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#c0c1ff]">menu</span>
+<h1 class="text-lg font-semibold tracking-tight Inter text-[#c0c1ff]">Settings</h1>
+</div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-[10px] font-medium mono text-[#c7c4d7] uppercase tracking-wider">The Curator</p>
+</div>
+<img alt="User" class="w-8 h-8 rounded-full border border-outline-variant/20" data-alt="close-up portrait of a digital artist with minimalist aesthetic in a dimly lit studio environment with blue highlights" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjRaZjGQYOlKQuVfcSSk-fHPwHIKj40_d3qzW9B39qcb2Gy-dDvI7_-lLnRPSTm_8dMMmGTek1EeYN-5EtgpVNvdnG-94z8FLrfYlIupn1dplOE5gozi2k96Z_iDte2e_uDAp080-NBdhcFWryJ81NTpjGBG3w5c2hqtVnRTFfnTRSvCgd2v02065sd-ADec8q3_Swpmm3mj9PDyRmC_bFXWnPNocFe69OCAY8ZxLzZHJI0GoHHjtCjGoHJHaAyCvWW-sZxNf5r9Wx"/>
+</div>
+<div class="bg-[#191b22] h-[1px] w-full absolute bottom-0 left-0"></div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="pt-24 pb-32 px-6 max-w-[640px] mx-auto space-y-8">
+<!-- Profile Section -->
+<section class="space-y-4">
+<div class="bg-surface-container-low rounded-xl p-5 flex items-center gap-4 active:scale-95 transition-transform duration-200">
+<div class="relative">
+<img class="w-14 h-14 rounded-full" data-alt="professional minimalist headshot avatar of a person with short dark hair in front of a neutral dark background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfsc1q06BAynu2ObXqoMLv240TMr8-ggl7wlKKL1qAlPErg-XAkjvaH3LUDGERDlK8-aoOnx4CNLH0koWFjW73_vIGqFkdChCuDmflcNIpLRi2eEQ3cxnhlG0Gdrrk00mWmeEcTlMO7njcgbcrm2twyMocbmOEjrPCAHXsLE0W8EG8KaMtW9XhaYfk0rqzCOv4yzegfgJKue3RqordthTO8Xrgj7cLXLQzTzSKEu6Px3dnpkgEUAYA2AnJpXwjE8n9_l5aaiMDGFcW"/>
+<div class="absolute -bottom-1 -right-1 bg-primary p-1 rounded-full border-2 border-surface">
+<span class="material-symbols-outlined text-[12px] text-on-primary font-bold">edit</span>
+</div>
+</div>
+<div class="flex-1">
+<h2 class="text-on-surface font-semibold text-base">The Curator</h2>
+<p class="text-on-surface-variant mono text-[10px] uppercase tracking-widest">Pro Plan • Active</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</div>
+</section>
+<!-- Preference Sections -->
+<div class="space-y-6">
+<!-- Account Group -->
+<div class="space-y-2">
+<h3 class="mono text-[10px] font-medium text-on-surface-variant uppercase tracking-[0.2em] px-1">Account &amp; Sync</h3>
+<div class="bg-surface-container-low rounded-2xl overflow-hidden">
+<!-- Row 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">cloud_sync</span>
+<span class="text-sm font-medium">Cloud Synchronization</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-xs text-on-surface-variant mono">Active</span>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+</div>
+</div>
+<!-- Divider -->
+<div class="mx-4 h-[1px] bg-outline-variant/10"></div>
+<!-- Row 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">security</span>
+<span class="text-sm font-medium">Privacy &amp; Security</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Workspace Group -->
+<div class="space-y-2">
+<h3 class="mono text-[10px] font-medium text-on-surface-variant uppercase tracking-[0.2em] px-1">Workspace</h3>
+<div class="bg-surface-container-low rounded-2xl overflow-hidden">
+<!-- Row 1 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">palette</span>
+<span class="text-sm font-medium">Appearance</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-xs text-on-surface-variant mono italic">Deep Ink</span>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+</div>
+</div>
+<!-- Divider -->
+<div class="mx-4 h-[1px] bg-outline-variant/10"></div>
+<!-- Row 2 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">token</span>
+<span class="text-sm font-medium">Connected Apps</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary/10 text-primary rounded text-[9px] mono font-bold">12</span>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">chevron_right</span>
+</div>
+</div>
+<!-- Divider -->
+<div class="mx-4 h-[1px] bg-outline-variant/10"></div>
+<!-- Row 3 -->
+<div class="flex items-center justify-between p-4 hover:bg-surface-container-high transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">notifications_active</span>
+<span class="text-sm font-medium">Notifications</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-8 h-4 bg-primary rounded-full relative">
+<div class="absolute right-0.5 top-0.5 w-3 h-3 bg-on-primary rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Storage Visualizer (Bento-style Card) -->
+<div class="bg-gradient-to-br from-surface-container-low to-surface-container-high rounded-2xl p-6 border border-outline-variant/5">
+<div class="flex justify-between items-start mb-4">
+<div class="space-y-1">
+<h4 class="text-sm font-bold">Brain Capacity</h4>
+<p class="text-[10px] mono text-on-surface-variant uppercase tracking-widest">74.2 GB of 100 GB used</p>
+</div>
+<span class="material-symbols-outlined text-primary">database</span>
+</div>
+<div class="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden mb-6">
+<div class="h-full bg-primary w-[74%] rounded-full shadow-[0_0_12px_rgba(192,193,255,0.4)]"></div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface/40 p-3 rounded-xl">
+<p class="mono text-[9px] text-on-surface-variant mb-1 uppercase tracking-tighter">Documents</p>
+<p class="text-sm font-semibold">42.1 GB</p>
+</div>
+<div class="bg-surface/40 p-3 rounded-xl">
+<p class="mono text-[9px] text-on-surface-variant mb-1 uppercase tracking-tighter">Media Assets</p>
+<p class="text-sm font-semibold">32.1 GB</p>
+</div>
+</div>
+</div>
+<!-- Danger Zone -->
+<div class="bg-error-container/10 border border-error/20 rounded-2xl p-4 flex items-center justify-between hover:bg-error-container/20 transition-colors cursor-pointer group">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-error">logout</span>
+<span class="text-sm font-medium text-error">Logout Session</span>
+</div>
+<span class="material-symbols-outlined text-error/40 text-sm">arrow_forward</span>
+</div>
+<div class="text-center py-6">
+<p class="mono text-[9px] text-on-surface-variant uppercase tracking-widest opacity-50">Second Brain Core v2.1.0-stable</p>
+<p class="mono text-[8px] text-on-surface-variant uppercase tracking-[0.3em] mt-1">E2EE Protocol Enabled</p>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#111319]/60 backdrop-blur-md z-50 rounded-t-2xl border-t border-[#464554]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">grid_view</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">search</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest">Search</span>
+</a>
+<div class="relative -top-4">
+<button class="bg-gradient-to-br from-[#c0c1ff] to-[#8083ff] text-on-primary w-14 h-14 rounded-full flex items-center justify-center shadow-lg active:scale-90 duration-150">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined mb-1">inbox</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest">Inbox</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#c0c1ff] bg-[#c0c1ff]/10 rounded-xl px-3 py-1 scale-90 duration-150" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span class="text-[10px] font-medium mono uppercase tracking-widest">Settings</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Brain - Note View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "error-container": "#93000a",
+            "tertiary-fixed-dim": "#ffb95f",
+            "on-tertiary-fixed": "#2a1700",
+            "on-error-container": "#ffdad6",
+            "surface-dim": "#111319",
+            "surface": "#111319",
+            "surface-variant": "#33343b",
+            "surface-container": "#1e1f26",
+            "on-secondary-fixed-variant": "#005137",
+            "on-primary-fixed-variant": "#2f2ebe",
+            "tertiary-fixed": "#ffddb8",
+            "on-primary-fixed": "#07006c",
+            "tertiary": "#ffb95f",
+            "surface-bright": "#373940",
+            "secondary-fixed-dim": "#45dfa4",
+            "inverse-primary": "#494bd6",
+            "inverse-surface": "#e2e2eb",
+            "background": "#111319",
+            "error": "#ffb4ab",
+            "primary": "#c0c1ff",
+            "outline": "#908fa0",
+            "surface-tint": "#c0c1ff",
+            "on-secondary-container": "#00452e",
+            "inverse-on-surface": "#2e3037",
+            "surface-container-highest": "#33343b",
+            "on-surface": "#e2e2eb",
+            "tertiary-container": "#ca8100",
+            "on-tertiary-container": "#3e2400",
+            "on-primary": "#1000a9",
+            "on-primary-container": "#0d0096",
+            "outline-variant": "#464554",
+            "surface-container-high": "#282a30",
+            "secondary-fixed": "#68fcbf",
+            "primary-container": "#8083ff",
+            "on-error": "#690005",
+            "on-surface-variant": "#c7c4d7",
+            "on-tertiary-fixed-variant": "#653e00",
+            "secondary": "#45dfa4",
+            "on-secondary": "#003825",
+            "on-tertiary": "#472a00",
+            "surface-container-lowest": "#0c0e14",
+            "surface-container-low": "#191b22",
+            "on-secondary-fixed": "#002114",
+            "primary-fixed": "#e1e0ff",
+            "primary-fixed-dim": "#c0c1ff",
+            "on-background": "#e2e2eb",
+            "secondary-container": "#00bd85"
+          },
+          fontFamily: {
+            "headline": ["Inter"],
+            "body": ["Inter"],
+            "label": ["Inter"],
+            "mono": ["JetBrains Mono"]
+          },
+          borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      background-color: #111319;
+      color: #e2e2eb;
+      font-family: 'Inter', sans-serif;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    }
+    .markdown-body h1 { font-size: 1.75rem; font-weight: 600; line-height: 1.2; margin-bottom: 1rem; color: #e2e2eb; }
+    .markdown-body p { font-size: 0.875rem; line-height: 1.6; margin-bottom: 1.25rem; color: #c7c4d7; }
+    .markdown-body blockquote { border-left: 2px solid #c0c1ff; padding-left: 1rem; font-style: italic; color: #c0c1ff; margin: 1.5rem 0; }
+    .markdown-body code { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; background: #191b22; padding: 0.2rem 0.4rem; border-radius: 4px; color: #c0c1ff; }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex items-center justify-center min-h-screen p-4 bg-surface-container-lowest">
+<!-- Mobile Screen Shell -->
+<div class="w-[390px] h-[844px] bg-surface relative overflow-hidden flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#111319]/80 backdrop-blur-xl fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 w-full max-w-[390px]">
+<div class="flex items-center gap-3">
+<button class="active:scale-95 transition-transform text-[#c0c1ff]">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<span class="text-lg font-semibold tracking-tight Inter text-[#c0c1ff]">Second Brain</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform text-[#c0c1ff]">
+<span class="material-symbols-outlined" data-icon="edit">edit</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/20">
+<img alt="User profile avatar" data-alt="close up professional portrait of a tech curator with soft cinematic lighting and a dark blurred background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRmLB05Za2perxg3L1X6vVz7zUh0Xz4kZM4QgZfuymDKkwhrotCGF_PPlbD_yglJ4J4Inqrtbawgoc9dJ6VQia7O5vXPBym9QxZ5j7_KGhGb9_TmCi8thPm7GeiHCWbuPKDAgbX6ZCuj-j7lQ9lcffqFRb9xFS2vk-DgC_O8xc9HOaSixthLVEs_AcOCxzpFgZgJzvkiXMiqwHUE9wLBDaNqysOUjkqa12lX7FwEPRrn21mWsublw_OMWRGtBhusq5Bz_JYDuqAp7M"/>
+</div>
+</div>
+<div class="bg-[#191b22] h-[1px] w-full absolute bottom-0 left-0"></div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto pt-20 pb-24 px-6">
+<!-- Typography Anchor Section -->
+<section class="mb-8">
+<div class="flex items-center gap-2 mb-2">
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest text-primary/70">Archive / Philosophy</span>
+<span class="text-[10px] font-medium font-mono text-on-surface-variant/40">— 12 MIN READ</span>
+</div>
+<h1 class="text-2xl font-bold tracking-tight text-on-surface mb-4">The Architecture of Digital Cognition</h1>
+<!-- Metadata Chips -->
+<div class="flex flex-wrap gap-2 mb-8">
+<span class="px-3 py-1 bg-surface-container-low text-[10px] font-medium font-mono text-primary border border-outline-variant/10 rounded-full">#systems-thinking</span>
+<span class="px-3 py-1 bg-surface-container-low text-[10px] font-medium font-mono text-primary border border-outline-variant/10 rounded-full">#mental-models</span>
+<span class="px-3 py-1 bg-surface-container-low text-[10px] font-medium font-mono text-primary border border-outline-variant/10 rounded-full">#curation</span>
+</div>
+<!-- Markdown Reader Content -->
+<article class="markdown-body">
+<p>The primary challenge of the modern intellectual is not the <code>acquisition</code> of information, but the filtration of signal from noise. We are drowning in data yet starving for wisdom.</p>
+<blockquote>
+            "Your brain is for having ideas, not holding them." 
+          </blockquote>
+<p>By externalizing our memory through a second brain, we liberate the prefrontal cortex to focus on high-order synthesis rather than administrative retrieval. This note explores the recursive nature of linking thoughts as a form of non-linear growth.</p>
+<div class="my-6 rounded-xl overflow-hidden border border-outline-variant/15">
+<img alt="Structural concept" data-alt="minimalist architectural rendering of a brutalist concrete library with high ceilings and dramatic shafts of light across the floor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvY7s_MZHSCxd_V9ZZGOMQcFnZ-BGq4qyZ5uTPrbKkgcGErC5zLEANsszeG41fv-PLNzYs6b-CngiHkINLgbUnNdyJy1wvzp-UvM7TBAQyEl08gqJvp3AimJnHHMC6_JJOLATsrpmaagSKHf8oWgh4HsV2xja8kDdR6FRtAxKFbi94bj7AOxEDZfGKG3ezj16khD_BRLg0k552CRJxsNzeEkBPDeNUQNqa4jE8YTYkG_EfcNOf3XNpaZ63kJ8eMUG4gA-4WOmGpO0C"/>
+</div>
+<p>When we link two disparate nodes of thought, we are not just creating a reference; we are engaging in a neural spark. The <code>backlink</code> is the fundamental unit of this cognitive evolution.</p>
+</article>
+</section>
+<!-- Connected Notes Footer Section -->
+<section class="mt-12 pt-8 border-t border-outline-variant/10">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xs font-bold font-mono uppercase tracking-widest text-on-surface-variant">Connected Notes</h3>
+<span class="text-[10px] font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">4 LINKS</span>
+</div>
+<div class="space-y-3">
+<!-- Note Node Component -->
+<div class="p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer border border-outline-variant/5">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-medium text-on-surface mb-1">Principles of Networked Thought</h4>
+<p class="text-xs text-on-surface-variant/60 line-clamp-1">How nodes interact within a closed ecosystem...</p>
+</div>
+<span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="text-[9px] font-mono text-on-surface-variant/40">MAR 14, 2024</span>
+<span class="text-[9px] font-mono text-secondary">86% MATCH</span>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-high transition-all group cursor-pointer border border-outline-variant/5">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-medium text-on-surface mb-1">Curation as a Service</h4>
+<p class="text-xs text-on-surface-variant/60 line-clamp-1">The value of filtered information in a post-AI world...</p>
+</div>
+<span class="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform" data-icon="arrow_forward">arrow_forward</span>
+</div>
+<div class="mt-3 flex items-center justify-between">
+<span class="text-[9px] font-mono text-on-surface-variant/40">FEB 28, 2024</span>
+<span class="text-[9px] font-mono text-secondary">42% MATCH</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-6 pt-2 bg-[#111319]/60 backdrop-blur-md z-50 border-t border-[#464554]/15 shadow-[0_-4px_20px_rgba(0,0,0,0.4)]">
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]" data-icon="grid_view">grid_view</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]" data-icon="search">search</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Search</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c0c1ff] bg-[#c0c1ff]/10 rounded-xl px-3 py-1 active:scale-90 duration-150">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Capture</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]" data-icon="inbox">inbox</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Inbox</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#c7c4d7] opacity-60 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="text-[10px] font-medium font-mono uppercase tracking-widest mt-1">Settings</span>
+</div>
+</nav>
+</div>
+</body></html>
