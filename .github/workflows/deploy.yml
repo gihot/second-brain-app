@@ -28,7 +28,7 @@ jobs:
           channel: stable
 
       - name: Build Flutter Web
-        run: flutter build web --release
+        run: flutter build web --release --base-href /second-brain-app/
 
       - uses: actions/configure-pages@v4
 
