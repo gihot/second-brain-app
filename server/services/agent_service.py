@@ -49,12 +49,22 @@ class AgentService:
 
         for block in response.content:
             if block.type == "text":
-                # Try to parse JSON response from agent
                 try:
-                    parsed = json.loads(block.text)
+                    parsed = json.loads(self._strip_markdown_json(block.text))
                     result["metadata"] = parsed
                     result["content"] = parsed.get("content", block.text)
                 except json.JSONDecodeError:
                     result["content"] = block.text
 
         return result
+
+    @staticmethod
+    def _strip_markdown_json(text: str) -> str:
+        """Strip ```json ... ``` or ``` ... ``` wrappers Claude sometimes adds."""
+        text = text.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            # Remove first line (```json or ```) and last line (```)
+            inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+            return "\n".join(inner).strip()
+        return text

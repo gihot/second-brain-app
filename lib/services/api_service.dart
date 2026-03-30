@@ -26,7 +26,11 @@ class ApiService {
   }
 
   Future<void> configure({required String baseUrl, required String token}) async {
-    _baseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    var url = baseUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
+    }
+    _baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
     _token = token;
     await _storage.write(key: _baseUrlKey, value: _baseUrl);
     await _storage.write(key: _tokenKey, value: _token);
