@@ -12,6 +12,14 @@ async def vault_status():
     return vault.get_status()
 
 
+@router.get("/notes")
+async def get_all_notes(limit: int = 200):
+    """Return all notes from the vault for client-side sync."""
+    vault = VaultService.instance()
+    notes = vault.get_all_notes(limit=limit)
+    return {"notes": notes}
+
+
 @router.post("/sync")
 async def sync_vault():
     """Pull latest changes from GitHub."""

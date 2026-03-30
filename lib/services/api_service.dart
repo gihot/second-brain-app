@@ -81,6 +81,14 @@ class ApiService {
     return _get('/vault/status');
   }
 
+  // ── Vault Notes (full sync) ────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>?> getVaultNotes({int limit = 200}) async {
+    final body = await _get('/vault/notes?limit=$limit');
+    if (body == null) return null;
+    return List<Map<String, dynamic>>.from(body['notes'] as List);
+  }
+
   // ── Health Check ───────────────────────────────────────────────────────────
 
   Future<bool> ping() async {

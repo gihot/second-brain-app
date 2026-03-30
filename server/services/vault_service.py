@@ -126,6 +126,19 @@ class VaultService:
                 pass
         return results[:limit]
 
+    def get_all_notes(self, limit: int = 200) -> list[dict]:
+        """Return all notes from every PARA folder as dicts."""
+        notes = []
+        for f in sorted(self._vault.rglob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True):
+            if ".git" in f.parts:
+                continue
+            meta = self._parse_frontmatter(f)
+            if meta:
+                notes.append(meta)
+            if len(notes) >= limit:
+                break
+        return notes
+
     def get_status(self) -> dict:
         total = sum(1 for _ in self._vault.rglob("*.md") if ".git" not in _.parts)
         inbox_count = len(list((self._vault / "00-Inbox").glob("*.md"))) if (self._vault / "00-Inbox").exists() else 0

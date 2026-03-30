@@ -65,6 +65,19 @@ class VaultProvider extends ChangeNotifier {
   }
 
   Future<void> _syncFromServer() async {
+    // Pull all notes from vault into local cache
+    final remoteNotes = await _api.getVaultNotes();
+    if (remoteNotes != null) {
+      final notes = remoteNotes
+          .map(_noteFromServerMap)
+          .where((n) => n != null)
+          .cast<Note>()
+          .toList();
+      if (notes.isNotEmpty) {
+        await _cache.saveNotes(notes);
+      }
+    }
+
     final serverStatus = await _api.getVaultStatus();
     if (serverStatus != null) {
       await _cache.setLastSync(DateTime.now());
@@ -74,6 +87,59 @@ class VaultProvider extends ChangeNotifier {
         isServerReachable: true,
       );
       notifyListeners();
+    }
+  }
+
+  Note? _noteFromServerMap(Map<String, dynamic> m) {
+    try {
+      final id = m['id'] as String? ?? m['file_path'] as String? ?? '';
+      if (id.isEmpty) return null;
+      final title = m['title'] as String? ?? 'Untitled';
+      final content = m['content'] as String? ?? '';
+      final tagsRaw = m['tags'] as String? ?? '';
+      final tags = tagsRaw
+          .replaceAll('[', '')
+          .replaceAll(']', '')
+          .split(',')
+          .map((t) => t.trim().replaceAll('"', '').replaceAll("'", ''))
+          .where((t) => t.isNotEmpty)
+          .toList();
+      final createdStr = m['created'] as String?;
+      final modifiedStr = m['modified'] as String?;
+      final created = createdStr != null ? DateTime.tryParse(createdStr) ?? DateTime.now() : DateTime.now();
+      final modified = modifiedStr != null ? DateTime.tryParse(modifiedStr) ?? created : created;
+
+      final statusStr = (m['status'] as String? ?? 'inbox').toLowerCase();
+      final status = statusStr == 'archived'
+          ? NoteStatus.archived
+          : statusStr == 'processed'
+              ? NoteStatus.processed
+              : NoteStatus.inbox;
+
+      final paraStr = (m['para'] as String? ?? '00-Inbox').toLowerCase();
+      final para = paraStr.contains('project')
+          ? ParaCategory.projects
+          : paraStr.contains('area')
+              ? ParaCategory.areas
+              : paraStr.contains('resource')
+                  ? ParaCategory.resources
+                  : paraStr.contains('archive')
+                      ? ParaCategory.archive
+                      : ParaCategory.inbox;
+
+      return Note(
+        id: id,
+        title: title,
+        content: content,
+        tags: tags,
+        created: created,
+        modified: modified,
+        status: status,
+        para: para,
+        filePath: m['file_path'] as String?,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
