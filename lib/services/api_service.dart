@@ -14,14 +14,18 @@ class ApiService {
   static const _baseUrlKey = 'api_base_url';
   static const _tokenKey = 'api_token';
 
+  // Test-phase fallbacks — used when no credentials are stored (e.g. fresh browser)
+  static const _kDefaultBaseUrl = 'https://second-brain-app-production-dcee.up.railway.app';
+  static const _kDefaultToken   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZWNvbmQtYnJhaW4tYXBwIiwiaWF0IjoxNzc0ODk5MTI1fQ.qAleBCkMXmNO7UVZ1kQEFyxzfsOfZEWmYq08zhXhVL4';
+
   String? _baseUrl;
   String? _token;
   bool _initialized = false;
 
   Future<void> init() async {
     if (_initialized) return;
-    _baseUrl = await _storage.read(key: _baseUrlKey);
-    _token = await _storage.read(key: _tokenKey);
+    _baseUrl = await _storage.read(key: _baseUrlKey) ?? _kDefaultBaseUrl;
+    _token   = await _storage.read(key: _tokenKey)   ?? _kDefaultToken;
     _initialized = true;
   }
 
@@ -89,6 +93,35 @@ class ApiService {
     return List<Map<String, dynamic>>.from(body['notes'] as List);
   }
 
+  /// Update an existing note on the server. Returns the new file path on
+  /// success, null on failure (offline, not-found, validation error).
+  /// Caller should treat null as "queue for retry".
+  Future<String?> updateNote({
+    required String filePath,
+    String? title,
+    String? content,
+    List<String>? tags,
+    String? status,
+    String? para,
+  }) async {
+    final body = await _put('/vault/notes', {
+      'file_path': filePath,
+      if (title != null) 'title': title,
+      if (content != null) 'content': content,
+      if (tags != null) 'tags': tags,
+      if (status != null) 'status': status,
+      if (para != null) 'para': para,
+    });
+    if (body == null) return null;
+    return body['file_path'] as String?;
+  }
+
+  /// Delete a note on the server. Returns true on success.
+  Future<bool> deleteVaultNote(String filePath) async {
+    final body = await _delete('/vault/notes', {'file_path': filePath});
+    return body != null;
+  }
+
   // ── Health Check ───────────────────────────────────────────────────────────
 
   Future<bool> ping() async {
@@ -123,6 +156,46 @@ class ApiService {
       return null;
     } catch (e) {
       debugPrint('ApiService GET $path error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _put(String path, Map<String, dynamic> body) async {
+    if (!isConfigured) return null;
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$_baseUrl$path'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('ApiService PUT $path → ${response.statusCode}');
+      return null;
+    } catch (e) {
+      debugPrint('ApiService PUT $path error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _delete(String path, Map<String, dynamic> body) async {
+    if (!isConfigured) return null;
+    try {
+      final request = http.Request('DELETE', Uri.parse('$_baseUrl$path'))
+        ..headers.addAll(_headers)
+        ..body = jsonEncode(body);
+      final streamed = await request.send().timeout(const Duration(seconds: 15));
+      final response = await http.Response.fromStream(streamed);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      debugPrint('ApiService DELETE $path → ${response.statusCode}');
+      return null;
+    } catch (e) {
+      debugPrint('ApiService DELETE $path error: $e');
       return null;
     }
   }
