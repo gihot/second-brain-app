@@ -9,6 +9,7 @@ class BrainCard extends StatefulWidget {
   final EdgeInsets padding;
   final Color? color;
   final bool showBorder;
+  final Color? leftBorderColor;
 
   const BrainCard({
     super.key,
@@ -17,6 +18,7 @@ class BrainCard extends StatefulWidget {
     this.padding = BrainSpacing.paddingCard,
     this.color,
     this.showBorder = false,
+    this.leftBorderColor,
   });
 
   @override
@@ -47,14 +49,40 @@ class _BrainCardState extends State<BrainCard> {
                 ? BrainColors.surfaceHigh
                 : bgColor,
             borderRadius: BrainSpacing.radiusMd,
-            border: widget.showBorder
-                ? Border.all(
-                    color: _hovered
-                        ? BrainColors.primary.withValues(alpha: 0.30)
-                        : BrainColors.outlineVariant.withValues(alpha: 0.15),
-                    width: 1,
+            border: widget.leftBorderColor != null
+                ? Border(
+                    left: BorderSide(
+                        color: widget.leftBorderColor!, width: 3),
+                    top: BorderSide(
+                        color: widget.showBorder
+                            ? (_hovered
+                                ? BrainColors.primary.withValues(alpha: 0.30)
+                                : BrainColors.outlineVariant.withValues(alpha: 0.15))
+                            : Colors.transparent,
+                        width: widget.showBorder ? 1 : 0),
+                    right: BorderSide(
+                        color: widget.showBorder
+                            ? (_hovered
+                                ? BrainColors.primary.withValues(alpha: 0.30)
+                                : BrainColors.outlineVariant.withValues(alpha: 0.15))
+                            : Colors.transparent,
+                        width: widget.showBorder ? 1 : 0),
+                    bottom: BorderSide(
+                        color: widget.showBorder
+                            ? (_hovered
+                                ? BrainColors.primary.withValues(alpha: 0.30)
+                                : BrainColors.outlineVariant.withValues(alpha: 0.15))
+                            : Colors.transparent,
+                        width: widget.showBorder ? 1 : 0),
                   )
-                : null,
+                : widget.showBorder
+                    ? Border.all(
+                        color: _hovered
+                            ? BrainColors.primary.withValues(alpha: 0.30)
+                            : BrainColors.outlineVariant.withValues(alpha: 0.15),
+                        width: 1,
+                      )
+                    : null,
           ),
           child: widget.child,
         ),

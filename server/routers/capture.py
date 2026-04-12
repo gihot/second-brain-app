@@ -19,6 +19,8 @@ class CaptureResponse(BaseModel):
     tags: list[str]
     file_path: str
     para: str
+    hall: str = "unclassified"
+    suggested_wing: str = ""
 
 
 @router.post("", response_model=CaptureResponse)
@@ -41,9 +43,20 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
     title = meta.get("title") or _fallback_title(req.text)
     tags = meta.get("tags") or []
     para = meta.get("para") or "00-Inbox"
+    hall = meta.get("hall") or "unclassified"
+    suggested_wing = meta.get("suggested_wing") or ""
+
+    # Normalize wing: lowercase kebab-case
+    if suggested_wing:
+        import re
+        suggested_wing = re.sub(r"[^a-z0-9]+", "-", suggested_wing.lower()).strip("-")
 
     vault = VaultService.instance()
-    file_path = vault.write_note(note_id, title, req.text, tags, para)
+    file_path = vault.write_note(
+        note_id, title, req.text, tags, para,
+        hall=hall,
+        wing=suggested_wing or None,
+    )
 
     # Push to GitHub in background (non-blocking)
     background.add_task(vault.git_commit_and_push, f"capture: {title[:60]}")
@@ -54,6 +67,8 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
         tags=tags,
         file_path=file_path,
         para=para,
+        hall=hall,
+        suggested_wing=suggested_wing,
     )
 
 

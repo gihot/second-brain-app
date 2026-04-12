@@ -34,6 +34,12 @@ class Note extends HiveObject {
   @HiveField(9)
   List<String> linkedNoteIds; // forward links
 
+  @HiveField(10)
+  MemoryHall hall;
+
+  @HiveField(11)
+  String? wing; // normalized kebab-case, e.g. "urban-arcanum"
+
   Note({
     required this.id,
     required this.title,
@@ -45,6 +51,8 @@ class Note extends HiveObject {
     this.para = ParaCategory.inbox,
     this.filePath,
     this.linkedNoteIds = const [],
+    this.hall = MemoryHall.unclassified,
+    this.wing,
   });
 
   Note copyWith({
@@ -56,6 +64,9 @@ class Note extends HiveObject {
     ParaCategory? para,
     String? filePath,
     List<String>? linkedNoteIds,
+    MemoryHall? hall,
+    String? wing,
+    bool clearWing = false,
   }) {
     return Note(
       id: id,
@@ -68,6 +79,8 @@ class Note extends HiveObject {
       para: para ?? this.para,
       filePath: filePath ?? this.filePath,
       linkedNoteIds: linkedNoteIds ?? this.linkedNoteIds,
+      hall: hall ?? this.hall,
+      wing: clearWing ? null : (wing ?? this.wing),
     );
   }
 
@@ -112,4 +125,20 @@ enum ParaCategory {
   resources,
   @HiveField(4)
   archive,
+}
+
+@HiveType(typeId: 6)
+enum MemoryHall {
+  @HiveField(0)
+  fact,
+  @HiveField(1)
+  event,
+  @HiveField(2)
+  discovery,
+  @HiveField(3)
+  preference,
+  @HiveField(4)
+  advice,
+  @HiveField(5)
+  unclassified,
 }

@@ -14,7 +14,10 @@ from routers import capture, search, inbox, vault, agent
 async def lifespan(app: FastAPI):
     # Startup: clone/pull vault on boot
     from services.vault_service import VaultService
-    await VaultService.instance().ensure_vault()
+    from services.identity_service import IdentityService
+    vault = VaultService.instance()
+    await vault.ensure_vault()
+    IdentityService.init(vault._vault)
     yield
     # Shutdown: nothing to clean up
 

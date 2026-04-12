@@ -6,6 +6,8 @@ import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 import '../widgets/brain_button.dart';
+import '../widgets/hall_badge.dart';
+import 'note_detail_screen.dart';
 
 class InboxScreen extends StatelessWidget {
   const InboxScreen({super.key});
@@ -131,36 +133,59 @@ class _InboxCard extends StatelessWidget {
           vault.processNote(note.id);
         }
       },
-      child: Container(
-        padding: BrainSpacing.paddingCard,
-        decoration: BoxDecoration(
-          color: BrainColors.surfaceLow,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BrainSpacing.radiusMd,
+        child: InkWell(
           borderRadius: BrainSpacing.radiusMd,
-          border: Border.all(
-              color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-              width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              note.title,
-              style: BrainTypography.bodyMd.copyWith(
-                  fontWeight: FontWeight.w600, color: BrainColors.onSurface),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NoteDetailScreen(noteId: note.id),
             ),
-            if (note.excerpt.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(note.excerpt,
-                  style: BrainTypography.bodySm,
+          ),
+          child: Container(
+            padding: BrainSpacing.paddingCard,
+            decoration: BoxDecoration(
+              color: BrainColors.surfaceLow,
+              borderRadius: BrainSpacing.radiusMd,
+              border: Border(
+                left: BorderSide(color: hallColor(note.hall), width: 3),
+                top: BorderSide(
+                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
+                    width: 0.5),
+                right: BorderSide(
+                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
+                    width: 0.5),
+                bottom: BorderSide(
+                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
+                    width: 0.5),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  note.title,
+                  style: BrainTypography.bodyMd.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: BrainColors.onSurface),
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis),
-            ],
-            const SizedBox(height: BrainSpacing.sm),
-            Text('Captured ${note.relativeTime}',
-                style: BrainTypography.labelSm),
-          ],
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (note.excerpt.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(note.excerpt,
+                      style: BrainTypography.bodySm,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ],
+                const SizedBox(height: BrainSpacing.sm),
+                Text('Captured ${note.relativeTime}',
+                    style: BrainTypography.labelSm),
+              ],
+            ),
+          ),
         ),
       ),
     );

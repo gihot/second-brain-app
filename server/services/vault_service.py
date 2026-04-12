@@ -48,7 +48,9 @@ class VaultService:
     # ── Write ──────────────────────────────────────────────────────────────────
 
     def write_note(self, note_id: str, title: str, content: str,
-                   tags: list[str], para: str = "00-Inbox") -> str:
+                   tags: list[str], para: str = "00-Inbox",
+                   hall: str = "unclassified",
+                   wing: Optional[str] = None) -> str:
         """Write a markdown note with YAML frontmatter to the vault. Returns file path."""
         safe_title = re.sub(r"[^\w\s-]", "", title).strip()[:50]
         filename = f"{safe_title or note_id}.md"
@@ -68,10 +70,139 @@ class VaultService:
             f"source: capture\n"
             f"status: inbox\n"
             f"para: {para}\n"
-            f"---\n\n"
+            f"hall: {hall}\n"
         )
+        if wing:
+            frontmatter += f"wing: {wing}\n"
+        frontmatter += f"---\n\n"
         filepath.write_text(frontmatter + content, encoding="utf-8")
         return str(filepath.relative_to(self._vault))
+
+    def update_note(
+        self,
+        file_path: str,
+        *,
+        title: Optional[str] = None,
+        content: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        status: Optional[str] = None,
+        para: Optional[str] = None,
+        hall: Optional[str] = None,
+        wing: Optional[str] = None,
+    ) -> str:
+        """Update an existing note in-place. Moves file if `para` changes.
+
+        Returns the (possibly new) relative file path. Filename stays stable
+        across edits — users who want a different filename should delete+recreate.
+        """
+        src = self._safe_path(file_path)
+        if not src.exists():
+            raise FileNotFoundError(f"Note not found: {file_path}")
+
+        existing = src.read_text(encoding="utf-8")
+        # Split frontmatter from body
+        if not existing.startswith("---"):
+            raise ValueError(f"Note has no frontmatter: {file_path}")
+        end = existing.index("---", 3)
+        fm_block = existing[3:end]
+        body = existing[end + 3:].lstrip("\n")
+
+        # Parse existing frontmatter into dict (order-preserving via list)
+        fm_lines: list[tuple[str, str]] = []
+        for line in fm_block.splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                fm_lines.append((k.strip(), v.strip()))
+
+        # Apply updates
+        now = datetime.utcnow().isoformat()
+        updates: dict[str, str] = {"modified": now}
+        if title is not None:
+            updates["title"] = title
+        if tags is not None:
+            updates["tags"] = "[" + ", ".join(f'"{t}"' for t in tags) + "]"
+        if status is not None:
+            updates["status"] = status
+        if para is not None:
+            updates["para"] = para
+        if hall is not None:
+            updates["hall"] = hall
+        if wing is not None:
+            # Normalize: lowercase kebab-case
+            updates["wing"] = re.sub(r"[^a-z0-9]+", "-", wing.lower()).strip("-")
+
+        merged: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for k, v in fm_lines:
+            if k in updates:
+                merged.append((k, updates[k]))
+                seen.add(k)
+            else:
+                merged.append((k, v))
+        # Append any new keys that weren't present
+        for k, v in updates.items():
+            if k not in seen:
+                merged.append((k, v))
+
+        new_body = content if content is not None else body
+        new_fm = "---\n" + "\n".join(f"{k}: {v}" for k, v in merged) + "\n---\n\n"
+        new_text = new_fm + new_body
+
+        # If para changed, move file to new folder
+        if para is not None:
+            dest_folder = self._safe_path(para)
+            dest_folder.mkdir(parents=True, exist_ok=True)
+            dest = dest_folder / src.name
+            if dest != src:
+                src.unlink()
+                dest.write_text(new_text, encoding="utf-8")
+                self._git_commit(f"update: {src.name} → {para}")
+                return str(dest.relative_to(self._vault))
+
+        src.write_text(new_text, encoding="utf-8")
+        self._git_commit(f"update: {src.name}")
+        return str(src.relative_to(self._vault))
+
+    def get_wings(self) -> list[dict]:
+        """Return distinct wings with note counts and display names."""
+        from collections import Counter
+        counts: Counter = Counter()
+        for f in self._vault.rglob("*.md"):
+            meta = self._parse_frontmatter(f)
+            if meta and meta.get("wing"):
+                counts[meta["wing"]] += 1
+        return [
+            {
+                "wing": wing,
+                "display": wing.replace("-", " ").title(),
+                "count": count,
+            }
+            for wing, count in sorted(counts.items())
+        ]
+
+    def rename_wing(self, old_wing: str, new_wing: str) -> int:
+        """Rename all notes with old_wing to new_wing. Returns count updated."""
+        new_normalized = re.sub(r"[^a-z0-9]+", "-", new_wing.lower()).strip("-")
+        updated = 0
+        for f in self._vault.rglob("*.md"):
+            meta = self._parse_frontmatter(f)
+            if meta and meta.get("wing") == old_wing:
+                content = f.read_text(encoding="utf-8")
+                content = re.sub(r"^wing: .+$", f"wing: {new_normalized}", content, flags=re.MULTILINE)
+                content = re.sub(r"^modified: .+$", f"modified: {datetime.utcnow().isoformat()}", content, flags=re.MULTILINE)
+                f.write_text(content, encoding="utf-8")
+                updated += 1
+        if updated:
+            self._git_commit(f"rename-wing: {old_wing} → {new_normalized}")
+        return updated
+
+    def delete_note(self, file_path: str) -> None:
+        """Permanently delete a note from the vault."""
+        src = self._safe_path(file_path)
+        if not src.exists():
+            raise FileNotFoundError(f"Note not found: {file_path}")
+        src.unlink()
+        self._git_commit(f"delete: {src.name}")
 
     def move_note(self, file_path: str, new_para: str, new_status: str) -> str:
         """Move a note to a different PARA folder."""

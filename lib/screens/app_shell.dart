@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/vault_provider.dart';
@@ -20,14 +21,30 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
+  late final List<Widget> _screens;
 
-  final _screens = const [
-    DashboardScreen(),
-    SearchScreen(),
-    CaptureScreen(),
-    InboxScreen(),
-    SettingsScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    String? initialCaptureText;
+    if (kIsWeb) {
+      try {
+        final params = Uri.base.queryParameters;
+        final text = params['text'];
+        if (text != null && text.isNotEmpty) {
+          initialCaptureText = Uri.decodeComponent(text);
+          _currentIndex = 2;
+        }
+      } catch (_) {}
+    }
+    _screens = [
+      const DashboardScreen(),
+      const SearchScreen(),
+      CaptureScreen(initialText: initialCaptureText),
+      const InboxScreen(),
+      const SettingsScreen(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

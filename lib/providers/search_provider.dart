@@ -12,6 +12,8 @@ class SearchProvider extends ChangeNotifier {
   List<Note> _results = [];
   List<String> _recentSearches = [];
   bool _isSearching = false;
+  String? _wingFilter;
+  MemoryHall? _hallFilter;
 
   String get query => _query;
   List<Note> get results => _results;
@@ -19,6 +21,20 @@ class SearchProvider extends ChangeNotifier {
   bool get hasQuery => _query.trim().isNotEmpty;
   bool get hasResults => _results.isNotEmpty;
   bool get isSearching => _isSearching;
+  String? get wingFilter => _wingFilter;
+  MemoryHall? get hallFilter => _hallFilter;
+
+  void setWingFilter(String? wing) {
+    _wingFilter = wing;
+    if (_query.isNotEmpty) search(_query);
+    notifyListeners();
+  }
+
+  void setHallFilter(MemoryHall? hall) {
+    _hallFilter = hall;
+    if (_query.isNotEmpty) search(_query);
+    notifyListeners();
+  }
 
   void loadRecentSearches() {
     _recentSearches = _cache.recentSearches;
@@ -33,7 +49,14 @@ class SearchProvider extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    _results = _cache.searchNotes(query);
+    var results = _cache.searchNotes(query);
+    if (_wingFilter != null) {
+      results = results.where((n) => n.wing == _wingFilter).toList();
+    }
+    if (_hallFilter != null) {
+      results = results.where((n) => n.hall == _hallFilter).toList();
+    }
+    _results = results;
     notifyListeners();
   }
 
@@ -47,7 +70,11 @@ class SearchProvider extends ChangeNotifier {
     search(query);
 
     // Try server search (Seeker agent) — enriches results if online
-    final serverResults = await _api.search(query.trim());
+    final serverResults = await _api.search(
+      query.trim(),
+      wing: _wingFilter,
+      hall: _hallFilter?.name,
+    );
     if (serverResults != null && serverResults.isNotEmpty) {
       // Merge: server provides AI-ranked file paths, we pull from local cache
       final serverIds = serverResults

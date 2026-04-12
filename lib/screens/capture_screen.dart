@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/capture_provider.dart';
+import '../services/speech_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
@@ -8,7 +9,8 @@ import '../theme/brain_typography.dart';
 /// Full capture screen. Headline + minimal textarea + capture CTA.
 /// Opened via the CAPTURE nav tab.
 class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({super.key});
+  final String? initialText;
+  const CaptureScreen({super.key, this.initialText});
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -17,12 +19,59 @@ class CaptureScreen extends StatefulWidget {
 class _CaptureScreenState extends State<CaptureScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  final _speech = SpeechService();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialText != null && widget.initialText!.isNotEmpty) {
+      _controller.text = widget.initialText!;
+    }
+  }
 
   @override
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _speech.dispose();
     super.dispose();
+  }
+
+  void _toggleVoice() {
+    if (!SpeechService.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+              'Voice requires Chrome or Edge. Type instead.'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: BrainColors.surfaceHigh,
+        ),
+      );
+      return;
+    }
+
+    if (_speech.isListening) {
+      _speech.stopListening();
+      setState(() {});
+      return;
+    }
+
+    _speech.startListening(
+      onResult: (transcript) {
+        setState(() {
+          final current = _controller.text;
+          _controller.text = current.isEmpty
+              ? transcript
+              : '$current $transcript';
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+        });
+      },
+      onEnd: () => setState(() {}),
+      lang: 'de-DE',
+    );
+    setState(() {});
   }
 
   Future<void> _handleCapture() async {
@@ -104,9 +153,9 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 Row(
                   children: [
                     // Voice mic
-                    _CircleButton(
-                      icon: Icons.mic_outlined,
-                      onTap: () {},
+                    _MicButton(
+                      listening: _speech.isListening,
+                      onTap: _toggleVoice,
                     ),
                     const Spacer(),
 
@@ -196,18 +245,50 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 }
 
-class _CircleButton extends StatefulWidget {
-  final IconData icon;
+class _MicButton extends StatefulWidget {
+  final bool listening;
   final VoidCallback onTap;
 
-  const _CircleButton({required this.icon, required this.onTap});
+  const _MicButton({required this.listening, required this.onTap});
 
   @override
-  State<_CircleButton> createState() => _CircleButtonState();
+  State<_MicButton> createState() => _MicButtonState();
 }
 
-class _CircleButtonState extends State<_CircleButton> {
+class _MicButtonState extends State<_MicButton>
+    with SingleTickerProviderStateMixin {
   bool _hovered = false;
+  late final AnimationController _pulse;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 1.4).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_MicButton old) {
+    super.didUpdateWidget(old);
+    if (widget.listening && !old.listening) {
+      _pulse.repeat(reverse: true);
+    } else if (!widget.listening && old.listening) {
+      _pulse.stop();
+      _pulse.reset();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -216,16 +297,42 @@ class _CircleButtonState extends State<_CircleButton> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: _hovered ? BrainColors.surfaceHigh : BrainColors.surfaceLow,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(widget.icon,
-              size: 22, color: BrainColors.onSurfaceVariant),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (widget.listening)
+              ScaleTransition(
+                scale: _scale,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: BrainColors.error.withValues(alpha: 0.20),
+                  ),
+                ),
+              ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: widget.listening
+                    ? BrainColors.error.withValues(alpha: 0.15)
+                    : _hovered
+                        ? BrainColors.surfaceHigh
+                        : BrainColors.surfaceLow,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                widget.listening ? Icons.mic_rounded : Icons.mic_outlined,
+                size: 22,
+                color: widget.listening
+                    ? BrainColors.error
+                    : BrainColors.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
       ),
     );

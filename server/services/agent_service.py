@@ -29,6 +29,15 @@ class AgentService:
         """Run an agent and return its response + any tool calls made."""
         system_prompt = self._load_agent(agent_name)
 
+        # Prepend user identity context if available (cached)
+        try:
+            from services.identity_service import IdentityService
+            identity = IdentityService.instance().get()
+            if identity:
+                system_prompt = f"## User Identity\n{identity}\n\n---\n\n{system_prompt}"
+        except Exception:
+            pass  # IdentityService not initialized yet (e.g., during startup)
+
         messages = []
         if context:
             messages.append({

@@ -5,6 +5,7 @@ import 'screens/app_shell.dart';
 import 'providers/vault_provider.dart';
 import 'providers/capture_provider.dart';
 import 'providers/search_provider.dart';
+import 'providers/chat_provider.dart';
 
 void main() {
   runApp(const SecondBrainApp());
@@ -26,6 +27,9 @@ class SecondBrainApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => SearchProvider()..loadRecentSearches(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ChatProvider()..init(),
         ),
       ],
       child: MaterialApp(

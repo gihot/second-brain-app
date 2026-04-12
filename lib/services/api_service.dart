@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import '../models/note_model.dart';
 
 /// HTTP client for the Second Brain Cloud Bridge.
 /// All calls fail gracefully — callers should handle null returns as "offline".
@@ -49,19 +50,37 @@ class ApiService {
   Future<CaptureResult?> capture(String text, {String? noteId}) async {
     final body = await _post('/capture', {'text': text, if (noteId != null) 'note_id': noteId});
     if (body == null) return null;
+    final hallStr = (body['hall'] as String? ?? 'unclassified').toLowerCase();
+    final hall = switch (hallStr) {
+      'fact' => MemoryHall.fact,
+      'event' => MemoryHall.event,
+      'discovery' => MemoryHall.discovery,
+      'preference' => MemoryHall.preference,
+      'advice' => MemoryHall.advice,
+      _ => MemoryHall.unclassified,
+    };
     return CaptureResult(
       noteId: body['note_id'] as String,
       title: body['title'] as String,
       tags: List<String>.from(body['tags'] as List),
       filePath: body['file_path'] as String,
       para: body['para'] as String,
+      hall: hall,
+      suggestedWing: body['suggested_wing'] as String?,
     );
   }
 
   // ── Search ─────────────────────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>?> search(String query) async {
-    final body = await _get('/search?q=${Uri.encodeComponent(query)}');
+  Future<List<Map<String, dynamic>>?> search(
+    String query, {
+    String? wing,
+    String? hall,
+  }) async {
+    var url = '/search?q=${Uri.encodeComponent(query)}';
+    if (wing != null) url += '&wing=${Uri.encodeComponent(wing)}';
+    if (hall != null) url += '&hall=${Uri.encodeComponent(hall)}';
+    final body = await _get(url);
     if (body == null) return null;
     return List<Map<String, dynamic>>.from(body['results'] as List);
   }
@@ -103,6 +122,8 @@ class ApiService {
     List<String>? tags,
     String? status,
     String? para,
+    String? hall,
+    String? wing,
   }) async {
     final body = await _put('/vault/notes', {
       'file_path': filePath,
@@ -111,6 +132,8 @@ class ApiService {
       if (tags != null) 'tags': tags,
       if (status != null) 'status': status,
       if (para != null) 'para': para,
+      if (hall != null) 'hall': hall,
+      if (wing != null) 'wing': wing,
     });
     if (body == null) return null;
     return body['file_path'] as String?;
@@ -120,6 +143,51 @@ class ApiService {
   Future<bool> deleteVaultNote(String filePath) async {
     final body = await _delete('/vault/notes', {'file_path': filePath});
     return body != null;
+  }
+
+  // ── Wings ─────────────────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>?> getWings() async {
+    final body = await _get('/vault/wings');
+    if (body == null) return null;
+    final list = body['wings'] as List?;
+    return list?.cast<Map<String, dynamic>>();
+  }
+
+  Future<int?> renameWing(String oldWing, String newWing) async {
+    final body = await _put('/vault/wings/rename', {
+      'old_wing': oldWing,
+      'new_wing': newWing,
+    });
+    if (body == null) return null;
+    return body['updated'] as int?;
+  }
+
+  // ── Identity ──────────────────────────────────────────────────────────────
+
+  Future<String?> getIdentity() async {
+    final body = await _get('/vault/identity');
+    return body?['content'] as String?;
+  }
+
+  Future<bool> updateIdentity(String content) async {
+    final body = await _put('/vault/identity', {'content': content});
+    return body != null;
+  }
+
+  // ── Agents ────────────────────────────────────────────────────────────────
+
+  /// Invoke an agent by name (scribe, seeker, sorter, librarian, connector).
+  /// Returns the full response dict: {agent, content, metadata}.
+  Future<Map<String, dynamic>?> invokeAgent(
+    String name,
+    String message, {
+    Map<String, dynamic>? context,
+  }) async {
+    return _post('/agent/$name', {
+      'message': message,
+      if (context != null) 'context': context,
+    });
   }
 
   // ── Health Check ───────────────────────────────────────────────────────────
@@ -228,6 +296,8 @@ class CaptureResult {
   final List<String> tags;
   final String filePath;
   final String para;
+  final MemoryHall hall;
+  final String? suggestedWing;
 
   const CaptureResult({
     required this.noteId,
@@ -235,5 +305,7 @@ class CaptureResult {
     required this.tags,
     required this.filePath,
     required this.para,
+    this.hall = MemoryHall.unclassified,
+    this.suggestedWing,
   });
 }

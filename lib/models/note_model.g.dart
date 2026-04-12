@@ -27,13 +27,15 @@ class NoteAdapter extends TypeAdapter<Note> {
       para: fields[7] as ParaCategory,
       filePath: fields[8] as String?,
       linkedNoteIds: (fields[9] as List).cast<String>(),
+      hall: fields[10] == null ? MemoryHall.unclassified : fields[10] as MemoryHall,
+      wing: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +55,11 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(8)
       ..write(obj.filePath)
       ..writeByte(9)
-      ..write(obj.linkedNoteIds);
+      ..write(obj.linkedNoteIds)
+      ..writeByte(10)
+      ..write(obj.hall)
+      ..writeByte(11)
+      ..write(obj.wing);
   }
 
   @override
@@ -161,6 +167,65 @@ class ParaCategoryAdapter extends TypeAdapter<ParaCategory> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is ParaCategoryAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class MemoryHallAdapter extends TypeAdapter<MemoryHall> {
+  @override
+  final int typeId = 6;
+
+  @override
+  MemoryHall read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return MemoryHall.fact;
+      case 1:
+        return MemoryHall.event;
+      case 2:
+        return MemoryHall.discovery;
+      case 3:
+        return MemoryHall.preference;
+      case 4:
+        return MemoryHall.advice;
+      case 5:
+        return MemoryHall.unclassified;
+      default:
+        return MemoryHall.unclassified;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, MemoryHall obj) {
+    switch (obj) {
+      case MemoryHall.fact:
+        writer.writeByte(0);
+        break;
+      case MemoryHall.event:
+        writer.writeByte(1);
+        break;
+      case MemoryHall.discovery:
+        writer.writeByte(2);
+        break;
+      case MemoryHall.preference:
+        writer.writeByte(3);
+        break;
+      case MemoryHall.advice:
+        writer.writeByte(4);
+        break;
+      case MemoryHall.unclassified:
+        writer.writeByte(5);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MemoryHallAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

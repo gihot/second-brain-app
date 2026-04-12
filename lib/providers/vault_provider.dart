@@ -20,6 +20,90 @@ class VaultProvider extends ChangeNotifier {
   List<Note> get recentNotes => _notes.take(5).toList();
   List<Note> get inboxNotes =>
       _notes.where((n) => n.status == NoteStatus.inbox).toList();
+
+  /// PARA distribution for the stats chart.
+  Map<ParaCategory, int> get paraDistribution {
+    final counts = {for (final c in ParaCategory.values) c: 0};
+    for (final n in _notes) {
+      counts[n.para] = (counts[n.para] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /// Tag frequencies, sorted descending. Used for Tag Cloud.
+  List<MapEntry<String, int>> get tagFrequencies {
+    final freq = <String, int>{};
+    for (final n in _notes) {
+      for (final t in n.tags) {
+        if (t.isNotEmpty) freq[t] = (freq[t] ?? 0) + 1;
+      }
+    }
+    final sorted = freq.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(30).toList();
+  }
+
+  /// Wings computed from notes (kebab-case key → display/count).
+  List<Map<String, dynamic>> get wings {
+    final counts = <String, int>{};
+    for (final n in _notes) {
+      final w = n.wing;
+      if (w != null && w.isNotEmpty) counts[w] = (counts[w] ?? 0) + 1;
+    }
+    return counts.entries
+        .map((e) => {
+              'wing': e.key,
+              'display': e.key.split('-').map((w) {
+                if (w.isEmpty) return w;
+                return w[0].toUpperCase() + w.substring(1);
+              }).join(' '),
+              'count': e.value,
+            })
+        .toList()
+      ..sort((a, b) => (b['count'] as int).compareTo(a['count'] as int));
+  }
+
+  Future<void> renameWing(String oldWing, String newWing) async {
+    // Update local cache immediately
+    final toUpdate = _notes.where((n) => n.wing == oldWing).toList();
+    final normalized = newWing.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    for (final n in toUpdate) {
+      await _cache.saveNote(n.copyWith(wing: normalized));
+    }
+    _loadFromCache();
+    // Sync to server
+    if (_isServerReachable) {
+      await _api.renameWing(oldWing, newWing);
+    }
+  }
+
+  /// Lookup by file path — used when navigating from a Connector result.
+  Note? getNoteByFilePath(String filePath) {
+    for (final n in _notes) {
+      if (n.filePath == filePath) return n;
+    }
+    return null;
+  }
+
+  /// Compact summary of other notes, for passing to the Connector agent.
+  /// Limited to 30 entries, ~200 chars each, to stay under token budget.
+  List<Map<String, dynamic>> summarizeNotesForContext({
+    String? excludeId,
+    int limit = 30,
+  }) {
+    final out = <Map<String, dynamic>>[];
+    for (final n in _notes) {
+      if (n.id == excludeId) continue;
+      out.add({
+        'file_path': n.filePath ?? n.id,
+        'title': n.title,
+        'tags': n.tags,
+        'excerpt': n.excerpt,
+      });
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
   VaultStatus get status => _status;
   bool get loading => _loading;
   String? get error => _error;
@@ -59,9 +143,43 @@ class VaultProvider extends ChangeNotifier {
   Future<void> _checkServerAndSync() async {
     _isServerReachable = await _api.ping();
     if (_isServerReachable) {
+      await _drainPendingWrites();
       await _syncFromServer();
     }
     _loadFromCache();
+  }
+
+  /// Flush queued edits/deletes to the server. Fire-and-forget on failure —
+  /// the entry stays in the queue and will be retried on the next sync.
+  Future<void> _drainPendingWrites() async {
+    final pending = _cache.getPendingWrites();
+    if (pending.isEmpty) return;
+
+    for (final entry in List<Map<String, dynamic>>.from(pending)) {
+      final filePath = entry['file_path'] as String?;
+      if (filePath == null) continue;
+      final op = entry['op'] as String?;
+
+      bool ok = false;
+      if (op == 'delete') {
+        ok = await _api.deleteVaultNote(filePath);
+      } else if (op == 'update') {
+        final result = await _api.updateNote(
+          filePath: filePath,
+          title: entry['title'] as String?,
+          content: entry['content'] as String?,
+          tags: (entry['tags'] as List?)?.cast<String>(),
+          status: entry['status'] as String?,
+          para: entry['para'] as String?,
+        );
+        ok = result != null;
+      }
+      if (ok) {
+        await _cache.removePendingWrite(filePath);
+      } else {
+        break; // stop draining on first failure — retry later
+      }
+    }
   }
 
   Future<void> _syncFromServer() async {
@@ -127,6 +245,10 @@ class VaultProvider extends ChangeNotifier {
                       ? ParaCategory.archive
                       : ParaCategory.inbox;
 
+      final hallStr = (m['hall'] as String? ?? 'unclassified').toLowerCase();
+      final hall = _hallFromServer(hallStr);
+      final wing = m['wing'] as String?;
+
       return Note(
         id: id,
         title: title,
@@ -137,6 +259,8 @@ class VaultProvider extends ChangeNotifier {
         status: status,
         para: para,
         filePath: m['file_path'] as String?,
+        hall: hall,
+        wing: wing,
       );
     } catch (_) {
       return null;
@@ -160,36 +284,135 @@ class VaultProvider extends ChangeNotifier {
     return note;
   }
 
+  /// Update a note locally and sync to the server. Local save is the
+  /// truth-of-record; server call is fire-and-forget. On failure the write
+  /// is queued for retry on the next successful `_checkServerAndSync`.
   Future<void> updateNote(Note updated) async {
-    await _cache.saveNote(updated.copyWith(modified: DateTime.now()));
+    final next = updated.copyWith(modified: DateTime.now());
+    await _cache.saveNote(next);
     _loadFromCache();
+    await _syncNoteToServer(next);
+  }
+
+  Future<void> _syncNoteToServer(Note note) async {
+    if (note.filePath == null) return; // local-only note, nothing to sync
+    final payload = <String, dynamic>{
+      'op': 'update',
+      'file_path': note.filePath,
+      'title': note.title,
+      'content': _stripFrontmatter(note.content),
+      'tags': note.tags,
+      'status': _statusToServer(note.status),
+      'para': _paraToServer(note.para),
+      'hall': _hallToServer(note.hall),
+      if (note.wing != null) 'wing': note.wing,
+    };
+
+    if (!_isServerReachable) {
+      await _cache.queueWrite(payload);
+      return;
+    }
+    final result = await _api.updateNote(
+      filePath: note.filePath!,
+      title: note.title,
+      content: payload['content'] as String,
+      tags: note.tags,
+      status: payload['status'] as String,
+      para: payload['para'] as String,
+      hall: payload['hall'] as String,
+      wing: note.wing,
+    );
+    if (result == null) {
+      await _cache.queueWrite(payload);
+    } else if (result != note.filePath) {
+      // Server moved the file (para change). Update local filePath.
+      await _cache.saveNote(note.copyWith(filePath: result));
+      _loadFromCache();
+    }
   }
 
   Future<void> deleteNote(String id) async {
+    final note = _cache.getNoteById(id);
     await _cache.deleteNote(id);
     _loadFromCache();
+    if (note?.filePath != null) {
+      if (_isServerReachable) {
+        final ok = await _api.deleteVaultNote(note!.filePath!);
+        if (!ok) {
+          await _cache.queueWrite(
+              {'op': 'delete', 'file_path': note.filePath});
+        }
+      } else {
+        await _cache.queueWrite(
+            {'op': 'delete', 'file_path': note!.filePath});
+      }
+    }
   }
 
   Future<void> archiveNote(String id) async {
     final note = _cache.getNoteById(id);
     if (note == null) return;
-    await _cache.saveNote(note.copyWith(
+    final archived = note.copyWith(
       status: NoteStatus.archived,
       para: ParaCategory.archive,
       modified: DateTime.now(),
-    ));
+    );
+    await _cache.saveNote(archived);
     _loadFromCache();
+    await _syncNoteToServer(archived);
   }
 
   Future<void> processNote(String id) async {
     final note = _cache.getNoteById(id);
     if (note == null) return;
-    await _cache.saveNote(note.copyWith(
+    final processed = note.copyWith(
       status: NoteStatus.processed,
       modified: DateTime.now(),
-    ));
+    );
+    await _cache.saveNote(processed);
     _loadFromCache();
+    await _syncNoteToServer(processed);
   }
+
+  // ── Serialization helpers for server shape ──────────────────────────
+
+  String _stripFrontmatter(String content) {
+    final match = RegExp(r'^---.*?---\s*', dotAll: true).firstMatch(content);
+    if (match == null) return content;
+    return content.substring(match.end);
+  }
+
+  String _statusToServer(NoteStatus s) => switch (s) {
+        NoteStatus.inbox => 'inbox',
+        NoteStatus.processed => 'processed',
+        NoteStatus.archived => 'archived',
+      };
+
+  String _paraToServer(ParaCategory p) => switch (p) {
+        ParaCategory.inbox => '00-Inbox',
+        ParaCategory.projects => '01-Projects',
+        ParaCategory.areas => '02-Areas',
+        ParaCategory.resources => '03-Resources',
+        ParaCategory.archive => '04-Archive',
+      };
+
+  String _hallToServer(MemoryHall h) => switch (h) {
+        MemoryHall.fact => 'fact',
+        MemoryHall.event => 'event',
+        MemoryHall.discovery => 'discovery',
+        MemoryHall.preference => 'preference',
+        MemoryHall.advice => 'advice',
+        MemoryHall.unclassified => 'unclassified',
+      };
+
+  MemoryHall _hallFromServer(String s) => switch (s) {
+        'fact' => MemoryHall.fact,
+        'event' => MemoryHall.event,
+        'discovery' => MemoryHall.discovery,
+        'preference' => MemoryHall.preference,
+        'advice' => MemoryHall.advice,
+        _ => MemoryHall.unclassified,
+      };
 
   /// Refresh from server on demand (pull-to-refresh).
   Future<void> refresh() async {

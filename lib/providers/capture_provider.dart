@@ -45,11 +45,15 @@ class CaptureProvider extends ChangeNotifier {
       final serverResult = await _api.capture(text.trim(), noteId: noteId);
 
       if (serverResult != null) {
-        // Update local note with AI-generated title + tags
+        // Update local note with AI-generated title, tags, hall + wing
         await _vault.updateNote(localNote.copyWith(
           title: serverResult.title,
           tags: serverResult.tags,
           filePath: serverResult.filePath,
+          hall: serverResult.hall,
+          wing: serverResult.suggestedWing?.isNotEmpty == true
+              ? serverResult.suggestedWing
+              : null,
         ));
       } else {
         // Queue for sync when server comes back online

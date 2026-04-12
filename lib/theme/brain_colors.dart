@@ -69,4 +69,12 @@ class BrainColors {
   // ── Tinted glow shadows (never neutral grey) ──
   static Color get primaryGlow   => primary.withValues(alpha: 0.20);
   static Color get captureGlow   => const Color(0xFF6366F1).withValues(alpha: 0.20);
+
+  // ── MemoryHall colors ──
+  static const Color hallFact       = Color(0xFFC0C1FF); // primary lavender
+  static const Color hallEvent      = Color(0xFF45DFA4); // secondary mint
+  static const Color hallDiscovery  = Color(0xFFFFB95F); // tertiary amber
+  static const Color hallPreference = Color(0xFFC4A3E8); // soft purple
+  static const Color hallAdvice     = Color(0xFF7FD1FF); // sky blue
+  static const Color hallUnclassified = Color(0xFF908FA0); // outline grey
 }

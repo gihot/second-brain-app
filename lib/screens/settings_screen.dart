@@ -17,11 +17,42 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _serverReachable = false;
   bool _checking = false;
+  final _identityCtrl = TextEditingController();
+  bool _identitySaving = false;
 
   @override
   void initState() {
     super.initState();
     _checkServer();
+    _loadIdentity();
+  }
+
+  @override
+  void dispose() {
+    _identityCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadIdentity() async {
+    final content = await ApiService.instance.getIdentity();
+    if (content != null && mounted) {
+      setState(() {
+        _identityCtrl.text = content;
+      });
+    }
+  }
+
+  Future<void> _saveIdentity() async {
+    setState(() => _identitySaving = true);
+    await ApiService.instance.updateIdentity(_identityCtrl.text);
+    if (mounted) {
+      setState(() => _identitySaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Identity saved'),
+            duration: Duration(seconds: 1)),
+      );
+    }
   }
 
   Future<void> _checkServer() async {
@@ -110,6 +141,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: '${vault.status.connectedCount}',
                   ),
                 ],
+              ),
+
+              const SizedBox(height: BrainSpacing.lg),
+
+              // ── Identity ────────────────────────────────────────────
+              Text('IDENTITY', style: BrainTypography.labelSm),
+              const SizedBox(height: BrainSpacing.sm),
+              Container(
+                decoration: BoxDecoration(
+                  color: BrainColors.surfaceLow,
+                  borderRadius: BrainSpacing.radiusMd,
+                  border: Border.all(
+                      color: BrainColors.outlineVariant.withValues(alpha: 0.15),
+                      width: 0.5),
+                ),
+                padding: const EdgeInsets.all(BrainSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tell your Brain who you are. This context is prepended to every AI conversation.',
+                      style: BrainTypography.bodySm,
+                    ),
+                    const SizedBox(height: BrainSpacing.sm),
+                    TextField(
+                      controller: _identityCtrl,
+                      maxLines: 5,
+                      maxLength: 800,
+                      style: BrainTypography.bodySm,
+                      decoration: const InputDecoration(
+                        hintText:
+                            'I\'m a software engineer building a second brain. I think in systems and value precision...',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const SizedBox(height: BrainSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: GestureDetector(
+                        onTap: _identitySaving ? null : _saveIdentity,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: BrainColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BrainSpacing.radiusFull,
+                          ),
+                          child: Text(
+                            _identitySaving ? 'Saving...' : 'Save Identity',
+                            style: BrainTypography.button
+                                .copyWith(color: BrainColors.primary),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: BrainSpacing.lg),

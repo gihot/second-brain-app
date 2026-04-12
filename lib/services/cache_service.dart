@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/note_model.dart';
 import '../models/offline_capture_model.dart';
@@ -26,6 +27,7 @@ class CacheService {
     if (!Hive.isAdapterRegistered(1)) Hive.registerAdapter(NoteStatusAdapter());
     if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(ParaCategoryAdapter());
     if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(OfflineCaptureAdapter());
+    if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(MemoryHallAdapter());
 
     _notes = await Hive.openBox<Note>(_notesBox);
     _captureQueue = await Hive.openBox<OfflineCapture>(_captureQueueBox);
@@ -128,5 +130,77 @@ class CacheService {
     searches.removeWhere((s) => s == query);
     searches.insert(0, query);
     await _meta.put('recent_searches', searches.take(5).toList());
+  }
+
+  // ── Pending Write Queue (edits/deletes that need to reach the server) ────
+  //
+  // Stored as a JSON-encoded list in the meta box — no new Hive type.
+  // Each entry: {op: "update"|"delete", file_path, title?, content?, tags?, status?, para?}
+
+  List<Map<String, dynamic>> getPendingWrites() {
+    if (!_initialized) return [];
+    final raw = _meta.get('pending_writes');
+    if (raw == null) return [];
+    try {
+      final decoded = jsonDecode(raw as String);
+      return List<Map<String, dynamic>>.from(decoded as List);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _savePendingWrites(List<Map<String, dynamic>> writes) async {
+    await _meta.put('pending_writes', jsonEncode(writes));
+  }
+
+  /// Adds or coalesces a pending write. If an existing entry for the same
+  /// file_path exists, it's merged (update) or replaced (delete).
+  Future<void> queueWrite(Map<String, dynamic> entry) async {
+    if (!_initialized) return;
+    final writes = getPendingWrites();
+    final filePath = entry['file_path'];
+    final op = entry['op'];
+
+    if (op == 'delete') {
+      writes.removeWhere((w) => w['file_path'] == filePath);
+      writes.add(entry);
+    } else {
+      final idx = writes.indexWhere(
+          (w) => w['file_path'] == filePath && w['op'] == 'update');
+      if (idx >= 0) {
+        writes[idx] = {...writes[idx], ...entry};
+      } else {
+        writes.add(entry);
+      }
+    }
+    await _savePendingWrites(writes);
+  }
+
+  Future<void> removePendingWrite(String filePath) async {
+    if (!_initialized) return;
+    final writes = getPendingWrites()
+        ..removeWhere((w) => w['file_path'] == filePath);
+    await _savePendingWrites(writes);
+  }
+
+  // ── Connection Cache (per note) ─────────────────────────────────────────
+  //
+  // Stored as JSON-encoded list under key `connections:<noteId>` in meta box.
+
+  List<Map<String, dynamic>> getConnections(String noteId) {
+    if (!_initialized) return [];
+    final raw = _meta.get('connections:$noteId');
+    if (raw == null) return [];
+    try {
+      return List<Map<String, dynamic>>.from(jsonDecode(raw as String) as List);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveConnections(
+      String noteId, List<Map<String, dynamic>> connections) async {
+    if (!_initialized) return;
+    await _meta.put('connections:$noteId', jsonEncode(connections));
   }
 }
