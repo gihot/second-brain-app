@@ -174,7 +174,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final response = await ApiService.instance.invokeAgent(
       'connector',
       message,
-      context: {'notes': otherNotes},
+      context: {'notes': otherNotes, 'response_format': 'json'},
     );
 
     if (!mounted) return;
