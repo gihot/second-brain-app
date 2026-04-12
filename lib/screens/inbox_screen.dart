@@ -5,12 +5,52 @@ import '../models/note_model.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import '../services/api_service.dart';
 import '../widgets/brain_button.dart';
 import '../widgets/hall_badge.dart';
 import 'note_detail_screen.dart';
 
-class InboxScreen extends StatelessWidget {
+class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key});
+
+  @override
+  State<InboxScreen> createState() => _InboxScreenState();
+}
+
+class _InboxScreenState extends State<InboxScreen> {
+  bool _triaging = false;
+
+  Future<void> _triageAll(VaultProvider vault) async {
+    if (_triaging) return;
+    setState(() => _triaging = true);
+
+    final snapshot = List<Note>.from(vault.inboxNotes);
+    final count = snapshot.length;
+
+    // Fire server-side Sorter (background task — returns immediately)
+    await ApiService.instance.triageAll();
+
+    // Optimistically mark all as processed locally
+    for (final note in snapshot) {
+      await vault.processNote(note.id);
+    }
+
+    if (mounted) {
+      setState(() => _triaging = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$count note${count == 1 ? '' : 's'} sorted',
+            style: BrainTypography.bodyMd
+                .copyWith(color: BrainColors.onSurface),
+          ),
+          backgroundColor: BrainColors.surfaceHigh,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,10 +85,11 @@ class InboxScreen extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: BrainButton(
-                  label: 'Triage All — AI sorts everything',
+                  label: _triaging ? 'Sorting...' : 'Triage All — AI sorts everything',
                   icon: Icons.auto_fix_high_rounded,
                   variant: BrainButtonVariant.secondary,
-                  onPressed: () {}, // TODO: invoke Sorter agent
+                  loading: _triaging,
+                  onPressed: _triaging ? null : () => _triageAll(vault),
                 ),
               ),
             ),

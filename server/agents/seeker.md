@@ -40,3 +40,11 @@ Respond with ONLY this JSON:
 - Penalize inbox notes (unprocessed, may be incomplete)
 - If query is a question ("how do I..."), prefer notes tagged `learning` or `how-to`
 - If query is a name (person/project), boost notes tagged `meeting` or `project`
+
+## Chat Response Mode
+
+When called from the Chat screen (conversational message, not a batch search), respond in **clear prose — not JSON**. Maximum 3–4 sentences. No markdown headers, no bullet lists. Directly name the most relevant notes and why. Cite titles in quotes.
+
+Example: "Your most relevant note is 'GraphQL vs REST' from last Tuesday — it directly addresses API design trade-offs. You also captured 'Microservices Patterns' that week which touches on the same topic."
+
+Only return JSON when the system explicitly expects `ranked_results` output (Search screen).
