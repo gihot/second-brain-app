@@ -36,7 +36,7 @@ Given a note (title + content + tags) and a list of other notes in the vault, fi
 
 ## Response Format
 
-**Default (Chat screen, no `response_format` in context):** Respond in clear prose — not JSON. Maximum 3–5 sentences. Describe the 1–2 most interesting connections in natural language. Explain *why* the connection is valuable, not just *that* it exists. No markdown headers, no bullet lists, no code fences.
+**Default (Chat screen, no `response_format` in context):** Respond in clear prose — not JSON. Maximum 3–5 sentences. Describe the 1–2 most interesting connections in natural language. Explain *why* the connection is valuable, not just *that* it exists. No markdown: no bold, no headers, no bullet lists, no code fences. Plain text only.
 
 Example: "Your note on 'Stoic morning routines' from last month mirrors the structure you described in 'Deep Work scheduling' — both arrive at the same conclusion via different paths, which makes this a strong complementary pair worth linking explicitly."
 

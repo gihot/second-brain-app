@@ -75,10 +75,11 @@ class _SearchScreenState extends State<SearchScreen> {
                   PopupMenuButton<MemoryHall?>(
                     color: BrainColors.surfaceHigh,
                     onSelected: context.read<SearchProvider>().setHallFilter,
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(
                           value: null,
-                          child: Text('All Halls')),
+                          onTap: () => ctx.read<SearchProvider>().setHallFilter(null),
+                          child: const Text('All Halls')),
                       ...MemoryHall.values.map((h) => PopupMenuItem(
                             value: h,
                             child: Text(hallLabel(h)),
