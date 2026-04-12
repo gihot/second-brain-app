@@ -22,9 +22,12 @@ class VaultProvider extends ChangeNotifier {
       _notes.where((n) => n.status == NoteStatus.inbox).toList();
 
   /// PARA distribution for the stats chart.
+  /// PARA distribution — excludes Inbox (not a real PARA category;
+  /// inbox notes are shown separately via inboxCount stat card).
   Map<ParaCategory, int> get paraDistribution {
     final counts = {for (final c in ParaCategory.values) c: 0};
     for (final n in _notes) {
+      if (n.para == ParaCategory.inbox) continue; // shown via stat card
       counts[n.para] = (counts[n.para] ?? 0) + 1;
     }
     return counts;
