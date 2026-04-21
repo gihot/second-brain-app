@@ -50,7 +50,7 @@ class BrainBottomNav extends StatelessWidget {
                   ),
                   _NavItem(
                     icon: Icons.search_rounded,
-                    label: 'SEARCH',
+                    label: 'SUCHE',
                     isActive: currentIndex == 1,
                     onTap: () => onTap(1),
                   ),
@@ -67,7 +67,7 @@ class BrainBottomNav extends StatelessWidget {
                   ),
                   _NavItem(
                     icon: Icons.settings_outlined,
-                    label: 'SETTINGS',
+                    label: 'OPTIONEN',
                     isActive: currentIndex == 4,
                     onTap: () => onTap(4),
                   ),
@@ -238,7 +238,7 @@ class _CaptureNavItemState extends State<_CaptureNavItem> {
               ),
               const SizedBox(height: 4),
               Text(
-                'CAPTURE',
+                'ERFASSEN',
                 style: BrainTypography.navLabel.copyWith(
                   color: widget.isActive
                       ? BrainColors.primary

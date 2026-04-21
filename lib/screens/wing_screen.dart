@@ -49,7 +49,7 @@ class WingScreen extends StatelessWidget {
       body: notes.isEmpty
           ? Center(
               child: Text(
-                'No notes in this Wing yet',
+                'Noch keine Gedanken in diesem Wing',
                 style: BrainTypography.bodyMd
                     .copyWith(color: BrainColors.onSurfaceVariant),
               ),

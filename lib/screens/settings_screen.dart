@@ -49,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _identitySaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Identity saved'),
+            content: Text('Identität gespeichert'),
             duration: Duration(seconds: 1)),
       );
     }
@@ -93,9 +93,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'API Server',
                     value: api.isConfigured
                         ? (_checking
-                            ? 'Checking...'
-                            : _serverReachable ? 'Connected' : 'Unreachable')
-                        : 'Not configured',
+                            ? 'Prüfe...'
+                            : _serverReachable ? 'Verbunden' : 'Nicht erreichbar')
+                        : 'Nicht konfiguriert',
                     valueColor: api.isConfigured
                         ? (_serverReachable ? BrainColors.secondary : BrainColors.tertiary)
                         : null,
@@ -104,7 +104,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsTile(
                     icon: Icons.vpn_key_outlined,
                     label: 'API Token',
-                    value: api.isConfigured ? '••••••••' : 'Not set',
+                    value: api.isConfigured ? '••••••••' : 'Nicht gesetzt',
                     onTap: () => _showApiTokenDialog(context),
                   ),
                   _SettingsTile(
@@ -127,7 +127,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 items: [
                   _SettingsTile(
                     icon: Icons.description_outlined,
-                    label: 'Total Notes',
+                    label: 'Gesamt Gedanken',
                     value: '${vault.status.totalNotes}',
                   ),
                   _SettingsTile(
@@ -161,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tell your Brain who you are. This context is prepended to every AI conversation.',
+                      'Erzähl deinem Gehirn, wer du bist. Dieser Kontext wird jeder KI-Konversation vorangestellt.',
                       style: BrainTypography.bodySm,
                     ),
                     const SizedBox(height: BrainSpacing.sm),
@@ -190,7 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             borderRadius: BrainSpacing.radiusFull,
                           ),
                           child: Text(
-                            _identitySaving ? 'Saving...' : 'Save Identity',
+                            _identitySaving ? 'Speichert...' : 'Identität speichern',
                             style: BrainTypography.button
                                 .copyWith(color: BrainColors.primary),
                           ),
@@ -214,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _SettingsTile(
                     icon: Icons.delete_outline_rounded,
-                    label: 'Clear local cache',
+                    label: 'Lokalen Cache leeren',
                     value: '',
                     onTap: () => _confirmClearCache(context),
                   ),
@@ -281,22 +281,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: BrainColors.surfaceLow,
-        title: Text('Clear cache?', style: BrainTypography.titleMd),
+        title: Text('Cache leeren?', style: BrainTypography.titleMd),
         content: Text(
-          'This removes all locally cached notes. Notes in your Git vault are unaffected.',
+          'Dies löscht alle lokal gecachten Gedanken. Gedanken in deinem Git-Vault bleiben unberührt.',
           style: BrainTypography.bodyMd,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: BrainTypography.button.copyWith(color: BrainColors.outline)),
+            child: Text('Abbrechen', style: BrainTypography.button.copyWith(color: BrainColors.outline)),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               // TODO: implement cache clear
             },
-            child: Text('Clear', style: BrainTypography.button.copyWith(color: BrainColors.error)),
+            child: Text('Leeren', style: BrainTypography.button.copyWith(color: BrainColors.error)),
           ),
         ],
       ),
@@ -450,7 +450,7 @@ class _InputDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel',
+          child: Text('Abbrechen',
               style: BrainTypography.button.copyWith(color: BrainColors.outline)),
         ),
         TextButton(
@@ -461,7 +461,7 @@ class _InputDialog extends StatelessWidget {
               await onSave(val);
             }
           },
-          child: Text('Save',
+          child: Text('Speichern',
               style: BrainTypography.button.copyWith(color: BrainColors.primary)),
         ),
       ],

@@ -40,7 +40,7 @@ class _InboxScreenState extends State<InboxScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$count note${count == 1 ? '' : 's'} sorted',
+            '$count Gedanke${count == 1 ? '' : 'n'} sortiert',
             style: BrainTypography.bodyMd
                 .copyWith(color: BrainColors.onSurface),
           ),
@@ -70,7 +70,7 @@ class _InboxScreenState extends State<InboxScreen> {
               children: [
                 Text('Inbox', style: BrainTypography.displayMd),
                 Text(
-                  '${inbox.length} note${inbox.length == 1 ? '' : 's'}',
+                  '${inbox.length} Gedanke${inbox.length == 1 ? '' : 'n'}',
                   style: BrainTypography.bodySm,
                 ),
               ],
@@ -85,7 +85,7 @@ class _InboxScreenState extends State<InboxScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: BrainButton(
-                  label: _triaging ? 'Sorting...' : 'Triage All — AI sorts everything',
+                  label: _triaging ? 'Sortiert...' : 'Alle sortieren — KI ordnet alles',
                   icon: Icons.auto_fix_high_rounded,
                   variant: BrainButtonVariant.secondary,
                   loading: _triaging,
@@ -131,12 +131,12 @@ class _EmptyInbox extends StatelessWidget {
           ),
           const SizedBox(height: BrainSpacing.md),
           Text(
-            'Inbox zero',
+            'Alles erledigt',
             style: BrainTypography.headlineSm
                 .copyWith(color: BrainColors.onSurfaceVariant),
           ),
           const SizedBox(height: BrainSpacing.xs),
-          Text('All notes have been processed',
+          Text('Alle Gedanken wurden verarbeitet',
               style: BrainTypography.bodySm),
         ],
       ),
@@ -158,13 +158,13 @@ class _InboxCard extends StatelessWidget {
       background: _SwipeBg(
         color: BrainColors.errorContainer,
         icon: Icons.archive_outlined,
-        label: 'Archive',
+        label: 'Archivieren',
         alignment: Alignment.centerLeft,
       ),
       secondaryBackground: _SwipeBg(
         color: BrainColors.primary.withValues(alpha: 0.20),
         icon: Icons.drive_file_move_outlined,
-        label: 'File',
+        label: 'Ablegen',
         alignment: Alignment.centerRight,
       ),
       onDismissed: (dir) {
@@ -222,7 +222,7 @@ class _InboxCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                 ],
                 const SizedBox(height: BrainSpacing.sm),
-                Text('Captured ${note.relativeTime}',
+                Text('Erfasst ${note.relativeTime}',
                     style: BrainTypography.labelSm),
               ],
             ),

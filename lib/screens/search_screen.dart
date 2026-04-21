@@ -54,7 +54,7 @@ class _SearchScreenState extends State<SearchScreen> {
             padding: BrainSpacing.paddingScreen,
             child: BrainInput(
               controller: _controller,
-              hint: 'Search your brain...',
+              hint: 'Suche in deinem Gehirn...',
               prefixIcon: Icons.search_rounded,
               onChanged: context.read<SearchProvider>().search,
               onSubmitted: (q) {
@@ -79,7 +79,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       PopupMenuItem(
                           value: null,
                           onTap: () => ctx.read<SearchProvider>().setHallFilter(null),
-                          child: const Text('All Halls')),
+                          child: const Text('Alle Hallen')),
                       ...MemoryHall.values.map((h) => PopupMenuItem(
                             value: h,
                             child: Text(hallLabel(h)),
@@ -127,7 +127,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           context.read<SearchProvider>().setWingFilter,
                       itemBuilder: (_) => [
                         const PopupMenuItem(
-                            value: null, child: Text('All Wings')),
+                            value: null, child: Text('Alle Wings')),
                         ...wings.map((w) => PopupMenuItem(
                               value: w['wing'] as String,
                               child: Text(w['display'] as String),
@@ -213,7 +213,7 @@ class _RecentSearches extends StatelessWidget {
                 size: 48, color: BrainColors.outline),
             const SizedBox(height: BrainSpacing.md),
             Text(
-              'Search across all your notes',
+              'Suche in allen deinen Gedanken',
               style: BrainTypography.bodyMd
                   .copyWith(color: BrainColors.onSurfaceVariant),
             ),
@@ -266,7 +266,7 @@ class _ResultsList extends StatelessWidget {
     if (results.isEmpty) {
       return Center(
         child: Text(
-          'No notes found for "$query"',
+          'Keine Gedanken gefunden für "$query"',
           style: BrainTypography.bodyMd.copyWith(color: BrainColors.onSurfaceVariant),
         ),
       );

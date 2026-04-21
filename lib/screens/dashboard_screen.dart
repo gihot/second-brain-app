@@ -19,10 +19,10 @@ class DashboardScreen extends StatelessWidget {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 6) return 'Good night';
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 6) return 'Gute Nacht';
+    if (hour < 12) return 'Guten Morgen';
+    if (hour < 18) return 'Guten Tag';
+    return 'Guten Abend';
   }
 
   @override
@@ -67,7 +67,7 @@ class DashboardScreen extends StatelessWidget {
             children: [
               BrainStatCard(
                 value: '${vault.status.totalNotes}',
-                label: 'Notes',
+                label: 'Gedanken',
                 icon: Icons.description_outlined,
                 accentColor: BrainColors.primary,
               ),
@@ -184,7 +184,7 @@ class DashboardScreen extends StatelessWidget {
                                     style: BrainTypography.bodyMd.copyWith(
                                         fontWeight: FontWeight.w600,
                                         color: BrainColors.onSurface)),
-                                Text('${w['count']} notes',
+                                Text('${w['count']} Gedanken',
                                     style: BrainTypography.labelSm),
                               ],
                             ),
@@ -234,11 +234,11 @@ class DashboardScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Ask your Brain',
+                          Text('Frag dein Gehirn',
                               style: BrainTypography.bodyMd.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: BrainColors.onSurface)),
-                          Text('Chat with Seeker, Librarian or Connector',
+                          Text('Chat mit Seeker, Librarian oder Connector',
                               style: BrainTypography.bodySm),
                         ],
                       ),
@@ -264,9 +264,9 @@ class DashboardScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Recent Notes', style: BrainTypography.headlineSm),
+                Text('Letzte Gedanken', style: BrainTypography.headlineSm),
                 Text(
-                  'See all',
+                  'Alle anzeigen',
                   style: BrainTypography.bodySm
                       .copyWith(color: BrainColors.primary),
                 ),
@@ -288,13 +288,13 @@ class DashboardScreen extends StatelessWidget {
                         size: 40, color: BrainColors.outline),
                     const SizedBox(height: BrainSpacing.md),
                     Text(
-                      'Your brain is empty',
+                      'Dein Gehirn ist leer',
                       style: BrainTypography.headlineSm
                           .copyWith(color: BrainColors.onSurfaceVariant),
                     ),
                     const SizedBox(height: BrainSpacing.xs),
                     Text(
-                      'Tap Capture to add your first thought',
+                      'Tippe auf Capture, um deinen ersten Gedanken hinzuzufügen',
                       style: BrainTypography.bodySm,
                     ),
                   ],

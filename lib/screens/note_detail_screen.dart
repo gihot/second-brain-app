@@ -121,7 +121,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       _dirty = false;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Saved'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('Gespeichert'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -130,17 +130,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: BrainColors.surfaceHigh,
-        title: const Text('Delete note?'),
-        content: const Text('This cannot be undone.'),
+        title: const Text('Gedanke löschen?'),
+        content: const Text('Dies kann nicht rückgängig gemacht werden.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('Abbrechen'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: BrainColors.error),
-            child: const Text('Delete'),
+            child: const Text('Löschen'),
           ),
         ],
       ),
@@ -182,7 +182,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (response == null) {
       setState(() {
         _loadingConnections = false;
-        _connectionError = 'Could not reach the Connector. Check your connection.';
+        _connectionError = 'Connector nicht erreichbar. Prüfe deine Verbindung.';
       });
       return;
     }
@@ -192,7 +192,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (rawConnections == null) {
       setState(() {
         _loadingConnections = false;
-        _connectionError = 'No connections found.';
+        _connectionError = 'Keine Verbindungen gefunden.';
       });
       return;
     }
@@ -208,7 +208,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       _loadingConnections = false;
       if (parsed.isEmpty) {
         _connectionError =
-            'No meaningful connections found yet. Try adding more notes.';
+            'Noch keine Verbindungen gefunden. Füge mehr Gedanken hinzu.';
       }
     });
   }
@@ -218,7 +218,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (target == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Note "$filePath" not found locally'),
+          content: Text('Gedanke "$filePath" nicht lokal gefunden'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -246,7 +246,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (note == null) {
       return Scaffold(
         appBar: AppBar(backgroundColor: BrainColors.base),
-        body: const Center(child: Text('Note not found')),
+        body: const Center(child: Text('Gedanke nicht gefunden')),
       );
     }
 
@@ -263,13 +263,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           if (_editing && _dirty)
             IconButton(
               icon: const Icon(Icons.check_rounded, color: BrainColors.secondary),
-              tooltip: 'Save',
+              tooltip: 'Speichern',
               onPressed: _save,
             )
           else
             IconButton(
               icon: Icon(_editing ? Icons.close_rounded : Icons.edit_outlined),
-              tooltip: _editing ? 'Cancel' : 'Edit',
+              tooltip: _editing ? 'Abbrechen' : 'Bearbeiten',
               onPressed: () {
                 setState(() {
                   if (_editing && _dirty) {
@@ -306,7 +306,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 child: Row(children: [
                   Icon(Icons.archive_outlined, size: 18),
                   SizedBox(width: 8),
-                  Text('Archive'),
+                  Text('Archivieren'),
                 ]),
               ),
               PopupMenuItem(
@@ -315,7 +315,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   const Icon(Icons.delete_outline_rounded,
                       size: 18, color: BrainColors.error),
                   const SizedBox(width: 8),
-                  Text('Delete',
+                  Text('Löschen',
                       style: TextStyle(color: BrainColors.error)),
                 ]),
               ),
@@ -475,7 +475,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   GestureDetector(
                     onTap: _findConnections,
                     child: Text(
-                      'Refresh',
+                      'Aktualisieren',
                       style: BrainTypography.labelSm
                           .copyWith(color: BrainColors.primary),
                     ),
@@ -507,7 +507,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               SizedBox(
                 width: double.infinity,
                 child: BrainButton(
-                  label: 'Find Connections',
+                  label: 'Verbindungen finden',
                   icon: Icons.hub_outlined,
                   variant: BrainButtonVariant.secondary,
                   onPressed: _findConnections,

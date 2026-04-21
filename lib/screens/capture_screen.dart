@@ -42,7 +42,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-              'Voice requires Chrome or Edge. Type instead.'),
+              'Spracheingabe benötigt Chrome oder Edge.'),
           duration: const Duration(seconds: 3),
           backgroundColor: BrainColors.surfaceHigh,
         ),
@@ -108,14 +108,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
               children: [
                 // System label
                 Text(
-                  'NEW CAPTURE',
+                  'NEUER GEDANKE',
                   style: BrainTypography.labelSm,
                 ),
                 const SizedBox(height: BrainSpacing.sm),
 
                 // Headline
                 Text(
-                  'What are you\nthinking?',
+                  'Was denkst\ndu gerade?',
                   style: BrainTypography.displayMd,
                 ),
                 const SizedBox(height: BrainSpacing.lg),
@@ -134,7 +134,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     cursorColor: BrainColors.primary,
                     cursorWidth: 2,
                     decoration: InputDecoration(
-                      hintText: 'Capture your thought stream...',
+                      hintText: 'Dein Gedankenstrom...',
                       hintStyle: BrainTypography.bodyLg.copyWith(
                         color: BrainColors.outlineVariant
                             .withValues(alpha: 0.50),
@@ -205,12 +205,12 @@ class _CaptureScreenState extends State<CaptureScreen> {
                               const Icon(Icons.check_rounded,
                                   size: 18, color: Colors.white),
                               const SizedBox(width: 6),
-                              Text('Captured',
+                              Text('Erfasst',
                                   style: BrainTypography.button
                                       .copyWith(color: Colors.white)),
                             ] else ...[
                               Text(
-                                'Capture',
+                                'Erfassen',
                                 style: BrainTypography.button.copyWith(
                                   color: hasText
                                       ? Colors.white

@@ -24,10 +24,10 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
   static const _agents = ['seeker', 'librarian', 'connector'];
 
   static const _suggestions = [
-    'What did I capture about this week?',
-    'Find my notes on productivity',
-    'What are my active projects?',
-    'What have I learned recently?',
+    'Was habe ich diese Woche erfasst?',
+    'Finde meine Gedanken zur Produktivität',
+    'Was sind meine aktiven Projekte?',
+    'Was habe ich zuletzt gelernt?',
   ];
 
   @override
@@ -75,12 +75,12 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Ask your Brain', style: BrainTypography.titleMd),
+        title: Text('Frag dein Gehirn', style: BrainTypography.titleMd),
         actions: [
           if (chat.messages.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'Clear history',
+              tooltip: 'Verlauf löschen',
               onPressed: () => context.read<ChatProvider>().clearHistory(),
             ),
         ],
@@ -109,7 +109,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                         context.read<ChatProvider>().setHallScope,
                     itemBuilder: (_) => [
                       const PopupMenuItem(
-                          value: null, child: Text('All Halls')),
+                          value: null, child: Text('Alle Hallen')),
                       ...MemoryHall.values.map((h) => PopupMenuItem(
                             value: h,
                             child: Text(hallLabel(h)),
@@ -145,7 +145,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                           context.read<ChatProvider>().setWingScope,
                       itemBuilder: (_) => [
                         const PopupMenuItem(
-                            value: null, child: Text('All Wings')),
+                            value: null, child: Text('Alle Wings')),
                         ...wings.map((w) => PopupMenuItem(
                               value: w['wing'] as String,
                               child: Text(w['display'] as String),
@@ -310,7 +310,7 @@ class _EmptyState extends StatelessWidget {
             size: 48, color: BrainColors.outline),
         const SizedBox(height: BrainSpacing.md),
         Text(
-          'Ask anything about your notes',
+          'Frag mich alles über deine Gedanken',
           style: BrainTypography.headlineSm
               .copyWith(color: BrainColors.onSurfaceVariant),
           textAlign: TextAlign.center,
@@ -368,7 +368,7 @@ class _InputBar extends StatelessWidget {
           Expanded(
             child: BrainInput(
               controller: controller,
-              hint: 'Ask your brain...',
+              hint: 'Frag dein Gehirn...',
               maxLines: 4,
               textInputAction: TextInputAction.newline,
               onSubmitted: (_) => onSend(),
