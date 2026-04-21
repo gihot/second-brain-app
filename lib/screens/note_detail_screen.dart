@@ -250,7 +250,32 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       );
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: !(_editing && _dirty),
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final discard = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: BrainColors.surfaceHigh,
+            title: const Text('Änderungen verwerfen?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Zurück'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(
+                    foregroundColor: BrainColors.error),
+                child: const Text('Verwerfen'),
+              ),
+            ],
+          ),
+        );
+        if (discard == true && mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
       backgroundColor: BrainColors.base,
       appBar: AppBar(
         backgroundColor: BrainColors.base,
@@ -532,7 +557,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           ],
         ],
       ),
-    );
+    ));
   }
 }
 
