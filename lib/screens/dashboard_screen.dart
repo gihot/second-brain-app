@@ -252,6 +252,63 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
 
+        // Due Reminders banner
+        if (vault.dueReminders.isNotEmpty)
+          SliverPadding(
+            padding: BrainSpacing.paddingScreen,
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('FÄLLIG', style: BrainTypography.labelSm.copyWith(
+                      color: BrainColors.tertiary)),
+                  const SizedBox(height: BrainSpacing.sm),
+                  ...vault.dueReminders.map((note) => Padding(
+                    padding: const EdgeInsets.only(bottom: BrainSpacing.cardGap),
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => NoteDetailScreen(noteId: note.id),
+                        ),
+                      ),
+                      child: Container(
+                        padding: BrainSpacing.paddingCard,
+                        decoration: BoxDecoration(
+                          color: BrainColors.tertiary.withValues(alpha: 0.08),
+                          borderRadius: BrainSpacing.radiusMd,
+                          border: Border.all(
+                            color: BrainColors.tertiary.withValues(alpha: 0.25),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.alarm_rounded,
+                                size: 16, color: BrainColors.tertiary),
+                            const SizedBox(width: BrainSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                note.title,
+                                style: BrainTypography.bodyMd.copyWith(
+                                    color: BrainColors.onSurface,
+                                    fontWeight: FontWeight.w600),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 12, color: BrainColors.tertiary),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ),
+
         // Recent Notes header
         SliverToBoxAdapter(
           child: Padding(

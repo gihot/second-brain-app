@@ -30,6 +30,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   late final TextEditingController _tagsCtrl;
   late ParaCategory _para;
   late MemoryHall _hall;
+  late ThoughtType _thoughtType;
+  String? _remindAt;
   late final TextEditingController _wingCtrl;
   bool _editing = false;
   bool _dirty = false;
@@ -47,6 +49,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     _tagsCtrl = TextEditingController(text: note?.tags.join(', ') ?? '');
     _para = note?.para ?? ParaCategory.inbox;
     _hall = note?.hall ?? MemoryHall.unclassified;
+    _thoughtType = note?.thoughtType ?? ThoughtType.standard;
+    _remindAt = note?.remindAt;
     final wingDisplay = note?.wing?.split('-').map((w) {
           if (w.isEmpty) return w;
           return w[0].toUpperCase() + w.substring(1);
@@ -112,6 +116,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       hall: _hall,
       wing: normalizedWing,
       clearWing: normalizedWing == null,
+      thoughtType: _thoughtType,
+      remindAt: _thoughtType == ThoughtType.reminder ? _remindAt : null,
+      clearRemindAt: _thoughtType != ThoughtType.reminder,
     );
 
     await context.read<VaultProvider>().updateNote(updated);
@@ -213,6 +220,13 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     });
   }
 
+  String _formatRemindAt(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    final local = dt.toLocal();
+    return '${local.day}.${local.month}.${local.year} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
   void _openConnection(String filePath) {
     final target = context.read<VaultProvider>().getNoteByFilePath(filePath);
     if (target == null) {
@@ -306,6 +320,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       _tagsCtrl.text = n.tags.join(', ');
                       _para = n.para;
                       _hall = n.hall;
+                      _thoughtType = n.thoughtType;
+                      _remindAt = n.remindAt;
                       _wingCtrl.text = n.wing?.split('-').map((w) {
                             if (w.isEmpty) return w;
                             return w[0].toUpperCase() + w.substring(1);
@@ -394,6 +410,16 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   _dirty = true;
                 }),
               ),
+              const SizedBox(width: BrainSpacing.sm),
+              _ThoughtTypeSelector(
+                thoughtType: _thoughtType,
+                editable: _editing,
+                onChanged: (t) => setState(() {
+                  _thoughtType = t;
+                  if (t != ThoughtType.reminder) _remindAt = null;
+                  _dirty = true;
+                }),
+              ),
               const Spacer(),
               Text(
                 note.relativeTime,
@@ -401,6 +427,30 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
               ),
             ],
           ),
+
+          // DateTimePicker for reminder type
+          if (_editing && _thoughtType == ThoughtType.reminder) ...[
+            const SizedBox(height: BrainSpacing.sm),
+            _RemindAtPicker(
+              value: _remindAt,
+              onChanged: (iso) => setState(() {
+                _remindAt = iso;
+                _dirty = true;
+              }),
+            ),
+          ] else if (!_editing && note.thoughtType == ThoughtType.reminder && note.remindAt != null) ...[
+            const SizedBox(height: BrainSpacing.xs),
+            Row(
+              children: [
+                Icon(Icons.alarm_outlined, size: 13, color: BrainColors.tertiary),
+                const SizedBox(width: 4),
+                Text(
+                  _formatRemindAt(note.remindAt!),
+                  style: BrainTypography.labelSm.copyWith(color: BrainColors.tertiary),
+                ),
+              ],
+            ),
+          ],
 
           const SizedBox(height: BrainSpacing.lg),
 
@@ -791,6 +841,177 @@ class _WingInputState extends State<_WingInput> {
           widget.onChanged?.call(v);
           _showSuggestions(v);
         },
+      ),
+    );
+  }
+}
+
+// ── ThoughtType Selector ──────────────────────────────────────────────────────
+
+class _ThoughtTypeSelector extends StatelessWidget {
+  final ThoughtType thoughtType;
+  final bool editable;
+  final ValueChanged<ThoughtType> onChanged;
+
+  const _ThoughtTypeSelector({
+    required this.thoughtType,
+    required this.editable,
+    required this.onChanged,
+  });
+
+  static const _labels = {
+    ThoughtType.standard: 'Gedanke',
+    ThoughtType.reminder: 'Erinnerung',
+    ThoughtType.question: 'Frage',
+    ThoughtType.idea: 'Idee',
+  };
+
+  static const _icons = {
+    ThoughtType.standard: Icons.edit_note_outlined,
+    ThoughtType.reminder: Icons.alarm_outlined,
+    ThoughtType.question: Icons.help_outline_rounded,
+    ThoughtType.idea: Icons.lightbulb_outline_rounded,
+  };
+
+  static const _colors = {
+    ThoughtType.standard: BrainColors.outline,
+    ThoughtType.reminder: BrainColors.tertiary,
+    ThoughtType.question: BrainColors.secondary,
+    ThoughtType.idea: BrainColors.primary,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _labels[thoughtType] ?? 'Gedanke';
+    final icon = _icons[thoughtType] ?? Icons.edit_note_outlined;
+    final color = _colors[thoughtType] ?? BrainColors.outline;
+
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BrainSpacing.radiusFull,
+        border: Border.all(color: color.withValues(alpha: 0.30), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: BrainTypography.labelSm.copyWith(color: color)),
+          if (editable) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_drop_down_rounded, size: 14, color: color),
+          ],
+        ],
+      ),
+    );
+
+    if (!editable) return badge;
+
+    return PopupMenuButton<ThoughtType>(
+      color: BrainColors.surfaceHigh,
+      onSelected: onChanged,
+      itemBuilder: (_) => ThoughtType.values
+          .map((t) => PopupMenuItem(
+                value: t,
+                child: Row(
+                  children: [
+                    Icon(_icons[t], size: 16, color: _colors[t]),
+                    const SizedBox(width: 8),
+                    Text(_labels[t]!,
+                        style: BrainTypography.bodyMd
+                            .copyWith(color: _colors[t])),
+                  ],
+                ),
+              ))
+          .toList(),
+      child: badge,
+    );
+  }
+}
+
+// ── RemindAt Picker ───────────────────────────────────────────────────────────
+
+class _RemindAtPicker extends StatelessWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  const _RemindAtPicker({required this.value, required this.onChanged});
+
+  String _format(String iso) {
+    final dt = DateTime.tryParse(iso)?.toLocal();
+    if (dt == null) return iso;
+    return '${dt.day}.${dt.month}.${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    final now = DateTime.now();
+    final initial = value != null
+        ? (DateTime.tryParse(value!)?.toLocal() ?? now)
+        : now;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 2)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary: BrainColors.primary,
+            surface: BrainColors.surfaceHigh,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (date == null || !context.mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary: BrainColors.primary,
+            surface: BrainColors.surfaceHigh,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (time == null) return;
+
+    final combined = DateTime(
+        date.year, date.month, date.day, time.hour, time.minute);
+    onChanged(combined.toUtc().toIso8601String());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _pick(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: BrainColors.tertiary.withValues(alpha: 0.08),
+          borderRadius: BrainSpacing.radiusMd,
+          border: Border.all(
+              color: BrainColors.tertiary.withValues(alpha: 0.25), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.alarm_outlined, size: 14, color: BrainColors.tertiary),
+            const SizedBox(width: 6),
+            Text(
+              value != null ? _format(value!) : 'Datum & Uhrzeit wählen',
+              style: BrainTypography.bodySm
+                  .copyWith(color: BrainColors.tertiary),
+            ),
+          ],
+        ),
       ),
     );
   }
