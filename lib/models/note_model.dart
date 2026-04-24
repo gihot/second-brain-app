@@ -40,6 +40,12 @@ class Note extends HiveObject {
   @HiveField(11)
   String? wing; // normalized kebab-case, e.g. "urban-arcanum"
 
+  @HiveField(12)
+  ThoughtType thoughtType;
+
+  @HiveField(13)
+  String? remindAt; // ISO-8601, only set when thoughtType == reminder
+
   Note({
     required this.id,
     required this.title,
@@ -53,6 +59,8 @@ class Note extends HiveObject {
     this.linkedNoteIds = const [],
     this.hall = MemoryHall.unclassified,
     this.wing,
+    this.thoughtType = ThoughtType.standard,
+    this.remindAt,
   });
 
   Note copyWith({
@@ -67,6 +75,9 @@ class Note extends HiveObject {
     MemoryHall? hall,
     String? wing,
     bool clearWing = false,
+    ThoughtType? thoughtType,
+    String? remindAt,
+    bool clearRemindAt = false,
   }) {
     return Note(
       id: id,
@@ -81,6 +92,8 @@ class Note extends HiveObject {
       linkedNoteIds: linkedNoteIds ?? this.linkedNoteIds,
       hall: hall ?? this.hall,
       wing: clearWing ? null : (wing ?? this.wing),
+      thoughtType: thoughtType ?? this.thoughtType,
+      remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
     );
   }
 
@@ -125,6 +138,18 @@ enum ParaCategory {
   resources,
   @HiveField(4)
   archive,
+}
+
+@HiveType(typeId: 7)
+enum ThoughtType {
+  @HiveField(0)
+  standard,
+  @HiveField(1)
+  reminder,
+  @HiveField(2)
+  question,
+  @HiveField(3)
+  idea,
 }
 
 @HiveType(typeId: 6)

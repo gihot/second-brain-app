@@ -29,13 +29,15 @@ class NoteAdapter extends TypeAdapter<Note> {
       linkedNoteIds: (fields[9] as List).cast<String>(),
       hall: fields[10] == null ? MemoryHall.unclassified : fields[10] as MemoryHall,
       wing: fields[11] as String?,
+      thoughtType: fields[12] == null ? ThoughtType.standard : fields[12] as ThoughtType,
+      remindAt: fields[13] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +61,11 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(10)
       ..write(obj.hall)
       ..writeByte(11)
-      ..write(obj.wing);
+      ..write(obj.wing)
+      ..writeByte(12)
+      ..write(obj.thoughtType)
+      ..writeByte(13)
+      ..write(obj.remindAt);
   }
 
   @override
@@ -226,6 +232,55 @@ class MemoryHallAdapter extends TypeAdapter<MemoryHall> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is MemoryHallAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class ThoughtTypeAdapter extends TypeAdapter<ThoughtType> {
+  @override
+  final int typeId = 7;
+
+  @override
+  ThoughtType read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return ThoughtType.standard;
+      case 1:
+        return ThoughtType.reminder;
+      case 2:
+        return ThoughtType.question;
+      case 3:
+        return ThoughtType.idea;
+      default:
+        return ThoughtType.standard;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, ThoughtType obj) {
+    switch (obj) {
+      case ThoughtType.standard:
+        writer.writeByte(0);
+        break;
+      case ThoughtType.reminder:
+        writer.writeByte(1);
+        break;
+      case ThoughtType.question:
+        writer.writeByte(2);
+        break;
+      case ThoughtType.idea:
+        writer.writeByte(3);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ThoughtTypeAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

@@ -28,6 +28,7 @@ class CacheService {
     if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(ParaCategoryAdapter());
     if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(OfflineCaptureAdapter());
     if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(MemoryHallAdapter());
+    if (!Hive.isAdapterRegistered(7)) Hive.registerAdapter(ThoughtTypeAdapter());
 
     _notes = await Hive.openBox<Note>(_notesBox);
     _captureQueue = await Hive.openBox<OfflineCapture>(_captureQueueBox);
