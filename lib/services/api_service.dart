@@ -124,6 +124,8 @@ class ApiService {
     String? para,
     String? hall,
     String? wing,
+    String? thoughtType,
+    String? remindAt,
   }) async {
     final body = await _put('/vault/notes', {
       'file_path': filePath,
@@ -134,6 +136,8 @@ class ApiService {
       if (para != null) 'para': para,
       if (hall != null) 'hall': hall,
       if (wing != null) 'wing': wing,
+      if (thoughtType != null) 'thought_type': thoughtType,
+      if (remindAt != null) 'remind_at': remindAt,
     });
     if (body == null) return null;
     return body['file_path'] as String?;

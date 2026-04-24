@@ -309,6 +309,8 @@ class VaultProvider extends ChangeNotifier {
       'para': _paraToServer(note.para),
       'hall': _hallToServer(note.hall),
       if (note.wing != null) 'wing': note.wing,
+      'thought_type': _thoughtTypeToServer(note.thoughtType),
+      if (note.remindAt != null) 'remind_at': note.remindAt,
     };
 
     if (!_isServerReachable) {
@@ -324,6 +326,8 @@ class VaultProvider extends ChangeNotifier {
       para: payload['para'] as String,
       hall: payload['hall'] as String,
       wing: note.wing,
+      thoughtType: payload['thought_type'] as String,
+      remindAt: note.remindAt,
     );
     if (result == null) {
       await _cache.queueWrite(payload);
@@ -407,6 +411,8 @@ class VaultProvider extends ChangeNotifier {
         MemoryHall.advice => 'advice',
         MemoryHall.unclassified => 'unclassified',
       };
+
+  String _thoughtTypeToServer(ThoughtType t) => t.name;
 
   MemoryHall _hallFromServer(String s) => switch (s) {
         'fact' => MemoryHall.fact,
