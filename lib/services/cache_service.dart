@@ -216,4 +216,28 @@ class CacheService {
     if (!_initialized) return;
     await _meta.put('discovery_cache', json);
   }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  bool get notificationsEnabled {
+    if (!_initialized) return true; // default on
+    return (_meta.get('notifications_enabled') as bool?) ?? true;
+  }
+
+  void setNotificationsEnabled(bool value) {
+    if (!_initialized) return;
+    _meta.put('notifications_enabled', value);
+  }
+
+  List<String> getNotifiedReminderIds() {
+    if (!_initialized) return [];
+    final raw = _meta.get('notified_reminder_ids');
+    if (raw == null) return [];
+    return List<String>.from(raw as List);
+  }
+
+  void saveNotifiedReminderIds(List<String> ids) {
+    if (!_initialized) return;
+    _meta.put('notified_reminder_ids', ids);
+  }
 }

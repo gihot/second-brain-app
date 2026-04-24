@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../providers/vault_provider.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
@@ -19,12 +20,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _checking = false;
   final _identityCtrl = TextEditingController();
   bool _identitySaving = false;
+  bool _notificationsEnabled = false;
+  String _notificationPermission = 'default';
 
   @override
   void initState() {
     super.initState();
     _checkServer();
     _loadIdentity();
+    _loadNotificationState();
+  }
+
+  void _loadNotificationState() {
+    final ns = NotificationService.instance;
+    setState(() {
+      _notificationsEnabled = ns.notificationsEnabled;
+      _notificationPermission = ns.permissionState;
+    });
+  }
+
+  Future<void> _handleNotificationToggle(bool value) async {
+    final ns = NotificationService.instance;
+    if (value && !ns.isGranted) {
+      final granted = await ns.requestPermission();
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Benachrichtigungen wurden vom Browser blockiert. Bitte in den Browser-Einstellungen freigeben.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+    }
+    ns.setEnabled(value);
+    if (mounted) {
+      setState(() {
+        _notificationsEnabled = value;
+        _notificationPermission = ns.permissionState;
+      });
+    }
   }
 
   @override
@@ -114,6 +152,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: () async {
                       await vault.refresh();
                       await _checkServer();
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: BrainSpacing.lg),
+
+              // ── Notifications ───────────────────────────────────────
+              _SettingsSection(
+                title: 'BENACHRICHTIGUNGEN',
+                items: [
+                  _NotificationToggleTile(
+                    enabled: _notificationsEnabled,
+                    permission: _notificationPermission,
+                    onToggle: _handleNotificationToggle,
+                    onRequestPermission: () async {
+                      final granted =
+                          await NotificationService.instance.requestPermission();
+                      if (mounted) {
+                        setState(() {
+                          _notificationPermission =
+                              NotificationService.instance.permissionState;
+                          if (granted) _notificationsEnabled = true;
+                        });
+                      }
                     },
                   ),
                 ],
@@ -410,6 +473,109 @@ class _SettingsTileState extends State<_SettingsTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Notification toggle tile ──────────────────────────────────────────────────
+
+class _NotificationToggleTile extends StatelessWidget {
+  final bool enabled;
+  final String permission; // 'granted' | 'denied' | 'default'
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onRequestPermission;
+
+  const _NotificationToggleTile({
+    required this.enabled,
+    required this.permission,
+    required this.onToggle,
+    required this.onRequestPermission,
+  });
+
+  String get _permissionLabel => switch (permission) {
+        'granted' => 'Erlaubt',
+        'denied' => 'Blockiert',
+        _ => 'Ausstehend',
+      };
+
+  Color _permissionColor(BuildContext context) => switch (permission) {
+        'granted' => BrainColors.secondary,
+        'denied' => BrainColors.error,
+        _ => BrainColors.outline,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final ns = NotificationService.instance;
+    final supported = ns.isSupported;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: BrainSpacing.md,
+        vertical: BrainSpacing.cardGap,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.notifications_outlined,
+                  size: 18, color: BrainColors.outline),
+              const SizedBox(width: BrainSpacing.cardGap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Erinnerungen', style: BrainTypography.bodyMd),
+                    Text(
+                      supported
+                          ? 'Browser: $_permissionLabel'
+                          : 'Nicht unterstützt',
+                      style: BrainTypography.labelSm.copyWith(
+                        color: supported
+                            ? _permissionColor(context)
+                            : BrainColors.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (supported) ...[
+                if (permission == 'default')
+                  GestureDetector(
+                    onTap: onRequestPermission,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: BrainColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BrainSpacing.radiusFull,
+                      ),
+                      child: Text('Erlauben',
+                          style: BrainTypography.labelSm
+                              .copyWith(color: BrainColors.primary)),
+                    ),
+                  )
+                else
+                  Switch(
+                    value: enabled && permission == 'granted',
+                    onChanged: permission == 'denied' ? null : onToggle,
+                    activeThumbColor: BrainColors.secondary,
+                  ),
+              ],
+            ],
+          ),
+          if (permission == 'denied' && supported)
+            Padding(
+              padding: const EdgeInsets.only(top: BrainSpacing.xs, left: 34),
+              child: Text(
+                'Benachrichtigungen sind im Browser blockiert. Bitte in den Website-Einstellungen freigeben.',
+                style: BrainTypography.labelSm
+                    .copyWith(color: BrainColors.outline),
+              ),
+            ),
+        ],
       ),
     );
   }

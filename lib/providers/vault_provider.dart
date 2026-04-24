@@ -4,6 +4,7 @@ import '../models/note_model.dart';
 import '../models/vault_status_model.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 
 /// Central state for the vault: all notes, inbox count, sync status.
 class VaultProvider extends ChangeNotifier {
@@ -145,6 +146,8 @@ class VaultProvider extends ChangeNotifier {
       isServerReachable: _isServerReachable,
     );
     notifyListeners();
+    // Fire-and-forget: show browser notification for any newly due reminders.
+    NotificationService.instance.checkAndNotify(dueReminders);
   }
 
   Future<void> _checkServerAndSync() async {

@@ -7,8 +7,11 @@ import 'providers/capture_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/discovery_provider.dart';
+import 'services/notification_service.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  NotificationService.instance.init();
   runApp(const SecondBrainApp());
 }
 
