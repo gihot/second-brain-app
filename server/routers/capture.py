@@ -1,4 +1,5 @@
 """POST /capture — Scribe agent processes raw text into a titled, tagged note."""
+from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
@@ -34,11 +35,16 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
     note_id = req.note_id or str(uuid.uuid4())
 
     # Run Scribe agent to generate title + tags
+    now_utc = datetime.now(timezone.utc)
     agent = AgentService()
     result = await agent.run(
         "scribe",
         req.text,
-        context={"note_id": note_id},
+        context={
+            "note_id": note_id,
+            "today_utc": now_utc.strftime("%Y-%m-%d"),
+            "now_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%S"),
+        },
     )
 
     meta = result.get("metadata", {})
