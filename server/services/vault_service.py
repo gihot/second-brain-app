@@ -50,7 +50,9 @@ class VaultService:
     def write_note(self, note_id: str, title: str, content: str,
                    tags: list[str], para: str = "00-Inbox",
                    hall: str = "unclassified",
-                   wing: Optional[str] = None) -> str:
+                   wing: Optional[str] = None,
+                   thought_type: str = "standard",
+                   remind_at: Optional[str] = None) -> str:
         """Write a markdown note with YAML frontmatter to the vault. Returns file path."""
         safe_title = re.sub(r"[^\w\s-]", "", title).strip()[:50]
         filename = f"{safe_title or note_id}.md"
@@ -74,6 +76,9 @@ class VaultService:
         )
         if wing:
             frontmatter += f"wing: {wing}\n"
+        frontmatter += f"thought_type: {thought_type}\n"
+        if remind_at:
+            frontmatter += f"remind_at: {remind_at}\n"
         frontmatter += f"---\n\n"
         filepath.write_text(frontmatter + content, encoding="utf-8")
         return str(filepath.relative_to(self._vault))
@@ -89,6 +94,8 @@ class VaultService:
         para: Optional[str] = None,
         hall: Optional[str] = None,
         wing: Optional[str] = None,
+        thought_type: Optional[str] = None,
+        remind_at: Optional[str] = None,
     ) -> str:
         """Update an existing note in-place. Moves file if `para` changes.
 
@@ -130,6 +137,10 @@ class VaultService:
         if wing is not None:
             # Normalize: lowercase kebab-case
             updates["wing"] = re.sub(r"[^a-z0-9]+", "-", wing.lower()).strip("-")
+        if thought_type is not None:
+            updates["thought_type"] = thought_type
+        if remind_at is not None:
+            updates["remind_at"] = remind_at
 
         merged: list[tuple[str, str]] = []
         seen: set[str] = set()

@@ -21,6 +21,8 @@ class CaptureResponse(BaseModel):
     para: str
     hall: str = "unclassified"
     suggested_wing: str = ""
+    thought_type: str = "standard"
+    remind_at: str | None = None
 
 
 @router.post("", response_model=CaptureResponse)
@@ -45,6 +47,8 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
     para = meta.get("para") or "00-Inbox"
     hall = meta.get("hall") or "unclassified"
     suggested_wing = meta.get("suggested_wing") or ""
+    thought_type = meta.get("thought_type") or "standard"
+    remind_at = meta.get("remind_at") or None
 
     # Normalize wing: lowercase kebab-case
     if suggested_wing:
@@ -56,6 +60,8 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
         note_id, title, req.text, tags, para,
         hall=hall,
         wing=suggested_wing or None,
+        thought_type=thought_type,
+        remind_at=remind_at,
     )
 
     # Push to GitHub in background (non-blocking)
@@ -69,6 +75,8 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
         para=para,
         hall=hall,
         suggested_wing=suggested_wing,
+        thought_type=thought_type,
+        remind_at=remind_at,
     )
 
 

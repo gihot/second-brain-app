@@ -17,6 +17,8 @@ class NoteUpdateRequest(BaseModel):
     para: str | None = None
     hall: str | None = None
     wing: str | None = None
+    thought_type: str | None = None
+    remind_at: str | None = None
 
 
 class NoteDeleteRequest(BaseModel):
@@ -51,6 +53,8 @@ async def update_note(req: NoteUpdateRequest):
             para=req.para,
             hall=req.hall,
             wing=req.wing,
+            thought_type=req.thought_type,
+            remind_at=req.remind_at,
         )
         return {"file_path": new_path}
     except FileNotFoundError as e:
