@@ -194,6 +194,14 @@ class ApiService {
     });
   }
 
+  // ── Discovery ─────────────────────────────────────────────────────────────
+
+  /// Fetch daily discovery insight (connection between recent notes).
+  /// Cached 24h on the server. Returns null on failure.
+  Future<Map<String, dynamic>?> getDiscovery() async {
+    return _get('/discovery/daily');
+  }
+
   // ── Health Check ───────────────────────────────────────────────────────────
 
   Future<bool> ping() async {

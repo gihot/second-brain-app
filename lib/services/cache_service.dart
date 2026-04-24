@@ -204,4 +204,16 @@ class CacheService {
     if (!_initialized) return;
     await _meta.put('connections:$noteId', jsonEncode(connections));
   }
+
+  // ── Discovery Cache ─────────────────────────────────────────────────────────
+
+  String? getDiscoveryCache() {
+    if (!_initialized) return null;
+    return _meta.get('discovery_cache') as String?;
+  }
+
+  Future<void> saveDiscoveryCache(String json) async {
+    if (!_initialized) return;
+    await _meta.put('discovery_cache', json);
+  }
 }

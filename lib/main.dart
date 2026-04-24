@@ -6,6 +6,7 @@ import 'providers/vault_provider.dart';
 import 'providers/capture_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/discovery_provider.dart';
 
 void main() {
   runApp(const SecondBrainApp());
@@ -30,6 +31,9 @@ class SecondBrainApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => ChatProvider()..init(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => DiscoveryProvider()..init(),
         ),
       ],
       child: MaterialApp(

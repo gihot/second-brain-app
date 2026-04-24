@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from auth import verify_token
-from routers import capture, search, inbox, vault, agent
+from routers import capture, search, inbox, vault, agent, discovery
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.include_router(search.router, prefix="/search", tags=["search"], dependencie
 app.include_router(inbox.router, prefix="/inbox", tags=["inbox"], dependencies=[Depends(verify_token)])
 app.include_router(vault.router, prefix="/vault", tags=["vault"], dependencies=[Depends(verify_token)])
 app.include_router(agent.router, prefix="/agent", tags=["agent"], dependencies=[Depends(verify_token)])
+app.include_router(discovery.router, prefix="/discovery", tags=["discovery"], dependencies=[Depends(verify_token)])
 
 
 @app.get("/health")
