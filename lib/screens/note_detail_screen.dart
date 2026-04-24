@@ -390,7 +390,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
           const SizedBox(height: BrainSpacing.sm),
 
-          // Meta row: PARA + Hall + time
+          // Meta row 1: PARA + Hall + time
           Row(
             children: [
               _ParaBadge(
@@ -410,7 +410,18 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   _dirty = true;
                 }),
               ),
-              const SizedBox(width: BrainSpacing.sm),
+              const Spacer(),
+              Text(
+                note.relativeTime,
+                style: BrainTypography.labelSm,
+              ),
+            ],
+          ),
+
+          // Meta row 2: ThoughtType (always visible)
+          const SizedBox(height: BrainSpacing.xs),
+          Row(
+            children: [
               _ThoughtTypeSelector(
                 thoughtType: _thoughtType,
                 editable: _editing,
@@ -419,11 +430,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   if (t != ThoughtType.reminder) _remindAt = null;
                   _dirty = true;
                 }),
-              ),
-              const Spacer(),
-              Text(
-                note.relativeTime,
-                style: BrainTypography.labelSm,
               ),
             ],
           ),
