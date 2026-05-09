@@ -44,8 +44,16 @@ class _SearchScreenState extends State<SearchScreen> {
     final search = context.watch<SearchProvider>();
     final wings = context.watch<VaultProvider>().wings;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: BrainSpacing.xxl),
+    // When pushed as a route (e.g. from a tag tap on the dashboard) we have
+    // no parent Scaffold — Navigator's default surface is light, which made
+    // the page render white and trapped back-navigation. Detect that case
+    // (canPop == true means we are not the initial route inside AppShell)
+    // and wrap with a proper Scaffold + back button.
+    final isPushedRoute = Navigator.of(context).canPop();
+
+    final body = Padding(
+      padding: EdgeInsets.only(
+          top: isPushedRoute ? BrainSpacing.sm : BrainSpacing.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -192,6 +200,28 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ],
       ),
+    );
+
+    if (!isPushedRoute) return body;
+
+    return Scaffold(
+      backgroundColor: BrainColors.base,
+      appBar: AppBar(
+        backgroundColor: BrainColors.base,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.initialQuery != null && widget.initialQuery!.isNotEmpty
+              ? '#${widget.initialQuery!.replaceFirst(RegExp(r'^#'), '')}'
+              : 'Suche',
+          style: BrainTypography.bodyMd
+              .copyWith(color: BrainColors.onSurface),
+        ),
+      ),
+      body: body,
     );
   }
 }

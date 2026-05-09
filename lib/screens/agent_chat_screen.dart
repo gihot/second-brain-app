@@ -23,6 +23,12 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
 
   static const _agents = ['seeker', 'librarian', 'connector'];
 
+  static const _agentDescriptions = {
+    'seeker': 'Sucht und findet relevante Gedanken',
+    'librarian': 'Strukturiert und ordnet dein Wissen',
+    'connector': 'Verknüpft Gedanken und entdeckt Muster',
+  };
+
   static const _suggestions = [
     'Was habe ich diese Woche erfasst?',
     'Finde meine Gedanken zur Produktivität',
@@ -92,6 +98,26 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
             agents: _agents,
             selected: chat.selectedAgent,
             onSelect: context.read<ChatProvider>().selectAgent,
+          ),
+
+          // Agent description (one-line subtitle for the selected agent)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              BrainSpacing.screenPadding,
+              0,
+              BrainSpacing.screenPadding,
+              BrainSpacing.sm,
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Text(
+                _agentDescriptions[chat.selectedAgent] ?? '',
+                key: ValueKey(chat.selectedAgent),
+                style: BrainTypography.labelSm.copyWith(
+                  color: BrainColors.onSurfaceVariant,
+                ),
+              ),
+            ),
           ),
 
           // Scope filters
