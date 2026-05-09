@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/note_model.dart';
@@ -176,7 +178,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     final otherNotes = vault.summarizeNotesForContext(excludeId: note.id);
 
     final message =
-        'Find meaningful connections for this note:\n\nTitle: ${note.title}\n\nContent:\n${_stripFrontmatter(note.content)}\n\nTags: ${note.tags.join(', ')}';
+        'Finde sinnvolle Verbindungen für diesen Gedanken:\n\nTitel: ${note.title}\n\nInhalt:\n${_stripFrontmatter(note.content)}\n\nTags: ${note.tags.join(', ')}';
 
     final response = await ApiService.instance.invokeAgent(
       'connector',
@@ -291,9 +293,17 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       },
       child: Scaffold(
       backgroundColor: BrainColors.base,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: BrainColors.base,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(color: BrainColors.glassSurface),
+          ),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
@@ -365,122 +375,146 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
           BrainSpacing.screenPadding,
-          BrainSpacing.sm,
+          MediaQuery.of(context).padding.top + kToolbarHeight + BrainSpacing.md,
           BrainSpacing.screenPadding,
           BrainSpacing.xxl,
         ),
         children: [
-          // Title
-          if (_editing)
-            TextField(
-              controller: _titleCtrl,
-              style: BrainTypography.headlineMd,
-              maxLines: null,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Title',
-                isCollapsed: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            )
-          else
-            Text(note.title, style: BrainTypography.headlineMd),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                  maxWidth: BrainSpacing.maxContentWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Title
+                  if (_editing)
+                    TextField(
+                      controller: _titleCtrl,
+                      style: BrainTypography.headlineMd,
+                      maxLines: null,
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        hintText: 'Titel',
+                        isCollapsed: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    )
+                  else
+                    Text(note.title, style: BrainTypography.headlineMd),
 
-          const SizedBox(height: BrainSpacing.sm),
+                  const SizedBox(height: BrainSpacing.sm),
 
-          // Meta row 1: PARA + Hall + time
-          Row(
-            children: [
-              _ParaBadge(
-                para: _para,
-                editable: _editing,
-                onChanged: (p) => setState(() {
-                  _para = p;
-                  _dirty = true;
-                }),
-              ),
-              const SizedBox(width: BrainSpacing.sm),
-              _HallSelector(
-                hall: _hall,
-                editable: _editing,
-                onChanged: (h) => setState(() {
-                  _hall = h;
-                  _dirty = true;
-                }),
-              ),
-              const Spacer(),
-              Text(
-                note.relativeTime,
-                style: BrainTypography.labelSm,
-              ),
-            ],
-          ),
+                  // Unified meta wrap: ThoughtType · Hall · PARA · (Wing chip view-only)
+                  Wrap(
+                    spacing: BrainSpacing.sm,
+                    runSpacing: BrainSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _ThoughtTypeSelector(
+                        thoughtType: _thoughtType,
+                        editable: _editing,
+                        onChanged: (t) => setState(() {
+                          _thoughtType = t;
+                          if (t != ThoughtType.reminder) _remindAt = null;
+                          _dirty = true;
+                        }),
+                      ),
+                      _HallSelector(
+                        hall: _hall,
+                        editable: _editing,
+                        onChanged: (h) => setState(() {
+                          _hall = h;
+                          _dirty = true;
+                        }),
+                      ),
+                      _ParaBadge(
+                        para: _para,
+                        editable: _editing,
+                        onChanged: (p) => setState(() {
+                          _para = p;
+                          _dirty = true;
+                        }),
+                      ),
+                      if (!_editing &&
+                          note.wing != null &&
+                          note.wing!.isNotEmpty)
+                        _WingChip(wing: note.wing!),
+                    ],
+                  ),
 
-          // Meta row 2: ThoughtType (always visible)
-          const SizedBox(height: BrainSpacing.xs),
-          Row(
-            children: [
-              _ThoughtTypeSelector(
-                thoughtType: _thoughtType,
-                editable: _editing,
-                onChanged: (t) => setState(() {
-                  _thoughtType = t;
-                  if (t != ThoughtType.reminder) _remindAt = null;
-                  _dirty = true;
-                }),
-              ),
-            ],
-          ),
+                  const SizedBox(height: BrainSpacing.xs),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      note.relativeTime,
+                      style: BrainTypography.labelSm.copyWith(
+                          color: BrainColors.onSurfaceVariant),
+                    ),
+                  ),
 
-          // DateTimePicker for reminder type
-          if (_editing && _thoughtType == ThoughtType.reminder) ...[
-            const SizedBox(height: BrainSpacing.sm),
-            _RemindAtPicker(
-              value: _remindAt,
-              onChanged: (iso) => setState(() {
-                _remindAt = iso;
-                _dirty = true;
-              }),
-            ),
-          ] else if (!_editing && note.thoughtType == ThoughtType.reminder && note.remindAt != null) ...[
-            const SizedBox(height: BrainSpacing.xs),
-            Row(
-              children: [
-                Icon(Icons.alarm_outlined, size: 13, color: BrainColors.tertiary),
-                const SizedBox(width: 4),
-                Text(
-                  _formatRemindAt(note.remindAt!),
-                  style: BrainTypography.labelSm.copyWith(color: BrainColors.tertiary),
-                ),
-              ],
-            ),
-          ],
+                  // Reminder Thought-Node (edit + view modes)
+                  if (_editing && _thoughtType == ThoughtType.reminder) ...[
+                    const SizedBox(height: BrainSpacing.sm),
+                    _ReminderNode(
+                      formatted:
+                          _remindAt != null ? _formatRemindAt(_remindAt!) : null,
+                      child: _RemindAtPicker(
+                        value: _remindAt,
+                        onChanged: (iso) => setState(() {
+                          _remindAt = iso;
+                          _dirty = true;
+                        }),
+                      ),
+                    ),
+                  ] else if (!_editing &&
+                      note.thoughtType == ThoughtType.reminder &&
+                      note.remindAt != null) ...[
+                    const SizedBox(height: BrainSpacing.sm),
+                    _ReminderNode(
+                      formatted: _formatRemindAt(note.remindAt!),
+                    ),
+                  ],
 
-          const SizedBox(height: BrainSpacing.lg),
+                  const SizedBox(height: BrainSpacing.lg),
 
-          // Content
-          if (_editing)
-            TextField(
-              controller: _contentCtrl,
-              style: BrainTypography.bodyMd
-                  .copyWith(color: BrainColors.onSurface, height: 1.55),
-              maxLines: null,
-              minLines: 8,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Start writing...',
-                isCollapsed: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            )
-          else
-            SelectableText(
-              _stripFrontmatter(note.content),
-              style: BrainTypography.bodyMd
-                  .copyWith(color: BrainColors.onSurface, height: 1.55),
-            ),
+                  // Content
+                  if (_editing)
+                    TextField(
+                      controller: _contentCtrl,
+                      style: BrainTypography.bodyMd
+                          .copyWith(color: BrainColors.onSurface, height: 1.55),
+                      maxLines: null,
+                      minLines: 8,
+                      decoration: InputDecoration(
+                        hintText: 'Schreib los...',
+                        filled: true,
+                        fillColor: BrainColors.surfaceLow,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: BrainSpacing.md,
+                            vertical: BrainSpacing.md),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BrainSpacing.radiusMd,
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BrainSpacing.radiusMd,
+                          borderSide: BorderSide(
+                            color:
+                                BrainColors.primary.withValues(alpha: 0.30),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    SelectableText(
+                      _stripFrontmatter(note.content),
+                      style: BrainTypography.bodyMd
+                          .copyWith(color: BrainColors.onSurface, height: 1.55),
+                    ),
 
           const SizedBox(height: BrainSpacing.xl),
 
@@ -526,23 +560,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 if (!_dirty) setState(() => _dirty = true);
               },
             ),
-          ] else if (note.wing != null && note.wing!.isNotEmpty) ...[
-            const SizedBox(height: BrainSpacing.sm),
-            Row(
-              children: [
-                Icon(Icons.folder_outlined,
-                    size: 14, color: BrainColors.outline),
-                const SizedBox(width: 4),
-                Text(
-                  note.wing!.split('-').map((w) {
-                    if (w.isEmpty) return w;
-                    return w[0].toUpperCase() + w.substring(1);
-                  }).join(' '),
-                  style: BrainTypography.labelSm
-                      .copyWith(color: BrainColors.outline),
-                ),
-              ],
-            ),
           ],
 
           // ── Connections section ────────────────────────────────────────
@@ -551,7 +568,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('CONNECTIONS', style: BrainTypography.labelSm),
+                Text('VERBINDUNGEN', style: BrainTypography.labelSm),
                 if (_connections.isNotEmpty && !_loadingConnections)
                   GestureDetector(
                     onTap: _findConnections,
@@ -611,6 +628,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     ),
                   )),
           ],
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     ));
@@ -892,22 +913,31 @@ class _ThoughtTypeSelector extends StatelessWidget {
     final icon = _icons[thoughtType] ?? Icons.edit_note_outlined;
     final color = _colors[thoughtType] ?? BrainColors.outline;
 
+    final isStandard = thoughtType == ThoughtType.standard;
+    final fillColor = isStandard
+        ? BrainColors.surfaceHigh
+        : color.withValues(alpha: 0.12);
+    final borderColor = isStandard
+        ? Colors.transparent
+        : BrainColors.outlineVariant.withValues(alpha: 0.10);
+    final fgColor = isStandard ? BrainColors.onSurfaceVariant : color;
+
     final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: fillColor,
         borderRadius: BrainSpacing.radiusFull,
-        border: Border.all(color: color.withValues(alpha: 0.30), width: 0.5),
+        border: Border.all(color: borderColor, width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: BrainTypography.labelSm.copyWith(color: color)),
+          Icon(icon, size: 16, color: fgColor),
+          const SizedBox(width: 6),
+          Text(label, style: BrainTypography.labelSm.copyWith(color: fgColor)),
           if (editable) ...[
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down_rounded, size: 14, color: color),
+            Icon(Icons.arrow_drop_down_rounded, size: 14, color: fgColor),
           ],
         ],
       ),
@@ -944,12 +974,6 @@ class _RemindAtPicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   const _RemindAtPicker({required this.value, required this.onChanged});
-
-  String _format(String iso) {
-    final dt = DateTime.tryParse(iso)?.toLocal();
-    if (dt == null) return iso;
-    return '${dt.day}.${dt.month}.${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
 
   Future<void> _pick(BuildContext context) async {
     final now = DateTime.now();
@@ -996,28 +1020,111 @@ class _RemindAtPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _pick(context),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: BrainColors.tertiary.withValues(alpha: 0.08),
-          borderRadius: BrainSpacing.radiusMd,
-          border: Border.all(
-              color: BrainColors.tertiary.withValues(alpha: 0.25), width: 0.5),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: InkWell(
+        onTap: () => _pick(context),
+        borderRadius: BrainSpacing.radiusFull,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.edit_calendar_outlined,
+                  size: 14, color: BrainColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                value != null ? 'Datum ändern' : 'Datum & Uhrzeit wählen',
+                style: BrainTypography.labelSm
+                    .copyWith(color: BrainColors.primary),
+              ),
+            ],
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.alarm_outlined, size: 14, color: BrainColors.tertiary),
-            const SizedBox(width: 6),
-            Text(
-              value != null ? _format(value!) : 'Datum & Uhrzeit wählen',
-              style: BrainTypography.bodySm
-                  .copyWith(color: BrainColors.tertiary),
-            ),
+      ),
+    );
+  }
+}
+
+// ── Wing Chip (view-only) ─────────────────────────────────────────────────────
+
+class _WingChip extends StatelessWidget {
+  final String wing;
+  const _WingChip({required this.wing});
+
+  @override
+  Widget build(BuildContext context) {
+    final display = wing.split('-').map((w) {
+      if (w.isEmpty) return w;
+      return w[0].toUpperCase() + w.substring(1);
+    }).join(' ');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: BrainColors.primary.withValues(alpha: 0.10),
+        borderRadius: BrainSpacing.radiusFull,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.folder_outlined, size: 14, color: BrainColors.primary),
+          const SizedBox(width: 4),
+          Text(display, style: BrainTypography.tag),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Reminder Thought-Node ─────────────────────────────────────────────────────
+
+class _ReminderNode extends StatelessWidget {
+  final String? formatted;
+  final Widget? child;
+
+  const _ReminderNode({this.formatted, this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(BrainSpacing.md),
+      decoration: BoxDecoration(
+        color: BrainColors.surfaceLow,
+        borderRadius: BrainSpacing.radiusMd,
+        border: Border.all(
+          color: BrainColors.outlineVariant.withValues(alpha: 0.10),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.alarm_outlined,
+                  size: 14, color: BrainColors.tertiary),
+              const SizedBox(width: 6),
+              Text(
+                'ERINNERUNG',
+                style: BrainTypography.labelSm.copyWith(
+                  color: BrainColors.onSurfaceVariant,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: BrainSpacing.xs),
+          Text(
+            formatted ?? '— noch kein Zeitpunkt —',
+            style: BrainTypography.labelMd
+                .copyWith(color: BrainColors.onSurface),
+          ),
+          if (child != null) ...[
+            const SizedBox(height: BrainSpacing.xs),
+            child!,
           ],
-        ),
+        ],
       ),
     );
   }

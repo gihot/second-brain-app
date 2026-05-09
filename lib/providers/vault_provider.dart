@@ -24,7 +24,7 @@ class VaultProvider extends ChangeNotifier {
   List<Note> get dueReminders => _notes.where((n) =>
       n.thoughtType == ThoughtType.reminder &&
       n.remindAt != null &&
-      (DateTime.tryParse(n.remindAt!)?.isBefore(DateTime.now()) ?? false)).toList();
+      (DateTime.tryParse(n.remindAt!)?.isAfter(DateTime.now()) ?? false)).toList();
 
   /// PARA distribution for the stats chart.
   /// PARA distribution — excludes Inbox (not a real PARA category;

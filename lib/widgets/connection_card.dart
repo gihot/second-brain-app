@@ -36,15 +36,23 @@ class ConnectionCard extends StatelessWidget {
         borderRadius: BrainSpacing.radiusMd,
         onTap: onTap,
         child: Container(
-          padding: BrainSpacing.paddingCard,
           decoration: BoxDecoration(
             color: BrainColors.surfaceLow,
             borderRadius: BrainSpacing.radiusMd,
-            border: Border(
-              left: BorderSide(color: _typeColor, width: 3),
-            ),
           ),
-          child: Column(
+          child: ClipRRect(
+            borderRadius: BrainSpacing.radiusMd,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(width: 3, color: _typeColor),
+                ),
+                Padding(
+                  padding: BrainSpacing.paddingCard,
+                  child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -83,6 +91,10 @@ class ConnectionCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+          ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

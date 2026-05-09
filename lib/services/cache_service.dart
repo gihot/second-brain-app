@@ -82,6 +82,11 @@ class CacheService {
           ..sort((a, b) => b.modified.compareTo(a.modified));
   }
 
+  Future<void> clearAllNotes() async {
+    if (!_initialized) return;
+    await _notes.clear();
+  }
+
   // ── Offline Capture Queue ──────────────────
 
   List<OfflineCapture> getPendingCaptures() =>

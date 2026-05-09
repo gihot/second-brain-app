@@ -186,24 +186,27 @@ class _InboxCard extends StatelessWidget {
             ),
           ),
           child: Container(
-            padding: BrainSpacing.paddingCard,
             decoration: BoxDecoration(
               color: BrainColors.surfaceLow,
               borderRadius: BrainSpacing.radiusMd,
-              border: Border(
-                left: BorderSide(color: hallColor(note.hall), width: 3),
-                top: BorderSide(
-                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                    width: 0.5),
-                right: BorderSide(
-                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                    width: 0.5),
-                bottom: BorderSide(
-                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                    width: 0.5),
+              border: Border.all(
+                color: BrainColors.outlineVariant.withValues(alpha: 0.15),
+                width: 0.5,
               ),
             ),
-            child: Column(
+            child: ClipRRect(
+              borderRadius: BrainSpacing.radiusMd,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 3, color: hallColor(note.hall)),
+                  ),
+                  Padding(
+                    padding: BrainSpacing.paddingCard,
+                    child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -225,6 +228,10 @@ class _InboxCard extends StatelessWidget {
                 Text('Erfasst ${note.relativeTime}',
                     style: BrainTypography.labelSm),
               ],
+            ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

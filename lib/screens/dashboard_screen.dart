@@ -50,13 +50,13 @@ class DashboardScreen extends StatelessWidget {
               ),
               BrainStatCard(
                 value: '${vault.status.connectedCount}',
-                label: 'Connected',
+                label: 'Verknüpft',
                 icon: Icons.hub_outlined,
                 accentColor: BrainColors.secondary,
               ),
               BrainStatCard(
                 value: vault.status.lastSyncText,
-                label: 'Last Sync',
+                label: 'Letzter Sync',
                 icon: Icons.sync_outlined,
                 accentColor: BrainColors.outline,
               ),
@@ -86,7 +86,7 @@ class DashboardScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('TOPICS', style: BrainTypography.labelSm),
+                  Text('THEMEN', style: BrainTypography.labelSm),
                   const SizedBox(height: BrainSpacing.sm),
                   TagCloud(
                     frequencies: vault.tagFrequencies,

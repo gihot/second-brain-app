@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import '../providers/vault_provider.dart';
 import '../services/api_service.dart';
+import '../services/cache_service.dart';
 import '../services/notification_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
@@ -114,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               BrainSpacing.screenPadding,
               BrainSpacing.lg,
             ),
-            child: Text('Settings', style: BrainTypography.displayMd),
+            child: Text('Einstellungen', style: BrainTypography.displayMd),
           ),
         ),
 
@@ -147,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _SettingsTile(
                     icon: Icons.sync_outlined,
-                    label: 'Last Sync',
+                    label: 'Letzter Sync',
                     value: vault.status.lastSyncText,
                     onTap: () async {
                       await vault.refresh();
@@ -200,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   _SettingsTile(
                     icon: Icons.hub_outlined,
-                    label: 'Connected',
+                    label: 'Verknüpft',
                     value: '${vault.status.connectedCount}',
                   ),
                 ],
@@ -268,7 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // ── About ───────────────────────────────────────────────
               _SettingsSection(
-                title: 'ABOUT',
+                title: 'ÜBER',
                 items: [
                   _SettingsTile(
                     icon: Icons.info_outlined,
@@ -355,9 +356,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text('Abbrechen', style: BrainTypography.button.copyWith(color: BrainColors.outline)),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              // TODO: implement cache clear
+              await CacheService.instance.clearAllNotes();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cache geleert'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             child: Text('Leeren', style: BrainTypography.button.copyWith(color: BrainColors.error)),
           ),

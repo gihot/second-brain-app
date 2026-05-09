@@ -244,7 +244,7 @@ class _GreetingFallback extends StatelessWidget {
           Row(
             children: [
               Text(
-                'SYSTEM STATUS: ACTIVE',
+                'SYSTEM AKTIV',
                 style: BrainTypography.labelSm
                     .copyWith(color: BrainColors.secondary),
               ),

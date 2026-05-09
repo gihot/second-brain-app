@@ -43,48 +43,38 @@ class _BrainCardState extends State<BrainCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOutCubic,
-          padding: widget.padding,
           decoration: BoxDecoration(
             color: _hovered && widget.onTap != null
                 ? BrainColors.surfaceHigh
                 : bgColor,
             borderRadius: BrainSpacing.radiusMd,
-            border: widget.leftBorderColor != null
-                ? Border(
-                    left: BorderSide(
-                        color: widget.leftBorderColor!, width: 3),
-                    top: BorderSide(
-                        color: widget.showBorder
-                            ? (_hovered
-                                ? BrainColors.primary.withValues(alpha: 0.30)
-                                : BrainColors.outlineVariant.withValues(alpha: 0.15))
-                            : Colors.transparent,
-                        width: widget.showBorder ? 1 : 0),
-                    right: BorderSide(
-                        color: widget.showBorder
-                            ? (_hovered
-                                ? BrainColors.primary.withValues(alpha: 0.30)
-                                : BrainColors.outlineVariant.withValues(alpha: 0.15))
-                            : Colors.transparent,
-                        width: widget.showBorder ? 1 : 0),
-                    bottom: BorderSide(
-                        color: widget.showBorder
-                            ? (_hovered
-                                ? BrainColors.primary.withValues(alpha: 0.30)
-                                : BrainColors.outlineVariant.withValues(alpha: 0.15))
-                            : Colors.transparent,
-                        width: widget.showBorder ? 1 : 0),
+            border: widget.showBorder
+                ? Border.all(
+                    color: _hovered
+                        ? BrainColors.primary.withValues(alpha: 0.30)
+                        : BrainColors.outlineVariant.withValues(alpha: 0.15),
+                    width: 1,
                   )
-                : widget.showBorder
-                    ? Border.all(
-                        color: _hovered
-                            ? BrainColors.primary.withValues(alpha: 0.30)
-                            : BrainColors.outlineVariant.withValues(alpha: 0.15),
-                        width: 1,
-                      )
-                    : null,
+                : null,
           ),
-          child: widget.child,
+          child: ClipRRect(
+            borderRadius: BrainSpacing.radiusMd,
+            child: Stack(
+              children: [
+                if (widget.leftBorderColor != null)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 3,
+                      color: widget.leftBorderColor,
+                    ),
+                  ),
+                Padding(padding: widget.padding, child: widget.child),
+              ],
+            ),
+          ),
         ),
       ),
     );
