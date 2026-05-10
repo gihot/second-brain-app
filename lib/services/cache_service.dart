@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/note_model.dart';
 import '../models/offline_capture_model.dart';
@@ -232,6 +233,25 @@ class CacheService {
   void setNotificationsEnabled(bool value) {
     if (!_initialized) return;
     _meta.put('notifications_enabled', value);
+  }
+
+  // ── Background Image ─────────────────────────────────────────────────────
+
+  Uint8List? getBackgroundImage() {
+    if (!_initialized) return null;
+    final raw = _meta.get('background_image_bytes');
+    if (raw is Uint8List) return raw;
+    if (raw is List) return Uint8List.fromList(List<int>.from(raw));
+    return null;
+  }
+
+  Future<void> setBackgroundImage(Uint8List? bytes) async {
+    if (!_initialized) return;
+    if (bytes == null) {
+      await _meta.delete('background_image_bytes');
+    } else {
+      await _meta.put('background_image_bytes', bytes);
+    }
   }
 
   // ── Discovery Insight Dismiss ────────────────────────────────────────────

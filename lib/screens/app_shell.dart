@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/background_provider.dart';
 import '../providers/vault_provider.dart';
 import '../theme/brain_spacing.dart';
 import '../widgets/brain_bottom_nav.dart';
@@ -48,8 +49,28 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF111319),
+    final bgBytes = context.watch<BackgroundProvider>().bytes;
+    final hasBg = bgBytes != null;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (hasBg) ...[
+          // Background image (covers full screen, behind everything)
+          Positioned.fill(
+            child: Image.memory(
+              bgBytes,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+            ),
+          ),
+          // 60% dark overlay so cards/text stay readable
+          Positioned.fill(
+            child: Container(color: Colors.black.withValues(alpha: 0.60)),
+          ),
+        ],
+        Scaffold(
+      backgroundColor: hasBg ? Colors.transparent : const Color(0xFF111319),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isWide =
@@ -78,6 +99,8 @@ class _AppShellState extends State<AppShell> {
         onTap: (i) => setState(() => _currentIndex = i),
         inboxCount: context.watch<VaultProvider>().status.inboxCount,
       ),
+    ),
+      ],
     );
   }
 }

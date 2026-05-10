@@ -7,6 +7,7 @@ import 'providers/capture_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/discovery_provider.dart';
+import 'providers/background_provider.dart';
 import 'services/notification_service.dart';
 
 void main() {
@@ -37,6 +38,9 @@ class SecondBrainApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(
           create: (_) => DiscoveryProvider()..init(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => BackgroundProvider()..init(),
         ),
       ],
       child: MaterialApp(
