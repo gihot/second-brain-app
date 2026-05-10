@@ -234,6 +234,60 @@ class CacheService {
     _meta.put('notifications_enabled', value);
   }
 
+  // ── Discovery Insight Dismiss ────────────────────────────────────────────
+  // Map<insightKey, dismissedAtIsoString>. TTL: 24h.
+
+  static const _insightDismissKey = 'insight_dismissed_v1';
+  static const Duration _insightDismissTtl = Duration(hours: 24);
+
+  Map<String, String> _readInsightDismissMap() {
+    if (!_initialized) return {};
+    final raw = _meta.get(_insightDismissKey);
+    if (raw == null) return {};
+    try {
+      return Map<String, String>.from(
+          jsonDecode(raw as String) as Map);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _writeInsightDismissMap(Map<String, String> map) async {
+    await _meta.put(_insightDismissKey, jsonEncode(map));
+  }
+
+  /// Returns true if [key] was dismissed within the TTL window.
+  /// Side-effect: prunes expired entries.
+  bool isInsightDismissed(String key) {
+    if (!_initialized) return false;
+    final map = _readInsightDismissMap();
+    final iso = map[key];
+    if (iso == null) return false;
+    final dismissedAt = DateTime.tryParse(iso);
+    if (dismissedAt == null) return false;
+    if (DateTime.now().difference(dismissedAt) >= _insightDismissTtl) {
+      // Expired — clean up lazily.
+      map.remove(key);
+      _writeInsightDismissMap(map);
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> markInsightDismissed(String key) async {
+    if (!_initialized) return;
+    final map = _readInsightDismissMap();
+    // Prune any expired entries while we're here.
+    final now = DateTime.now();
+    map.removeWhere((_, iso) {
+      final dt = DateTime.tryParse(iso);
+      return dt == null ||
+          now.difference(dt) >= _insightDismissTtl;
+    });
+    map[key] = now.toIso8601String();
+    await _writeInsightDismissMap(map);
+  }
+
   List<String> getNotifiedReminderIds() {
     if (!_initialized) return [];
     final raw = _meta.get('notified_reminder_ids');

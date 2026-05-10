@@ -709,6 +709,31 @@ class _HallSelector extends StatelessWidget {
     final color = hallColor(hall);
     final label = hallLabel(hall);
 
+    // View-mode: a thin colored stripe + neutral label — recedes into the
+    // background, matches the card-list vocabulary (3px stripe = hall).
+    if (!editable) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 3,
+            height: 14,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: BrainTypography.labelSm
+                .copyWith(color: BrainColors.onSurfaceVariant),
+          ),
+        ],
+      );
+    }
+
+    // Edit-mode: keep the affordance — tinted badge with chevron.
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -721,15 +746,11 @@ class _HallSelector extends StatelessWidget {
         children: [
           Text(label,
               style: BrainTypography.labelSm.copyWith(color: color)),
-          if (editable) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down_rounded, size: 16, color: color),
-          ],
+          const SizedBox(width: 4),
+          Icon(Icons.arrow_drop_down_rounded, size: 16, color: color),
         ],
       ),
     );
-
-    if (!editable) return badge;
 
     return PopupMenuButton<MemoryHall>(
       color: BrainColors.surfaceHigh,

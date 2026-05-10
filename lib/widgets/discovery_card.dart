@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/note_model.dart';
 import '../providers/vault_provider.dart';
 import '../providers/discovery_provider.dart';
+import '../services/cache_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
@@ -16,8 +17,17 @@ import '../screens/note_detail_screen.dart';
 ///   3. Verwandter Gedanke (letzter Capture, lokal)
 ///   4. Muster-Beobachtung (häufigster Tag, lokal)
 ///   5. Fallback: Greeting
-class DiscoveryCard extends StatelessWidget {
+class DiscoveryCard extends StatefulWidget {
   const DiscoveryCard({super.key});
+
+  @override
+  State<DiscoveryCard> createState() => _DiscoveryCardState();
+}
+
+class _DiscoveryCardState extends State<DiscoveryCard> {
+  // Local mirror of dismissed keys so a dismiss in this session takes effect
+  // immediately without waiting for Hive read-after-write.
+  final Set<String> _localDismissed = {};
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -27,6 +37,17 @@ class DiscoveryCard extends StatelessWidget {
     return 'Guten Abend';
   }
 
+  bool _isDismissed(String key) =>
+      _localDismissed.contains(key) ||
+      CacheService.instance.isInsightDismissed(key);
+
+  void _dismiss(String key) {
+    CacheService.instance.markInsightDismissed(key);
+    setState(() {
+      _localDismissed.add(key);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final vault = context.watch<VaultProvider>();
@@ -34,31 +55,60 @@ class DiscoveryCard extends StatelessWidget {
 
     // 1. Fällige Erinnerung
     if (vault.dueReminders.isNotEmpty) {
-      return _ReminderInsight(note: vault.dueReminders.first);
+      final note = vault.dueReminders.first;
+      final key = 'reminder:${note.id}';
+      if (!_isDismissed(key)) {
+        return _ReminderInsight(
+          note: note,
+          onDismiss: () => _dismiss(key),
+        );
+      }
     }
 
     // 2. Verbindungs-Entdeckung (Server)
     if (discovery.hasConnection) {
       final conn = discovery.connection!;
-      return _ConnectionInsight(
-        noteATitle: conn['note_a_title'] as String? ?? '',
-        noteBTitle: conn['note_b_title'] as String? ?? '',
-        explanation: conn['explanation'] as String? ?? '',
-      );
+      final a = conn['note_a_title'] as String? ?? '';
+      final b = conn['note_b_title'] as String? ?? '';
+      final key = 'connection:$a::$b';
+      if (!_isDismissed(key)) {
+        return _ConnectionInsight(
+          noteATitle: a,
+          noteBTitle: b,
+          explanation: conn['explanation'] as String? ?? '',
+          onDismiss: () => _dismiss(key),
+        );
+      }
     }
 
     // 3. Verwandter Gedanke (letzter Capture)
     if (vault.recentNotes.isNotEmpty) {
-      return _RelatedInsight(note: vault.recentNotes.first, context: context);
+      final note = vault.recentNotes.first;
+      final key = 'related:${note.id}';
+      if (!_isDismissed(key)) {
+        return _RelatedInsight(
+          note: note,
+          context: context,
+          onDismiss: () => _dismiss(key),
+        );
+      }
     }
 
     // 4. Muster-Beobachtung (häufigster Tag)
     if (vault.tagFrequencies.isNotEmpty) {
       final topTag = vault.tagFrequencies.first.key;
-      return _PatternInsight(topic: topTag);
+      // Day-stamped key so a new day's pattern shows again.
+      final dayStamp = DateTime.now().toIso8601String().substring(0, 10);
+      final key = 'pattern:$dayStamp:$topTag';
+      if (!_isDismissed(key)) {
+        return _PatternInsight(
+          topic: topTag,
+          onDismiss: () => _dismiss(key),
+        );
+      }
     }
 
-    // 5. Fallback: klassischer Greeting + Loading-Indikator
+    // 5. Fallback: klassischer Greeting + Loading-Indikator (nicht dismissable)
     return _GreetingFallback(
       greeting: _greeting,
       loading: discovery.loading,
@@ -70,7 +120,8 @@ class DiscoveryCard extends StatelessWidget {
 
 class _ReminderInsight extends StatelessWidget {
   final Note note;
-  const _ReminderInsight({required this.note});
+  final VoidCallback? onDismiss;
+  const _ReminderInsight({required this.note, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +131,7 @@ class _ReminderInsight extends StatelessWidget {
       icon: Icons.alarm_rounded,
       iconColor: BrainColors.tertiary,
       borderColor: BrainColors.tertiary,
+      onDismiss: onDismiss,
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => NoteDetailScreen(noteId: note.id)),
@@ -99,11 +151,13 @@ class _ConnectionInsight extends StatelessWidget {
   final String noteATitle;
   final String noteBTitle;
   final String explanation;
+  final VoidCallback? onDismiss;
 
   const _ConnectionInsight({
     required this.noteATitle,
     required this.noteBTitle,
     required this.explanation,
+    this.onDismiss,
   });
 
   @override
@@ -114,6 +168,7 @@ class _ConnectionInsight extends StatelessWidget {
       icon: Icons.hub_outlined,
       iconColor: BrainColors.secondary,
       borderColor: BrainColors.secondary,
+      onDismiss: onDismiss,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -164,7 +219,12 @@ class _ConnectionInsight extends StatelessWidget {
 class _RelatedInsight extends StatelessWidget {
   final Note note;
   final BuildContext context;
-  const _RelatedInsight({required this.note, required this.context});
+  final VoidCallback? onDismiss;
+  const _RelatedInsight({
+    required this.note,
+    required this.context,
+    this.onDismiss,
+  });
 
   @override
   Widget build(BuildContext ctx) {
@@ -174,6 +234,7 @@ class _RelatedInsight extends StatelessWidget {
       icon: Icons.psychology_outlined,
       iconColor: BrainColors.primary,
       borderColor: BrainColors.primary,
+      onDismiss: onDismiss,
       onTap: () => Navigator.push(
         ctx,
         MaterialPageRoute(builder: (_) => NoteDetailScreen(noteId: note.id)),
@@ -205,7 +266,8 @@ class _RelatedInsight extends StatelessWidget {
 
 class _PatternInsight extends StatelessWidget {
   final String topic;
-  const _PatternInsight({required this.topic});
+  final VoidCallback? onDismiss;
+  const _PatternInsight({required this.topic, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +277,7 @@ class _PatternInsight extends StatelessWidget {
       icon: Icons.trending_up_rounded,
       iconColor: BrainColors.outline,
       borderColor: BrainColors.outline,
+      onDismiss: onDismiss,
       child: Text(
         'Du schreibst oft über #$topic',
         style: BrainTypography.headlineSm
@@ -279,6 +342,7 @@ class _InsightShell extends StatelessWidget {
   final Color borderColor;
   final Widget child;
   final VoidCallback? onTap;
+  final VoidCallback? onDismiss;
 
   const _InsightShell({
     required this.label,
@@ -288,6 +352,7 @@ class _InsightShell extends StatelessWidget {
     required this.borderColor,
     required this.child,
     this.onTap,
+    this.onDismiss,
   });
 
   @override
@@ -321,10 +386,21 @@ class _InsightShell extends StatelessWidget {
                   Text(label,
                       style: BrainTypography.labelSm
                           .copyWith(color: labelColor)),
-                  if (onTap != null) ...[
-                    const Spacer(),
+                  const Spacer(),
+                  if (onTap != null)
                     Icon(Icons.arrow_forward_ios_rounded,
                         size: 11, color: labelColor),
+                  if (onDismiss != null) ...[
+                    if (onTap != null) const SizedBox(width: BrainSpacing.sm),
+                    InkWell(
+                      onTap: onDismiss,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(Icons.close_rounded,
+                            size: 14, color: BrainColors.outline),
+                      ),
+                    ),
                   ],
                 ],
               ),

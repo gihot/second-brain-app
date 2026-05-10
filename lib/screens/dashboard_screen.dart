@@ -15,8 +15,97 @@ import 'search_screen.dart';
 import 'wing_screen.dart';
 import '../widgets/discovery_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _tagsExpanded = false;
+
+  void _showRemindersSheet(List<Note> reminders) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: BrainColors.surfaceLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(BrainSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: BrainColors.outlineVariant.withValues(alpha: 0.30),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: BrainSpacing.md),
+              Text('Fällige Erinnerungen',
+                  style: BrainTypography.headlineSm),
+              const SizedBox(height: BrainSpacing.sm),
+              ...reminders.map((note) => Padding(
+                    padding: const EdgeInsets.only(bottom: BrainSpacing.sm),
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                NoteDetailScreen(noteId: note.id),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: BrainSpacing.paddingCard,
+                        decoration: BoxDecoration(
+                          color: BrainColors.tertiary.withValues(alpha: 0.08),
+                          borderRadius: BrainSpacing.radiusMd,
+                          border: Border.all(
+                            color:
+                                BrainColors.tertiary.withValues(alpha: 0.25),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.alarm_rounded,
+                                size: 16, color: BrainColors.tertiary),
+                            const SizedBox(width: BrainSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                note.title,
+                                style: BrainTypography.bodyMd.copyWith(
+                                  color: BrainColors.onSurface,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 12, color: BrainColors.tertiary),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +179,9 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: BrainSpacing.sm),
                   TagCloud(
                     frequencies: vault.tagFrequencies,
+                    maxItems: 10,
+                    showAll: _tagsExpanded,
+                    onShowAll: () => setState(() => _tagsExpanded = true),
                     onTagTap: (tag) => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -223,59 +315,42 @@ class DashboardScreen extends StatelessWidget {
           ),
         ),
 
-        // Due Reminders banner
+        // Due Reminders banner — kompakt, einzeilig, oeffnet Sheet mit Liste
         if (vault.dueReminders.isNotEmpty)
           SliverPadding(
-            padding: BrainSpacing.paddingScreen,
+            padding: const EdgeInsets.fromLTRB(
+              BrainSpacing.screenPadding,
+              0,
+              BrainSpacing.screenPadding,
+              BrainSpacing.md,
+            ),
             sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('FÄLLIG', style: BrainTypography.labelSm.copyWith(
-                      color: BrainColors.tertiary)),
-                  const SizedBox(height: BrainSpacing.sm),
-                  ...vault.dueReminders.map((note) => Padding(
-                    padding: const EdgeInsets.only(bottom: BrainSpacing.cardGap),
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => NoteDetailScreen(noteId: note.id),
-                        ),
+              child: GestureDetector(
+                onTap: () => _showRemindersSheet(vault.dueReminders),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: BrainSpacing.md, vertical: BrainSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: BrainColors.surfaceLow,
+                    borderRadius: BrainSpacing.radiusMd,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.alarm_outlined,
+                          size: 16, color: BrainColors.tertiary),
+                      const SizedBox(width: BrainSpacing.sm),
+                      Text(
+                        '${vault.dueReminders.length} fällige '
+                        '${vault.dueReminders.length == 1 ? "Erinnerung" : "Erinnerungen"}',
+                        style: BrainTypography.labelMd
+                            .copyWith(color: BrainColors.onSurface),
                       ),
-                      child: Container(
-                        padding: BrainSpacing.paddingCard,
-                        decoration: BoxDecoration(
-                          color: BrainColors.tertiary.withValues(alpha: 0.08),
-                          borderRadius: BrainSpacing.radiusMd,
-                          border: Border.all(
-                            color: BrainColors.tertiary.withValues(alpha: 0.25),
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.alarm_rounded,
-                                size: 16, color: BrainColors.tertiary),
-                            const SizedBox(width: BrainSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                note.title,
-                                style: BrainTypography.bodyMd.copyWith(
-                                    color: BrainColors.onSurface,
-                                    fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Icon(Icons.arrow_forward_ios_rounded,
-                                size: 12, color: BrainColors.tertiary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )),
-                ],
+                      const Spacer(),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 12, color: BrainColors.onSurfaceVariant),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -334,7 +409,9 @@ class DashboardScreen extends StatelessWidget {
           SliverPadding(
             padding: BrainSpacing.paddingScreen,
             sliver: SliverList.separated(
-              itemCount: vault.recentNotes.length,
+              itemCount: vault.recentNotes.length > 5
+                  ? 5
+                  : vault.recentNotes.length,
               separatorBuilder: (_, _x) =>
                   const SizedBox(height: BrainSpacing.cardGap),
               itemBuilder: (context, i) {

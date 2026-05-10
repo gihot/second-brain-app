@@ -8,16 +8,27 @@ import '../theme/brain_typography.dart';
 class TagCloud extends StatelessWidget {
   final List<MapEntry<String, int>> frequencies;
   final ValueChanged<String> onTagTap;
+  final int maxItems;
+  final bool showAll;
+  final VoidCallback? onShowAll;
 
   const TagCloud({
     super.key,
     required this.frequencies,
     required this.onTagTap,
+    this.maxItems = 10,
+    this.showAll = false,
+    this.onShowAll,
   });
 
   @override
   Widget build(BuildContext context) {
     if (frequencies.isEmpty) return const SizedBox.shrink();
+
+    final visible = showAll || frequencies.length <= maxItems
+        ? frequencies
+        : frequencies.take(maxItems).toList();
+    final hidden = frequencies.length - visible.length;
 
     final maxCount = frequencies.first.value.toDouble();
     final minCount = frequencies.last.value.toDouble();
@@ -27,7 +38,8 @@ class TagCloud extends StatelessWidget {
     return Wrap(
       spacing: BrainSpacing.sm,
       runSpacing: BrainSpacing.sm,
-      children: frequencies.map((e) {
+      children: [
+        ...visible.map((e) {
         final ratio = maxCount == minCount
             ? 0.5
             : (e.value - minCount) / (maxCount - minCount);
@@ -53,7 +65,26 @@ class TagCloud extends StatelessWidget {
             ),
           ),
         );
-      }).toList(),
+        }),
+        if (hidden > 0 && !showAll && onShowAll != null)
+          GestureDetector(
+            onTap: onShowAll,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: BrainColors.surfaceHigh,
+                borderRadius: BrainSpacing.radiusFull,
+              ),
+              child: Text(
+                '+$hidden mehr',
+                style: BrainTypography.tag.copyWith(
+                  color: BrainColors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
