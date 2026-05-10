@@ -1,11 +1,15 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
+import '../models/offline_capture_model.dart';
 import '../providers/background_provider.dart';
+import '../providers/capture_provider.dart';
 import '../providers/vault_provider.dart';
 import '../services/api_service.dart';
 import '../services/cache_service.dart';
 import '../services/notification_service.dart';
+import '../services/vault_import_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
@@ -213,6 +217,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'Verknüpft',
                     value: '${vault.status.connectedCount}',
                   ),
+                  _SettingsTile(
+                    icon: Icons.upload_file_outlined,
+                    label: 'Aus Vault importieren',
+                    value: '',
+                    onTap: () => _importFromVault(context),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.cloud_off_outlined,
+                    label: 'Offline-Captures',
+                    value:
+                        '${CacheService.instance.getPendingCaptures().length}',
+                    onTap: () => _showOfflineQueueSheet(context),
+                  ),
                 ],
               ),
 
@@ -349,37 +366,117 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _importFromVault(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['md'],
+      allowMultiple: true,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final files = result.files
+        .where((f) => f.bytes != null)
+        .map((f) => (filename: f.name, bytes: f.bytes!))
+        .toList();
+
+    final report = await VaultImportService.instance.importFiles(files);
+    if (!mounted) return;
+
+    // Trigger UI refresh — the imported notes are now in Hive but the
+    // VaultProvider's in-memory list hasn't been rebuilt yet.
+    context.read<VaultProvider>().reloadFromCache();
+
+    final msg = report.failed.isEmpty
+        ? '${report.written} Gedanken importiert'
+        : '${report.written} importiert, ${report.failed.length} '
+            'übersprungen (kein gültiges Frontmatter)';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+    );
+  }
+
+  void _showOfflineQueueSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: BrainColors.surfaceLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (sheetCtx) => _OfflineQueueSheet(
+        onAdopt: (capture) async {
+          // Treat the queued raw text like a fresh capture: create an inbox
+          // note locally without server round-trip.
+          await context
+              .read<CaptureProvider>()
+              .saveCaptureLocallyAsNote(capture);
+          await CacheService.instance.markCaptureSynced(capture.id);
+          await CacheService.instance.clearSyncedCaptures();
+        },
+        onDiscard: (capture) async {
+          await CacheService.instance.markCaptureSynced(capture.id);
+          await CacheService.instance.clearSyncedCaptures();
+        },
+      ),
+    );
+  }
+
   void _confirmClearCache(BuildContext context) {
+    final unsynced = CacheService.instance.unsyncedCount;
+
+    // Block clear entirely if there are unsynced items — would orphan data.
+    if (unsynced > 0) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: BrainColors.surfaceLow,
+          title: Text('Cache enthält ungesyncte Daten',
+              style: BrainTypography.titleMd),
+          content: Text(
+            'Es liegen $unsynced Eintrag/-träge in der Sync-Queue, die '
+            'noch nicht beim Server angekommen sind. Cache-Leeren ist '
+            'gerade blockiert, damit nichts verlorengeht.\n\n'
+            'Schau unter „Offline-Captures" / „Pending Writes" nach und '
+            'übernimm oder verwirf die Einträge zuerst.',
+            style: BrainTypography.bodyMd,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Verstanden',
+                  style: BrainTypography.button
+                      .copyWith(color: BrainColors.primary)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: BrainColors.surfaceLow,
-        title: Text('Cache leeren?', style: BrainTypography.titleMd),
-        content: Text(
-          'Dies löscht alle lokal gecachten Gedanken. Gedanken in deinem Git-Vault bleiben unberührt.',
-          style: BrainTypography.bodyMd,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Abbrechen', style: BrainTypography.button.copyWith(color: BrainColors.outline)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await CacheService.instance.clearAllNotes();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cache geleert'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
-            child: Text('Leeren', style: BrainTypography.button.copyWith(color: BrainColors.error)),
-          ),
-        ],
+      builder: (_) => _ClearCacheDialog(
+        onConfirmed: () async {
+          try {
+            await CacheService.instance.dangerouslyClearAllNotes();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cache geleert'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } on StateError catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(e.message),
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
       ),
     );
   }
@@ -739,3 +836,246 @@ class _BackgroundImageTile extends StatelessWidget {
     );
   }
 }
+
+/// Type-to-confirm dialog for cache clear. Disables the destructive button
+/// until the user types "LÖSCHEN" exactly.
+class _ClearCacheDialog extends StatefulWidget {
+  final Future<void> Function() onConfirmed;
+  const _ClearCacheDialog({required this.onConfirmed});
+
+  @override
+  State<_ClearCacheDialog> createState() => _ClearCacheDialogState();
+}
+
+class _ClearCacheDialogState extends State<_ClearCacheDialog> {
+  static const _expected = 'LÖSCHEN';
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canConfirm = _ctrl.text.trim() == _expected;
+
+    return AlertDialog(
+      backgroundColor: BrainColors.surfaceLow,
+      title: Text('Cache leeren?', style: BrainTypography.titleMd),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Es gibt noch kein automatisches Backup. Wenn du jetzt löschst, '
+            'sind die Notes nur noch im Server-Vault wiederherstellbar — '
+            'falls der Server gerade läuft.',
+            style: BrainTypography.bodyMd,
+          ),
+          const SizedBox(height: BrainSpacing.md),
+          Text(
+            'Tippe „$_expected" zur Bestätigung:',
+            style: BrainTypography.labelSm,
+          ),
+          const SizedBox(height: BrainSpacing.xs),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: BrainColors.surfaceHigh,
+              hintText: _expected,
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BrainSpacing.radiusSm,
+                borderSide: BorderSide.none,
+              ),
+            ),
+            style: BrainTypography.bodyMd,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Abbrechen',
+              style: BrainTypography.button
+                  .copyWith(color: BrainColors.outline)),
+        ),
+        TextButton(
+          onPressed: canConfirm
+              ? () async {
+                  Navigator.pop(context);
+                  await widget.onConfirmed();
+                }
+              : null,
+          child: Text(
+            'Endgültig löschen',
+            style: BrainTypography.button.copyWith(
+              color: canConfirm
+                  ? BrainColors.error
+                  : BrainColors.outline.withValues(alpha: 0.4),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// BottomSheet that lists all unsynced captures and lets the user adopt
+/// or discard each one. "Adopt" promotes the raw text to an inbox note;
+/// "discard" removes the queue entry.
+class _OfflineQueueSheet extends StatefulWidget {
+  final Future<void> Function(OfflineCapture) onAdopt;
+  final Future<void> Function(OfflineCapture) onDiscard;
+
+  const _OfflineQueueSheet({required this.onAdopt, required this.onDiscard});
+
+  @override
+  State<_OfflineQueueSheet> createState() => _OfflineQueueSheetState();
+}
+
+class _OfflineQueueSheetState extends State<_OfflineQueueSheet> {
+  late List<OfflineCapture> _captures;
+
+  @override
+  void initState() {
+    super.initState();
+    _captures = CacheService.instance.getPendingCaptures();
+  }
+
+  void _refresh() {
+    setState(() {
+      _captures = CacheService.instance.getPendingCaptures();
+    });
+  }
+
+  String _formatTime(DateTime dt) {
+    final l = dt.toLocal();
+    final pad = (int n) => n.toString().padLeft(2, '0');
+    return '${l.day}.${l.month}.${l.year} ${pad(l.hour)}:${pad(l.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+            BrainSpacing.md, BrainSpacing.sm, BrainSpacing.md, BrainSpacing.md),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: BrainColors.outlineVariant.withValues(alpha: 0.30),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: BrainSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Offline-Captures (${_captures.length})',
+                    style: BrainTypography.headlineSm),
+                if (_captures.isNotEmpty)
+                  TextButton(
+                    onPressed: () async {
+                      // Adopt all in one go.
+                      for (final c in List.of(_captures)) {
+                        await widget.onAdopt(c);
+                      }
+                      _refresh();
+                    },
+                    child: Text('Alle übernehmen',
+                        style: BrainTypography.button
+                            .copyWith(color: BrainColors.primary)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: BrainSpacing.sm),
+            if (_captures.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(BrainSpacing.lg),
+                child: Center(
+                  child: Text(
+                    'Keine ungesyncten Captures',
+                    style: BrainTypography.bodyMd
+                        .copyWith(color: BrainColors.onSurfaceVariant),
+                  ),
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _captures.length,
+                  separatorBuilder: (_, _x) =>
+                      const SizedBox(height: BrainSpacing.sm),
+                  itemBuilder: (_, i) {
+                    final c = _captures[i];
+                    return Container(
+                      padding: BrainSpacing.paddingCard,
+                      decoration: BoxDecoration(
+                        color: BrainColors.surfaceHigh,
+                        borderRadius: BrainSpacing.radiusMd,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_formatTime(c.createdAt),
+                              style: BrainTypography.labelSm.copyWith(
+                                  color: BrainColors.onSurfaceVariant)),
+                          const SizedBox(height: 4),
+                          Text(c.text,
+                              style: BrainTypography.bodyMd,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: BrainSpacing.sm),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () async {
+                                  await widget.onDiscard(c);
+                                  _refresh();
+                                },
+                                child: Text('Verwerfen',
+                                    style: BrainTypography.button.copyWith(
+                                        color: BrainColors.error)),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  await widget.onAdopt(c);
+                                  _refresh();
+                                },
+                                child: Text('Als Note übernehmen',
+                                    style: BrainTypography.button.copyWith(
+                                        color: BrainColors.primary)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

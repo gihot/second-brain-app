@@ -83,8 +83,28 @@ class CacheService {
           ..sort((a, b) => b.modified.compareTo(a.modified));
   }
 
-  Future<void> clearAllNotes() async {
+  /// Number of capture-queue entries that have not been synced yet.
+  /// A non-zero value here means data would be lost if the user clears.
+  int get unsyncedCount {
+    if (!_initialized) return 0;
+    return _captureQueue.values.where((c) => !c.synced).length +
+        getPendingWrites().length;
+  }
+
+  /// Wipes the local Notes cache (does NOT touch the offline capture queue
+  /// or the meta box). The wrapper name is intentionally scary — call sites
+  /// must guard with confirmation UI.
+  ///
+  /// Throws [StateError] if there are pending captures or pending writes
+  /// that would be orphaned by clearing notes. The caller must replay or
+  /// discard those first.
+  Future<void> dangerouslyClearAllNotes() async {
     if (!_initialized) return;
+    if (unsyncedCount > 0) {
+      throw StateError(
+          'Refusing to clear: $unsyncedCount unsynced item(s) in queue. '
+          'Replay or discard them first.');
+    }
     await _notes.clear();
   }
 

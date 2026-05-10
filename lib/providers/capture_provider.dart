@@ -80,6 +80,16 @@ class CaptureProvider extends ChangeNotifier {
     }
   }
 
+  /// Promotes a queued offline capture into a local note WITHOUT touching
+  /// the server. Used by the offline-queue inspector for manual recovery
+  /// when the server is unreachable for an extended period.
+  ///
+  /// The capture remains in the queue (just marked synced=true so it won't
+  /// be replayed). Caller should `clearSyncedCaptures()` to garbage-collect.
+  Future<void> saveCaptureLocallyAsNote(OfflineCapture capture) async {
+    await _vault.createLocalNote(capture.text, id: capture.id);
+  }
+
   /// Sync pending offline captures when server becomes reachable.
   Future<void> syncOfflineQueue() async {
     final pending = _cache.getPendingCaptures();

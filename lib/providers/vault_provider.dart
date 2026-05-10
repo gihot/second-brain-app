@@ -435,6 +435,11 @@ class VaultProvider extends ChangeNotifier {
     await _checkServerAndSync();
   }
 
+  /// Re-reads the in-memory note list from Hive without touching the server.
+  /// Used after bulk-imports (vault recovery, ZIP-import) so the UI reflects
+  /// the freshly-written notes immediately.
+  void reloadFromCache() => _loadFromCache();
+
   String _generateTitle(String text) {
     final firstLine = text.split('\n').first.trim();
     if (firstLine.isEmpty) return 'Untitled';
