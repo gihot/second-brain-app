@@ -9,10 +9,13 @@ RUN git config --global user.email "second-brain-bot@localhost" && \
 
 WORKDIR /app
 
-COPY server/requirements.txt .
+# Build context can be either repo-root (Railway) or server/ (Fly.io).
+# Both layouts work because we copy relative paths and the COPY . . at
+# the end picks up everything in the chosen context.
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server/ .
+COPY . .
 
 EXPOSE 8000
 

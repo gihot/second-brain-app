@@ -1,0 +1,61 @@
+# Fly.io configuration for the Second Brain server.
+#
+# Initial deploy (one-time setup):
+#   1. Install flyctl:           https://fly.io/docs/flyctl/install/
+#   2. Sign in:                  flyctl auth login
+#   3. Launch app (from repo root, no deploy yet):
+#        flyctl launch --copy-config --no-deploy
+#      Pick a region close to you (e.g. fra for Frankfurt).
+#   4. Create a 1GB persistent volume for the vault clone:
+#        flyctl volumes create brain_data --region <your-region> --size 1
+#   5. Set required secrets:
+#        flyctl secrets set GITHUB_TOKEN=ghp_...
+#        flyctl secrets set GITHUB_REPO=gihot/brain-vault
+#        flyctl secrets set ANTHROPIC_API_KEY=sk-ant-...
+#        flyctl secrets set JWT_SECRET=$(openssl rand -hex 32)
+#   6. Deploy:
+#        flyctl deploy
+#   7. App URL appears in the output; paste it into the Flutter app under
+#      Settings → CONNECTION → API Server.
+#
+# On every subsequent code push: just `flyctl deploy`.
+
+app = "second-brain-server"  # rename after `flyctl launch` if it picked a different slug
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # Persistent volume mount point — see [[mounts]] below.
+  # Server reads VAULT_PATH from env (see server/config.py:17).
+  VAULT_PATH = "/data/vault"
+  PORT = "8000"
+
+[[mounts]]
+  source = "brain_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"  # save money when idle
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 25
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
