@@ -81,6 +81,26 @@ class NotificationService {
     }
   }
 
+  /// Removes any [_notifiedIds] entry for reminders whose [remindAt] still
+  /// lies in the future. Heals the legacy bug where future reminders were
+  /// wrongly flagged as due and "notified" immediately — those should fire
+  /// again when their actual time arrives.
+  void prunePrematureNotifications(List<Note> allNotes) {
+    if (_notifiedIds.isEmpty) return;
+    final now = DateTime.now();
+    final stillFuture = <String>{};
+    for (final n in allNotes) {
+      if (n.thoughtType != ThoughtType.reminder) continue;
+      if (n.remindAt == null) continue;
+      if (!_notifiedIds.contains(n.id)) continue;
+      final dt = DateTime.tryParse(n.remindAt!);
+      if (dt != null && dt.isAfter(now)) stillFuture.add(n.id);
+    }
+    if (stillFuture.isEmpty) return;
+    _notifiedIds.removeAll(stillFuture);
+    CacheService.instance.saveNotifiedReminderIds(_notifiedIds.toList());
+  }
+
   void _showNotification({required String title, required String body}) {
     try {
       html.Notification(

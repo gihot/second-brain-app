@@ -21,10 +21,12 @@ class VaultProvider extends ChangeNotifier {
   List<Note> get recentNotes => _notes.take(5).toList();
   List<Note> get inboxNotes =>
       _notes.where((n) => n.status == NoteStatus.inbox).toList();
+  /// Reminders whose [remindAt] is at-or-before now (i.e. actually due).
+  /// Future reminders are NOT included — those wait until their time arrives.
   List<Note> get dueReminders => _notes.where((n) =>
       n.thoughtType == ThoughtType.reminder &&
       n.remindAt != null &&
-      (DateTime.tryParse(n.remindAt!)?.isAfter(DateTime.now()) ?? false)).toList();
+      !(DateTime.tryParse(n.remindAt!)?.isAfter(DateTime.now()) ?? true)).toList();
 
   /// PARA distribution for the stats chart.
   /// PARA distribution — excludes Inbox (not a real PARA category;
@@ -146,6 +148,10 @@ class VaultProvider extends ChangeNotifier {
       isServerReachable: _isServerReachable,
     );
     notifyListeners();
+    // Heal legacy bug: any reminder whose remindAt is still in the future
+    // but was wrongly marked notified gets un-marked here so it fires when
+    // its actual time arrives.
+    NotificationService.instance.prunePrematureNotifications(_notes);
     // Fire-and-forget: show browser notification for any newly due reminders.
     NotificationService.instance.checkAndNotify(dueReminders);
   }
