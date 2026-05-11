@@ -136,15 +136,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _SettingsTile(
                     icon: Icons.cloud_outlined,
                     label: 'API Server',
-                    value: api.isConfigured
-                        ? (_checking
-                            ? 'Prüfe...'
-                            : _serverReachable ? 'Verbunden' : 'Nicht erreichbar')
-                        : 'Nicht konfiguriert',
-                    valueColor: api.isConfigured
-                        ? (_serverReachable ? BrainColors.secondary : BrainColors.tertiary)
-                        : null,
-                    onTap: () => _showApiUrlDialog(context),
+                    value: _checking
+                        ? 'Prüfe...'
+                        : _serverReachable
+                            ? 'Verbunden'
+                            : 'Nicht erreichbar',
+                    valueColor: _serverReachable
+                        ? BrainColors.secondary
+                        : BrainColors.tertiary,
+                    // URL ist hardcoded — kein Edit-Dialog. Tap nur Re-Check.
+                    onTap: _checkServer,
                   ),
                   _SettingsTile(
                     icon: Icons.vpn_key_outlined,

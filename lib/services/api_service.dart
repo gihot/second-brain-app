@@ -15,9 +15,14 @@ class ApiService {
   static const _baseUrlKey = 'api_base_url';
   static const _tokenKey = 'api_token';
 
-  // Test-phase fallbacks — used when no credentials are stored (e.g. fresh browser)
-  static const _kDefaultBaseUrl = 'https://second-brain-app-production-dcee.up.railway.app';
-  static const _kDefaultToken   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZWNvbmQtYnJhaW4tYXBwIiwiaWF0IjoxNzc0ODk5MTI1fQ.qAleBCkMXmNO7UVZ1kQEFyxzfsOfZEWmYq08zhXhVL4';
+  // Hardcoded server URL — single source of truth. Update this constant +
+  // redeploy to migrate every client at once. Stored overrides are no
+  // longer respected; any stale value from a previous session is purged
+  // on next init.
+  static const _kServerBaseUrl =
+      'https://second-brain-app-production-dcee.up.railway.app';
+  static const _kDefaultToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZWNvbmQtYnJhaW4tYXBwIiwiaWF0IjoxNzc0ODk5MTI1fQ.qAleBCkMXmNO7UVZ1kQEFyxzfsOfZEWmYq08zhXhVL4';
 
   String? _baseUrl;
   String? _token;
@@ -25,19 +30,20 @@ class ApiService {
 
   Future<void> init() async {
     if (_initialized) return;
-    _baseUrl = await _storage.read(key: _baseUrlKey) ?? _kDefaultBaseUrl;
-    _token   = await _storage.read(key: _tokenKey)   ?? _kDefaultToken;
+    // URL is now hardcoded — ignore any previously-stored value and clear
+    // it so it can't surface again via inspection tools.
+    _baseUrl = _kServerBaseUrl;
+    try {
+      await _storage.delete(key: _baseUrlKey);
+    } catch (_) {}
+    _token = await _storage.read(key: _tokenKey) ?? _kDefaultToken;
     _initialized = true;
   }
 
+  /// Token can still be overridden per device. URL changes are no-ops.
   Future<void> configure({required String baseUrl, required String token}) async {
-    var url = baseUrl.trim();
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
-    }
-    _baseUrl = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+    // baseUrl param kept for API compatibility — ignored. URL is hardcoded.
     _token = token;
-    await _storage.write(key: _baseUrlKey, value: _baseUrl);
     await _storage.write(key: _tokenKey, value: _token);
   }
 
