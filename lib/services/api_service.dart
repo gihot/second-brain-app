@@ -216,6 +216,33 @@ class ApiService {
     }
   }
 
+  /// Verbose health check used by the Settings "Test Connection" button.
+  /// Returns latency in ms when reachable, or a short error message.
+  Future<({bool ok, int? latencyMs, String? error})>
+      pingWithLatency() async {
+    if (!isConfigured) {
+      return (ok: false, latencyMs: null, error: 'Nicht konfiguriert');
+    }
+    final sw = Stopwatch()..start();
+    try {
+      final response = await http
+          .get(Uri.parse('$_baseUrl/health'))
+          .timeout(const Duration(seconds: 5));
+      sw.stop();
+      if (response.statusCode == 200) {
+        return (ok: true, latencyMs: sw.elapsedMilliseconds, error: null);
+      }
+      return (
+        ok: false,
+        latencyMs: sw.elapsedMilliseconds,
+        error: 'HTTP ${response.statusCode}',
+      );
+    } catch (e) {
+      sw.stop();
+      return (ok: false, latencyMs: null, error: e.toString());
+    }
+  }
+
   // ── Internal ───────────────────────────────────────────────────────────────
 
   Map<String, String> get _headers => {

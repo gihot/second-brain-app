@@ -446,6 +446,35 @@ class VaultProvider extends ChangeNotifier {
   /// the freshly-written notes immediately.
   void reloadFromCache() => _loadFromCache();
 
+  /// Manual replay of pending writes. Pings the server first; if reachable,
+  /// drains; returns counts so the UI can show progress.
+  Future<({int drained, int remaining, bool serverReachable})>
+      replayPendingWrites() async {
+    final before = _cache.getPendingWrites().length;
+    if (before == 0) {
+      return (drained: 0, remaining: 0, serverReachable: true);
+    }
+    _isServerReachable = await _api.ping();
+    if (!_isServerReachable) {
+      return (drained: 0, remaining: before, serverReachable: false);
+    }
+    await _drainPendingWrites();
+    final after = _cache.getPendingWrites().length;
+    _loadFromCache();
+    return (
+      drained: before - after,
+      remaining: after,
+      serverReachable: true,
+    );
+  }
+
+  /// Discard a single pending write (e.g. user gave up after repeated
+  /// failures). Does NOT touch the corresponding local Note.
+  Future<void> discardPendingWrite(String filePath) async {
+    await _cache.removePendingWrite(filePath);
+    notifyListeners();
+  }
+
   String _generateTitle(String text) {
     final firstLine = text.split('\n').first.trim();
     if (firstLine.isEmpty) return 'Untitled';
