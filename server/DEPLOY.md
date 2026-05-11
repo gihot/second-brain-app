@@ -1,9 +1,11 @@
 # Server Deployment
 
 Single source of truth: any platform that runs Docker with a persistent
-volume can host this server. The Dockerfile takes its build context from
-the `server/` directory (NOT repo root). All runtime state lives in a
-single volume mounted at `/data`.
+volume can host this server. The Dockerfile lives at `server/Dockerfile`
+and **expects the build context to be the repo root** — it reaches into
+`server/` explicitly via `COPY server/...`. Both `railway.toml` and
+`fly.toml` (at repo root) follow this convention. All runtime state lives
+in a single volume mounted at `/data`.
 
 ## Required environment variables
 
@@ -29,8 +31,9 @@ single volume mounted at `/data`.
 
 ## Fly.io (recommended)
 
-Config lives in [`fly.toml`](fly.toml). See the comment block at the top
-of that file for first-time setup steps. Subsequent deploys: `flyctl deploy`.
+Config lives in [`../fly.toml`](../fly.toml) at repo root. See the
+comment block at the top of that file for first-time setup steps.
+Subsequent deploys: run `flyctl deploy` from repo root.
 
 **Volume sizing:** 1 GB is plenty for the vault repo + git history at
 hobby scale. Bump if your vault grows past a few hundred MB of markdown.
@@ -45,10 +48,11 @@ Render has no native persistent disk on the free tier — you need a paid
 
 Setup outline:
 1. New Web Service → "Build from Repo" → point to this repo
-2. Root Directory: `server`, Dockerfile path: `Dockerfile`
-3. Add Disk → mount path `/data`, size 1 GB
-4. Add env vars from the table above with `VAULT_PATH=/data/vault`
-5. Health Check Path: `/health`
+2. **Root Directory: leave empty** (repo root)
+3. Dockerfile path: `server/Dockerfile`
+4. Add Disk → mount path `/data`, size 1 GB
+5. Add env vars from the table above with `VAULT_PATH=/data/vault`
+6. Health Check Path: `/health`
 
 ## Coolify (self-hosted)
 
@@ -77,8 +81,10 @@ If you have a VPS or a home server running Coolify:
 
 ## Local docker (debugging)
 
+Build from repo root (NOT `./server`):
+
 ```bash
-docker build -t second-brain-server ./server
+docker build -t second-brain-server -f server/Dockerfile .
 docker run --rm -p 8000:8000 \
   -v "$(pwd)/data:/data" \
   -e VAULT_PATH=/data/vault \

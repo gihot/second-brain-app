@@ -9,13 +9,13 @@ RUN git config --global user.email "second-brain-bot@localhost" && \
 
 WORKDIR /app
 
-# Build context can be either repo-root (Railway) or server/ (Fly.io).
-# Both layouts work because we copy relative paths and the COPY . . at
-# the end picks up everything in the chosen context.
-COPY requirements.txt .
+# Build context is the REPO ROOT for both Railway (per railway.toml) and
+# Fly.io (per fly.toml at repo root). We reach into server/ explicitly so
+# paths are unambiguous regardless of where the Dockerfile is invoked from.
+COPY server/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY server/ .
 
 EXPOSE 8000
 
