@@ -123,7 +123,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisCount: 2,
             mainAxisSpacing: BrainSpacing.cardGap,
             crossAxisSpacing: BrainSpacing.cardGap,
-            childAspectRatio: 1.4,
+            childAspectRatio: 1.7,
             children: [
               BrainStatCard(
                 value: '${vault.status.totalNotes}',
@@ -263,7 +263,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         // Ask your Brain card
         SliverPadding(
-          padding: BrainSpacing.paddingScreen,
+          padding: const EdgeInsets.fromLTRB(
+            BrainSpacing.screenPadding,
+            BrainSpacing.md,
+            BrainSpacing.screenPadding,
+            0,
+          ),
           sliver: SliverToBoxAdapter(
             child: GestureDetector(
               onTap: () => Navigator.push(
@@ -417,8 +422,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               itemBuilder: (context, i) {
                 final note = vault.recentNotes[i];
                 return BrainCard(
-                  showBorder: true,
-                  leftBorderColor: hallColor(note.hall),
+                  glass: true,
+                  tintColor: hallColor(note.hall),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(

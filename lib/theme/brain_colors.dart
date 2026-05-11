@@ -66,6 +66,13 @@ class BrainColors {
   static Color get glassSurface => surfaceBright.withValues(alpha: 0.60);
   static Color get glassBorder  => outlineVariant.withValues(alpha: 0.15);
 
+  // ── Frosted-card glass (used over imagery / sunset backgrounds) ──────
+  // Dark frost: black at 30%, distinct from glassSurface which is meant
+  // for the AppBar's "bright" blur over deep ink.
+  static Color get glassCardFill   => const Color(0xFF000000).withValues(alpha: 0.30);
+  static Color get glassCardBorder => const Color(0xFFFFFFFF).withValues(alpha: 0.10);
+  static const double glassCardBlur = 24.0;
+
   // ── Tinted glow shadows (never neutral grey) ──
   static Color get primaryGlow   => primary.withValues(alpha: 0.20);
   static Color get captureGlow   => const Color(0xFF6366F1).withValues(alpha: 0.20);

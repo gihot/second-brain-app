@@ -309,8 +309,8 @@ class _ResultsList extends StatelessWidget {
       itemBuilder: (_, i) {
         final note = results[i];
         return BrainCard(
-          showBorder: true,
-          leftBorderColor: hallColor(note.hall),
+          glass: true,
+          tintColor: hallColor(note.hall),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(

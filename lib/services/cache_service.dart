@@ -255,6 +255,21 @@ class CacheService {
     _meta.put('notifications_enabled', value);
   }
 
+  // ── Generic double-preference helpers ────────────────────────────────────
+
+  double? getDouble(String key) {
+    if (!_initialized) return null;
+    final v = _meta.get(key);
+    if (v is double) return v;
+    if (v is num) return v.toDouble();
+    return null;
+  }
+
+  Future<void> setDouble(String key, double value) async {
+    if (!_initialized) return;
+    await _meta.put(key, value);
+  }
+
   // ── Background Image ─────────────────────────────────────────────────────
 
   Uint8List? getBackgroundImage() {

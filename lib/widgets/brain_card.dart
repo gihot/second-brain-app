@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
+import 'glass_card_surface.dart';
 
 /// A styled card with optional ghost border, hover effect (web), and tap handler.
+///
+/// Two visual modes:
+///   • Default opaque (surfaceLow fill, ghost border, optional left-stripe).
+///   • Frosted glass when [glass] is true — delegates to [GlassCardSurface].
+///     In glass mode, [tintColor] becomes the hall hue blended into the
+///     dark frost. [leftBorderColor] is **ignored** in glass mode because
+///     the tint already conveys the same information without a hard edge.
 class BrainCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -10,6 +18,8 @@ class BrainCard extends StatefulWidget {
   final Color? color;
   final bool showBorder;
   final Color? leftBorderColor;
+  final bool glass;
+  final Color? tintColor;
 
   const BrainCard({
     super.key,
@@ -19,6 +29,8 @@ class BrainCard extends StatefulWidget {
     this.color,
     this.showBorder = false,
     this.leftBorderColor,
+    this.glass = false,
+    this.tintColor,
   });
 
   @override
@@ -30,6 +42,14 @@ class _BrainCardState extends State<BrainCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.glass) {
+      return GlassCardSurface(
+        tintColor: widget.tintColor ?? widget.leftBorderColor,
+        onTap: widget.onTap,
+        child: Padding(padding: widget.padding, child: widget.child),
+      );
+    }
+
     final bgColor = widget.color ?? BrainColors.surfaceLow;
 
     return MouseRegion(

@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import 'glass_card_surface.dart';
 
-/// Stat card — pill shape (rounded-full), no borders, tonal background.
-/// Layout: icon pill top-left, large value bottom-left, mono label below.
-class BrainStatCard extends StatefulWidget {
+/// Stat card — frosted glass with accent-color tint.
+/// Layout: tinted icon-pill top-left, big value + mono uppercase label
+/// bottom-left. Matches the "Frag dein Gehirn"-card vocabulary
+/// (radiusMd, no hard borders, tonal accent).
+class BrainStatCard extends StatelessWidget {
   final String value;
   final String label;
   final IconData icon;
@@ -22,64 +25,51 @@ class BrainStatCard extends StatefulWidget {
   });
 
   @override
-  State<BrainStatCard> createState() => _BrainStatCardState();
-}
-
-class _BrainStatCardState extends State<BrainStatCard> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final color = widget.accentColor ?? BrainColors.primary;
+    final color = accentColor ?? BrainColors.primary;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      cursor: widget.onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: _hovered ? BrainColors.surfaceHigh : BrainColors.surfaceLow,
-            borderRadius: BrainSpacing.radiusFull, // pill shape
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Icon pill
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.10),
-                  borderRadius: BrainSpacing.radiusFull,
+    return GlassCardSurface(
+      tintColor: color,
+      onTap: onTap,
+      borderRadius: BrainSpacing.radiusMd,
+      child: Padding(
+        padding: const EdgeInsets.all(BrainSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Tinted icon pill
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BrainSpacing.radiusFull,
+              ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+
+            // Value + label, bottom-aligned
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: BrainTypography.headlineMd.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: BrainColors.onSurface,
+                  ),
                 ),
-                child: Icon(widget.icon, size: 18, color: color),
-              ),
-
-              const SizedBox(height: BrainSpacing.sm),
-
-              // Value
-              Text(
-                widget.value,
-                style: BrainTypography.headlineMd.copyWith(
-                  fontWeight: FontWeight.w700,
+                Text(
+                  label.toUpperCase(),
+                  style: BrainTypography.labelSm.copyWith(
+                    color: BrainColors.onSurfaceVariant,
+                  ),
                 ),
-              ),
-
-              // Label — mono uppercase
-              Text(
-                widget.label.toUpperCase(),
-                style: BrainTypography.labelSm,
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         ),
       ),
     );

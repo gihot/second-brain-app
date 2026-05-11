@@ -7,6 +7,7 @@ import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 import '../services/api_service.dart';
 import '../widgets/brain_button.dart';
+import '../widgets/glass_card_surface.dart';
 import '../widgets/hall_badge.dart';
 import 'note_detail_screen.dart';
 
@@ -104,7 +105,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     padding: BrainSpacing.paddingScreen,
                     itemCount: inbox.length,
                     separatorBuilder: (_, _x) =>
-                        const SizedBox(height: BrainSpacing.cardGap),
+                        const SizedBox(height: BrainSpacing.sm),
                     itemBuilder: (_, i) =>
                         _InboxCard(note: inbox[i]),
                   ),
@@ -174,65 +175,44 @@ class _InboxCard extends StatelessWidget {
           vault.processNote(note.id);
         }
       },
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BrainSpacing.radiusMd,
-        child: InkWell(
-          borderRadius: BrainSpacing.radiusMd,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => NoteDetailScreen(noteId: note.id),
-            ),
+      child: GlassCardSurface(
+        tintColor: hallColor(note.hall),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NoteDetailScreen(noteId: note.id),
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: BrainColors.surfaceLow,
-              borderRadius: BrainSpacing.radiusMd,
-              border: Border.all(
-                color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                width: 0.5,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                note.title,
+                style: BrainTypography.bodySm.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: BrainColors.onSurface),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            child: ClipRRect(
-              borderRadius: BrainSpacing.radiusMd,
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(width: 3, color: hallColor(note.hall)),
-                  ),
-                  Padding(
-                    padding: BrainSpacing.paddingCard,
-                    child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  note.title,
-                  style: BrainTypography.bodyMd.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: BrainColors.onSurface),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (note.excerpt.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(note.excerpt,
-                      style: BrainTypography.bodySm,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
-                const SizedBox(height: BrainSpacing.sm),
-                Text('Erfasst ${note.relativeTime}',
-                    style: BrainTypography.labelSm),
+              if (note.excerpt.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(note.excerpt,
+                    style: BrainTypography.bodySm,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
               ],
-            ),
-                  ),
-                ],
+              const SizedBox(height: BrainSpacing.xs),
+              Text(
+                'Erfasst ${note.relativeTime}',
+                style: BrainTypography.bodySm.copyWith(
+                  fontSize: 11,
+                  color: BrainColors.onSurfaceVariant
+                      .withValues(alpha: 0.50),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
