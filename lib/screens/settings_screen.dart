@@ -451,6 +451,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onDiscard: (filePath) async {
           await context.read<VaultProvider>().discardPendingWrite(filePath);
         },
+        onDiscardAll: () async {
+          final all = CacheService.instance.getPendingWrites();
+          for (final w in all) {
+            final fp = w['file_path'] as String?;
+            if (fp != null) {
+              await context.read<VaultProvider>().discardPendingWrite(fp);
+            }
+          }
+        },
       ),
     );
   }
@@ -1286,10 +1295,12 @@ class _SliderRow extends StatelessWidget {
 class _PendingWritesSheet extends StatefulWidget {
   final Future<void> Function() onReplayAll;
   final Future<void> Function(String filePath) onDiscard;
+  final Future<void> Function() onDiscardAll;
 
   const _PendingWritesSheet({
     required this.onReplayAll,
     required this.onDiscard,
+    required this.onDiscardAll,
   });
 
   @override
@@ -1336,9 +1347,11 @@ class _PendingWritesSheetState extends State<_PendingWritesSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Pending Writes (${_writes.length})',
-                    style: BrainTypography.headlineSm),
-                if (_writes.isNotEmpty)
+                Expanded(
+                  child: Text('Pending Writes (${_writes.length})',
+                      style: BrainTypography.headlineSm),
+                ),
+                if (_writes.isNotEmpty) ...[
                   TextButton(
                     onPressed: _replaying
                         ? null
@@ -1350,11 +1363,55 @@ class _PendingWritesSheetState extends State<_PendingWritesSheet> {
                             _refresh();
                           },
                     child: Text(
-                      _replaying ? 'Versuche...' : 'Alle erneut versuchen',
+                      _replaying ? 'Versuche...' : 'Erneut versuchen',
                       style: BrainTypography.button
                           .copyWith(color: BrainColors.primary),
                     ),
                   ),
+                  TextButton(
+                    onPressed: _replaying
+                        ? null
+                        : () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                backgroundColor: BrainColors.surfaceLow,
+                                title: Text('Alle ${_writes.length} verwerfen?',
+                                    style: BrainTypography.titleMd),
+                                content: Text(
+                                  'Die lokalen Notes bleiben erhalten — '
+                                  'nur die Sync-Anfragen an den Server werden '
+                                  'gelöscht. Sinnvoll wenn die Eintraege auf '
+                                  'Notes verweisen, die nie beim Server '
+                                  'ankamen.',
+                                  style: BrainTypography.bodyMd,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: Text('Abbrechen',
+                                        style: BrainTypography.button.copyWith(
+                                            color: BrainColors.outline)),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: Text('Verwerfen',
+                                        style: BrainTypography.button.copyWith(
+                                            color: BrainColors.error)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true) {
+                              await widget.onDiscardAll();
+                              _refresh();
+                            }
+                          },
+                    child: Text('Alle verwerfen',
+                        style: BrainTypography.button
+                            .copyWith(color: BrainColors.error)),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: BrainSpacing.sm),

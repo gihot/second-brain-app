@@ -165,8 +165,10 @@ class VaultProvider extends ChangeNotifier {
     _loadFromCache();
   }
 
-  /// Flush queued edits/deletes to the server. Fire-and-forget on failure —
-  /// the entry stays in the queue and will be retried on the next sync.
+  /// Flush queued edits/deletes to the server. Tries every entry
+  /// independently — one failure (e.g. 404 on a note that never reached
+  /// the server) doesn't block the rest. Failed entries stay in the queue
+  /// for the user to inspect and discard manually.
   Future<void> _drainPendingWrites() async {
     final pending = _cache.getPendingWrites();
     if (pending.isEmpty) return;
@@ -192,9 +194,9 @@ class VaultProvider extends ChangeNotifier {
       }
       if (ok) {
         await _cache.removePendingWrite(filePath);
-      } else {
-        break; // stop draining on first failure — retry later
       }
+      // On failure: leave the entry in the queue, move on to the next.
+      // User can manually discard via the Pending-Writes sheet.
     }
   }
 
