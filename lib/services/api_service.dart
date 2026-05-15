@@ -21,8 +21,11 @@ class ApiService {
   // on next init.
   static const _kServerBaseUrl =
       'https://second-brain-app-production-dcee.up.railway.app';
+  // JWT signed with JWT_SECRET=35445065cfe5c59681d9f72f4b6f3549f6132ebf05cde5572f9426200894003f
+  // Payload: {"sub":"second-brain-app","iat":1778880250}
+  // If you rotate JWT_SECRET on the server, regenerate this token to match.
   static const _kDefaultToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZWNvbmQtYnJhaW4tYXBwIiwiaWF0IjoxNzc0ODk5MTI1fQ.qAleBCkMXmNO7UVZ1kQEFyxzfsOfZEWmYq08zhXhVL4';
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZWNvbmQtYnJhaW4tYXBwIiwiaWF0IjoxNzc4ODgwMjUwfQ.fG7Y-NP4XDUjO4lI6dnUn0kYgHYSxAQeQz3S5DdGwzY';
 
   String? _baseUrl;
   String? _token;
@@ -30,13 +33,14 @@ class ApiService {
 
   Future<void> init() async {
     if (_initialized) return;
-    // URL is now hardcoded — ignore any previously-stored value and clear
-    // it so it can't surface again via inspection tools.
+    // URL + token are both hardcoded — wipe any stored values so old
+    // mismatched JWTs on a user's device can't override the fresh one.
     _baseUrl = _kServerBaseUrl;
+    _token = _kDefaultToken;
     try {
       await _storage.delete(key: _baseUrlKey);
+      await _storage.delete(key: _tokenKey);
     } catch (_) {}
-    _token = await _storage.read(key: _tokenKey) ?? _kDefaultToken;
     _initialized = true;
   }
 
