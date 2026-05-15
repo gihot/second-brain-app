@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../models/note_model.dart';
@@ -16,6 +18,9 @@ class VaultProvider extends ChangeNotifier {
   bool _loading = false;
   String? _error;
   bool _isServerReachable = false;
+  Timer? _autoPullTimer;
+
+  static const Duration _autoPullInterval = Duration(minutes: 5);
 
   List<Note> get notes => _notes;
   List<Note> get recentNotes => _notes.take(5).toList();
@@ -130,12 +135,31 @@ class VaultProvider extends ChangeNotifier {
 
       // Async server check — doesn't block UI
       _checkServerAndSync();
+      // Background poll so Desktop ↔ Mobile stay in sync without a
+      // manual Settings → Sync tap. JS event loop pauses the timer
+      // automatically when the tab/PWA is backgrounded.
+      _startAutoPull();
     } catch (e) {
       _error = e.toString();
     } finally {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  void _startAutoPull() {
+    _autoPullTimer?.cancel();
+    _autoPullTimer = Timer.periodic(_autoPullInterval, (_) {
+      // Fire-and-forget — if server is unreachable, _checkServerAndSync
+      // returns quickly and the timer continues without side-effects.
+      _checkServerAndSync();
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoPullTimer?.cancel();
+    super.dispose();
   }
 
   void _loadFromCache() {
@@ -214,7 +238,7 @@ class VaultProvider extends ChangeNotifier {
           .cast<Note>()
           .toList();
       if (notes.isNotEmpty) {
-        await _cache.saveNotes(notes);
+        await _writeNotesWithConflictDetection(notes);
       }
     }
 
@@ -228,6 +252,76 @@ class VaultProvider extends ChangeNotifier {
       );
       notifyListeners();
     }
+  }
+
+  /// Saves incoming server notes to the cache, but if a local note has
+  /// pending changes (= queued in pending_writes) AND the server version
+  /// differs in body/title/tags, preserve BOTH by keeping the local note
+  /// untouched and writing the server copy as a new note with a
+  /// "(Konflikt …)" title suffix. User can then reconcile by hand.
+  Future<void> _writeNotesWithConflictDetection(
+      List<Note> incoming) async {
+    final pendingPaths = {
+      for (final w in _cache.getPendingWrites())
+        if (w['file_path'] is String) w['file_path'] as String
+    };
+    final byId = {for (final n in _cache.getAllNotes()) n.id: n};
+
+    final toSave = <Note>[];
+    for (final remote in incoming) {
+      final local = byId[remote.id];
+      final hasPending = local?.filePath != null &&
+          pendingPaths.contains(local!.filePath);
+
+      if (local == null || !hasPending) {
+        toSave.add(remote);
+        continue;
+      }
+
+      // Local has unsynced edits. Only flag a conflict if the bodies
+      // actually differ — otherwise the server version is just our own
+      // unsynced edit echoed back and we can keep local.
+      if (_notesEffectivelyEqual(local, remote)) continue;
+
+      // Fork: keep local untouched, write a separate Konflikt-Copy.
+      final conflictCopy = remote.copyWith(
+        title: '${remote.title} (Konflikt '
+            '${_stamp(DateTime.now())})',
+      );
+      // New id so it doesn't overwrite anything.
+      toSave.add(Note(
+        id: const Uuid().v4(),
+        title: conflictCopy.title,
+        content: conflictCopy.content,
+        tags: conflictCopy.tags,
+        created: conflictCopy.created,
+        modified: DateTime.now(),
+        status: conflictCopy.status,
+        para: conflictCopy.para,
+        filePath: null, // local-only; user decides what to do
+        linkedNoteIds: conflictCopy.linkedNoteIds,
+        hall: conflictCopy.hall,
+        wing: conflictCopy.wing,
+        thoughtType: conflictCopy.thoughtType,
+        remindAt: conflictCopy.remindAt,
+      ));
+    }
+    if (toSave.isNotEmpty) {
+      await _cache.saveNotes(toSave);
+    }
+  }
+
+  bool _notesEffectivelyEqual(Note a, Note b) {
+    if (a.title.trim() != b.title.trim()) return false;
+    if (a.content.trim() != b.content.trim()) return false;
+    if (a.tags.join(',') != b.tags.join(',')) return false;
+    return true;
+  }
+
+  String _stamp(DateTime dt) {
+    final l = dt.toLocal();
+    final pad = (int n) => n.toString().padLeft(2, '0');
+    return '${l.day}.${l.month}. ${pad(l.hour)}:${pad(l.minute)}';
   }
 
   Note? _noteFromServerMap(Map<String, dynamic> m) {
