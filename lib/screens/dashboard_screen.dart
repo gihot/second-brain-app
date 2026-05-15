@@ -9,6 +9,7 @@ import '../widgets/brain_card.dart';
 import '../widgets/tag_cloud.dart';
 import '../models/note_model.dart';
 import '../widgets/hall_badge.dart';
+import 'all_notes_screen.dart';
 import 'note_detail_screen.dart';
 import 'agent_chat_screen.dart';
 import 'search_screen.dart';
@@ -373,10 +374,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Letzte Gedanken', style: BrainTypography.headlineSm),
-                Text(
-                  'Alle anzeigen',
-                  style: BrainTypography.bodySm
-                      .copyWith(color: BrainColors.primary),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AllNotesScreen()),
+                  ),
+                  child: Text(
+                    'Alle anzeigen',
+                    style: BrainTypography.bodySm
+                        .copyWith(color: BrainColors.primary),
+                  ),
                 ),
               ],
             ),

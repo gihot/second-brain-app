@@ -20,6 +20,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   final _speech = SpeechService();
+  bool _isReminder = false;
+  DateTime? _remindAt;
 
   @override
   void initState() {
@@ -77,11 +79,64 @@ class _CaptureScreenState extends State<CaptureScreen> {
   Future<void> _handleCapture() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    final ok = await context.read<CaptureProvider>().capture(text);
+    final reminderIso =
+        _isReminder && _remindAt != null ? _remindAt!.toUtc().toIso8601String() : null;
+    final ok = await context
+        .read<CaptureProvider>()
+        .capture(text, remindAtIso: reminderIso);
     if (ok && mounted) {
       _controller.clear();
+      setState(() {
+        _isReminder = false;
+        _remindAt = null;
+      });
       _focusNode.requestFocus();
     }
+  }
+
+  Future<void> _pickRemindAt() async {
+    final now = DateTime.now();
+    final initial = _remindAt ?? now.add(const Duration(hours: 1));
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 2)),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: BrainColors.primary,
+            surface: BrainColors.surfaceHigh,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: BrainColors.primary,
+            surface: BrainColors.surfaceHigh,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (time == null) return;
+    setState(() {
+      _remindAt = DateTime(
+          date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
+  String _formatRemindAt(DateTime dt) {
+    final l = dt.toLocal();
+    final pad = (int n) => n.toString().padLeft(2, '0');
+    return '${l.day}.${l.month}.${l.year} ${pad(l.hour)}:${pad(l.minute)}';
   }
 
   @override
@@ -145,6 +200,94 @@ class _CaptureScreenState extends State<CaptureScreen> {
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
+                ),
+
+                const SizedBox(height: BrainSpacing.md),
+
+                // Reminder toggle + picker
+                Wrap(
+                  spacing: BrainSpacing.sm,
+                  runSpacing: BrainSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isReminder = !_isReminder;
+                          if (!_isReminder) _remindAt = null;
+                        });
+                        if (_isReminder && _remindAt == null) {
+                          _pickRemindAt();
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _isReminder
+                              ? BrainColors.tertiary.withValues(alpha: 0.18)
+                              : BrainColors.surfaceHigh,
+                          borderRadius: BrainSpacing.radiusFull,
+                          border: _isReminder
+                              ? Border.all(
+                                  color: BrainColors.tertiary
+                                      .withValues(alpha: 0.30),
+                                  width: 0.5)
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isReminder
+                                  ? Icons.alarm_rounded
+                                  : Icons.alarm_outlined,
+                              size: 16,
+                              color: _isReminder
+                                  ? BrainColors.tertiary
+                                  : BrainColors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Erinnerung',
+                              style: BrainTypography.labelSm.copyWith(
+                                color: _isReminder
+                                    ? BrainColors.tertiary
+                                    : BrainColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_isReminder)
+                      GestureDetector(
+                        onTap: _pickRemindAt,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: BrainColors.surfaceHigh,
+                            borderRadius: BrainSpacing.radiusFull,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.edit_calendar_outlined,
+                                  size: 14, color: BrainColors.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                _remindAt != null
+                                    ? _formatRemindAt(_remindAt!)
+                                    : 'Datum & Uhrzeit',
+                                style: BrainTypography.labelSm.copyWith(
+                                    color: BrainColors.onSurface),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
 
                 const SizedBox(height: BrainSpacing.md),

@@ -161,6 +161,10 @@ class VaultProvider extends ChangeNotifier {
     if (_isServerReachable) {
       await _drainPendingWrites();
       await _syncFromServer();
+      // Whenever the server was successfully pinged, stamp lastSync —
+      // even if vault-status endpoint is missing/broken, the ping itself
+      // proves a recent connection.
+      await _cache.setLastSync(DateTime.now());
     }
     _loadFromCache();
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '../models/note_model.dart';
 import '../models/offline_capture_model.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
@@ -28,7 +29,11 @@ class CaptureProvider extends ChangeNotifier {
 
   /// Captures a thought. Always succeeds locally.
   /// If server is reachable, the Scribe agent enriches with AI title + tags.
-  Future<bool> capture(String text) async {
+  ///
+  /// [remindAtIso] — if non-null, marks the capture as a reminder with the
+  /// given ISO-8601 timestamp. Overrides whatever Scribe may have decided
+  /// about thought_type.
+  Future<bool> capture(String text, {String? remindAtIso}) async {
     if (text.trim().isEmpty) return false;
 
     _state = CaptureState.capturing;
@@ -44,9 +49,10 @@ class CaptureProvider extends ChangeNotifier {
       // 2. Try server (Scribe agent) — non-blocking on failure
       final serverResult = await _api.capture(text.trim(), noteId: noteId);
 
+      Note workingNote = localNote;
       if (serverResult != null) {
         // Update local note with AI-generated title, tags, hall + wing
-        await _vault.updateNote(localNote.copyWith(
+        workingNote = localNote.copyWith(
           title: serverResult.title,
           tags: serverResult.tags,
           filePath: serverResult.filePath,
@@ -54,13 +60,22 @@ class CaptureProvider extends ChangeNotifier {
           wing: serverResult.suggestedWing?.isNotEmpty == true
               ? serverResult.suggestedWing
               : null,
-        ));
+        );
+        await _vault.updateNote(workingNote);
       } else {
         // Queue for sync when server comes back online
         await _cache.queueCapture(OfflineCapture(
           id: noteId,
           text: text.trim(),
           createdAt: DateTime.now(),
+        ));
+      }
+
+      // User-specified reminder overrides Scribe's classification.
+      if (remindAtIso != null && remindAtIso.isNotEmpty) {
+        await _vault.updateNote(workingNote.copyWith(
+          thoughtType: ThoughtType.reminder,
+          remindAt: remindAtIso,
         ));
       }
 
