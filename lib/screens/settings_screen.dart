@@ -10,6 +10,7 @@ import '../providers/vault_provider.dart';
 import '../services/api_service.dart';
 import '../services/cache_service.dart';
 import '../services/notification_service.dart';
+import '../services/vault_export_service.dart';
 import '../services/vault_import_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
@@ -242,6 +243,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onTap: () => _importFromVault(context),
                   ),
                   _SettingsTile(
+                    icon: Icons.folder_zip_outlined,
+                    label: 'Backup als ZIP',
+                    value: _backupAgeText(),
+                    valueColor: _backupAgeColor(),
+                    onTap: () => _exportZip(context),
+                  ),
+                  _SettingsTile(
+                    icon: Icons.unarchive_outlined,
+                    label: 'Aus ZIP importieren',
+                    value: '',
+                    onTap: () => _importZip(context),
+                  ),
+                  _SettingsTile(
                     icon: Icons.cloud_off_outlined,
                     label: 'Offline-Captures',
                     value:
@@ -465,6 +479,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  String _backupAgeText() {
+    final days = VaultExportService.instance.daysSinceLastBackup;
+    if (days == null) return 'Nie';
+    if (days == 0) return 'Heute';
+    if (days == 1) return 'Gestern';
+    return 'vor $days Tagen';
+  }
+
+  Color? _backupAgeColor() {
+    final days = VaultExportService.instance.daysSinceLastBackup;
+    if (days == null) return BrainColors.tertiary;
+    if (days > 14) return BrainColors.tertiary;
+    if (days <= 1) return BrainColors.secondary;
+    return null;
+  }
+
+  Future<void> _exportZip(BuildContext context) async {
+    try {
+      final fileName = await VaultExportService.instance.exportZip();
+      if (!mounted) return;
+      setState(() {}); // refresh backup age tile
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Backup gespeichert: $fileName'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export fehlgeschlagen: $e'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  Future<void> _importZip(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      allowMultiple: false,
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final bytes = result.files.first.bytes;
+    if (bytes == null) return;
+
+    try {
+      final report = await VaultExportService.instance.importZip(bytes);
+      if (!mounted) return;
+      context.read<VaultProvider>().reloadFromCache();
+      final msg = report.failed.isEmpty
+          ? '${report.written} Gedanken importiert'
+          : '${report.written} importiert, ${report.failed.length} übersprungen';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Import fehlgeschlagen: $e'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
   Future<void> _importFromVault(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -557,13 +641,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) => _ClearCacheDialog(
         onConfirmed: () async {
+          // Phase 2 safety net: always drop a fresh ZIP backup right
+          // before wiping local notes — even if the user typed LÖSCHEN
+          // they get a downloaded recovery file on the way out.
+          String? backupName;
+          try {
+            backupName = await VaultExportService.instance.exportZip();
+          } catch (_) {
+            // Backup failed — proceed anyway, user confirmed twice.
+          }
           try {
             await CacheService.instance.dangerouslyClearAllNotes();
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Cache geleert'),
-                duration: Duration(seconds: 2),
+              SnackBar(
+                content: Text(backupName != null
+                    ? 'Cache geleert. Backup: $backupName'
+                    : 'Cache geleert (Backup fehlgeschlagen)'),
+                duration: const Duration(seconds: 4),
               ),
             );
           } on StateError catch (e) {
@@ -968,9 +1063,9 @@ class _ClearCacheDialogState extends State<_ClearCacheDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Es gibt noch kein automatisches Backup. Wenn du jetzt löschst, '
-            'sind die Notes nur noch im Server-Vault wiederherstellbar — '
-            'falls der Server gerade läuft.',
+            'Vor dem Löschen wird automatisch ein ZIP-Backup heruntergeladen. '
+            'Du kannst es bei Bedarf später über „Aus ZIP importieren" '
+            'wieder einspielen.',
             style: BrainTypography.bodyMd,
           ),
           const SizedBox(height: BrainSpacing.md),

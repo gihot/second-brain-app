@@ -255,6 +255,20 @@ class CacheService {
     _meta.put('notifications_enabled', value);
   }
 
+  // ── Generic string-preference helpers ────────────────────────────────────
+
+  String? getString(String key) {
+    if (!_initialized) return null;
+    final v = _meta.get(key);
+    if (v is String) return v;
+    return null;
+  }
+
+  Future<void> setString(String key, String value) async {
+    if (!_initialized) return;
+    await _meta.put(key, value);
+  }
+
   // ── Generic double-preference helpers ────────────────────────────────────
 
   double? getDouble(String key) {
