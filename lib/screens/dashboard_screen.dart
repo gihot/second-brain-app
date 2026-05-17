@@ -10,6 +10,7 @@ import '../widgets/tag_cloud.dart';
 import '../widgets/hall_badge.dart';
 import '../widgets/dashboard_hero.dart';
 import '../widgets/capture_surface.dart';
+import '../widgets/ambient_retrieval.dart';
 import '../models/note_model.dart';
 import 'all_notes_screen.dart';
 import 'note_detail_screen.dart';
@@ -123,29 +124,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   /// Condenses current context into a single status line. Returns null
   /// when nothing is mentally relevant — the hero then stays minimal.
-  String? _statusLine(VaultProvider vault, DiscoveryProvider discovery) {
+  /// Connections are NOT here — they live in the AmbientRetrieval element.
+  String? _statusLine(VaultProvider vault) {
     final reminders = vault.dueReminders.length;
     final inbox = vault.status.inboxCount;
-    final hasConn = discovery.hasConnection;
 
     if (reminders > 0) {
       return '$reminders ${reminders == 1 ? "Erinnerung wartet" : "Erinnerungen warten"}';
     }
-    if (inbox > 0 && hasConn) {
-      return '$inbox zum Sortieren · neue Verbindung';
-    }
     if (inbox > 0) {
       return '$inbox ${inbox == 1 ? "Gedanke wartet" : "Gedanken warten"} auf Sortierung';
     }
-    if (hasConn) return 'Neue Verbindung entdeckt';
     return null;
+  }
+
+  /// Picks one note from 7–35 days ago to "resurface". Stable per day
+  /// (seeded by day-of-year) so it doesn't flicker on every rebuild.
+  Note? _resurfacedNote(VaultProvider vault) {
+    final now = DateTime.now();
+    final candidates = vault.notes.where((n) {
+      final age = now.difference(n.created).inDays;
+      return age >= 7 && age <= 35;
+    }).toList();
+    if (candidates.isEmpty) return null;
+    final dayOfYear = now.difference(DateTime(now.year)).inDays;
+    return candidates[dayOfYear % candidates.length];
   }
 
   @override
   Widget build(BuildContext context) {
     final vault = context.watch<VaultProvider>();
     final discovery = context.watch<DiscoveryProvider>();
-    final statusLine = _statusLine(vault, discovery);
+    final statusLine = _statusLine(vault);
+    final resurfaced = _resurfacedNote(vault);
 
     return CustomScrollView(
       slivers: [
@@ -165,6 +176,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: CaptureSurface(
             captureCount: vault.capturesToday,
             inboxCount: vault.status.inboxCount,
+          ),
+        ),
+
+        // 2b. Ambient surfacing — taucht nur auf wenn relevant
+        SliverToBoxAdapter(
+          child: AmbientRetrieval(
+            connection: discovery.hasConnection ? discovery.connection : null,
+            resurfacedNote: resurfaced,
+            onResurfacedTap: resurfaced == null
+                ? null
+                : () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            NoteDetailScreen(noteId: resurfaced.id),
+                      ),
+                    ),
           ),
         ),
 
