@@ -68,6 +68,15 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
 
     // Load cached connections immediately (if any).
     _connections = CacheService.instance.getConnections(widget.noteId);
+
+    // Retrieval-first: if no cached connections, auto-discover them once
+    // the screen has settled — so the VERBINDUNGEN section is populated
+    // instead of showing an empty "Verbindungen finden"-Button.
+    if (_connections.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_editing) _findConnections(silent: true);
+      });
+    }
   }
 
   @override
@@ -166,7 +175,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     Navigator.pop(context);
   }
 
-  Future<void> _findConnections() async {
+  /// [silent] = true for the auto-trigger on screen open: a missing server
+  /// must NOT surface an error (the manual "Verbindungen finden"-Button
+  /// stays as fallback). Manual invocation reports errors normally.
+  Future<void> _findConnections({bool silent = false}) async {
     final note = _readNote();
     if (note == null) return;
     setState(() {
@@ -191,7 +203,9 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (response == null) {
       setState(() {
         _loadingConnections = false;
-        _connectionError = 'Verbindungssuche nicht erreichbar. Prüfe deine Verbindung.';
+        _connectionError = silent
+            ? null
+            : 'Verbindungssuche nicht erreichbar. Prüfe deine Verbindung.';
       });
       return;
     }
