@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
@@ -21,7 +22,8 @@ class ChatBubble extends StatelessWidget {
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
+          // Agent messages get more room — markdown tables need it.
+          maxWidth: MediaQuery.of(context).size.width * (isUser ? 0.78 : 0.92),
         ),
         child: Container(
           margin: EdgeInsets.only(
@@ -52,14 +54,22 @@ class ChatBubble extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
               ],
-              SelectableText(
-                content,
-                style: BrainTypography.bodyMd.copyWith(
-                  color:
-                      isUser ? BrainColors.onPrimary : BrainColors.onSurface,
-                  height: 1.5,
+              if (isUser)
+                SelectableText(
+                  content,
+                  style: BrainTypography.bodyMd.copyWith(
+                    color: BrainColors.onPrimary,
+                    height: 1.5,
+                  ),
+                )
+              else
+                GptMarkdown(
+                  content,
+                  style: BrainTypography.bodyMd.copyWith(
+                    color: BrainColors.onSurface,
+                    height: 1.5,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
