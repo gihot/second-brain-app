@@ -42,6 +42,10 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
   bool _justSaved = false;
   Timer? _savedTimer;
 
+  // Voice-First: hold the mic, speak, release -> thought is captured.
+  bool _holdRecording = false;
+  bool _pendingHoldCapture = false;
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +105,55 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
       lang: 'de-DE',
     );
     setState(() {});
+  }
+
+  // ── Voice-First: Hold-to-Talk ───────────────────────────────────────────
+
+  void _startHoldToTalk() {
+    if (!SpeechService.isSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Spracheingabe benötigt Chrome oder Edge.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    _focusNode.unfocus(); // hands-free — no keyboard
+    setState(() => _holdRecording = true);
+    _speech.startListening(
+      onResult: (transcript) {
+        final cur = _controller.text;
+        _controller.text =
+            cur.isEmpty ? transcript : '$cur $transcript';
+      },
+      onEnd: _onHoldSpeechEnd,
+      lang: 'de-DE',
+    );
+  }
+
+  void _endHoldToTalk() {
+    if (!_holdRecording) return;
+    setState(() {
+      _holdRecording = false;
+      _pendingHoldCapture = true;
+    });
+    _speech.stopListening();
+    // onEnd (_onHoldSpeechEnd) fires once recognition has settled.
+  }
+
+  void _onHoldSpeechEnd() {
+    if (!_pendingHoldCapture) {
+      if (mounted) setState(() {});
+      return;
+    }
+    _pendingHoldCapture = false;
+    // Speech finished after release — capture immediately if we got text.
+    if (_controller.text.trim().isNotEmpty) {
+      _handleCapture();
+    } else if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _pickRemindAt() async {
@@ -212,9 +265,33 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
               width: 1,
             ),
           ),
-          child: _justSaved ? _savedView() : _captureView(hasText),
+          child: _holdRecording
+              ? _listeningView()
+              : _justSaved
+                  ? _savedView()
+                  : _captureView(hasText),
         ),
       ),
+    );
+  }
+
+  Widget _listeningView() {
+    return Row(
+      children: [
+        Icon(Icons.mic_rounded, size: 22, color: BrainColors.error),
+        const SizedBox(width: BrainSpacing.sm),
+        Expanded(
+          child: Text(
+            _controller.text.trim().isEmpty
+                ? 'Ich höre zu… loslassen zum Speichern'
+                : _controller.text,
+            style: BrainTypography.bodyMd
+                .copyWith(color: BrainColors.onSurface),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 
@@ -290,7 +367,11 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
                   ? Icons.mic_rounded
                   : Icons.mic_none_rounded,
               active: _speech.isListening,
+              // Tap = Diktat ins Feld. Halten = Hold-to-Talk: aufnehmen,
+              // loslassen erfasst den Gedanken direkt.
               onTap: _toggleVoice,
+              onLongPressStart: _startHoldToTalk,
+              onLongPressEnd: _endHoldToTalk,
             ),
             const SizedBox(width: BrainSpacing.sm),
             _ReminderChip(
@@ -351,17 +432,25 @@ class _IconChip extends StatelessWidget {
   final IconData icon;
   final bool active;
   final VoidCallback onTap;
+  final VoidCallback? onLongPressStart;
+  final VoidCallback? onLongPressEnd;
 
   const _IconChip({
     required this.icon,
     required this.active,
     required this.onTap,
+    this.onLongPressStart,
+    this.onLongPressEnd,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPressStart:
+          onLongPressStart == null ? null : (_) => onLongPressStart!(),
+      onLongPressEnd:
+          onLongPressEnd == null ? null : (_) => onLongPressEnd!(),
       child: Container(
         width: 38,
         height: 38,
