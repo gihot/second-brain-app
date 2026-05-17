@@ -71,7 +71,9 @@ class BrainColors {
   // for the AppBar's "bright" blur over deep ink.
   static Color get glassCardFill   => const Color(0xFF000000).withValues(alpha: 0.30);
   static Color get glassCardBorder => const Color(0xFFFFFFFF).withValues(alpha: 0.10);
-  static const double glassCardBlur = 24.0;
+  // Lower default blur so content dominates over atmosphere. User can
+  // raise the effective look via the glass sliders in Settings.
+  static const double glassCardBlur = 12.0;
 
   // ── Tinted glow shadows (never neutral grey) ──
   static Color get primaryGlow   => primary.withValues(alpha: 0.20);
