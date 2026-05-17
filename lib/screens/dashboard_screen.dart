@@ -4,16 +4,21 @@ import '../providers/vault_provider.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import '../providers/discovery_provider.dart';
 import '../widgets/brain_card.dart';
 import '../widgets/tag_cloud.dart';
 import '../widgets/hall_badge.dart';
+import '../widgets/dashboard_hero.dart';
 import '../models/note_model.dart';
 import 'all_notes_screen.dart';
 import 'note_detail_screen.dart';
 import 'agent_chat_screen.dart';
 import 'search_screen.dart';
 import 'wing_screen.dart';
-import '../widgets/discovery_card.dart';
+
+// Hinweis: discovery_card.dart wurde entfernt. Greeting + Connection-Insight
+// leben jetzt im DashboardHero. Alte insight_dismissed_v1-Keys (reminder:/
+// related:/pattern:) verfallen via 24h-TTL-Prune in CacheService von selbst.
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -107,54 +112,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  String get _greeting {
+    final h = DateTime.now().hour;
+    if (h < 6) return 'Gute Nacht';
+    if (h < 12) return 'Guten Morgen';
+    if (h < 18) return 'Guten Tag';
+    return 'Guten Abend';
+  }
+
+  /// Condenses current context into a single status line. Returns null
+  /// when nothing is mentally relevant — the hero then stays minimal.
+  String? _statusLine(VaultProvider vault, DiscoveryProvider discovery) {
+    final reminders = vault.dueReminders.length;
+    final inbox = vault.status.inboxCount;
+    final hasConn = discovery.hasConnection;
+
+    if (reminders > 0) {
+      return '$reminders ${reminders == 1 ? "Erinnerung wartet" : "Erinnerungen warten"}';
+    }
+    if (inbox > 0 && hasConn) {
+      return '$inbox zum Sortieren · neue Verbindung';
+    }
+    if (inbox > 0) {
+      return '$inbox ${inbox == 1 ? "Gedanke wartet" : "Gedanken warten"} auf Sortierung';
+    }
+    if (hasConn) return 'Neue Verbindung entdeckt';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final vault = context.watch<VaultProvider>();
+    final discovery = context.watch<DiscoveryProvider>();
+    final statusLine = _statusLine(vault, discovery);
 
     return CustomScrollView(
       slivers: [
-        // 1. Discovery Card (connection insight / minimal greeting)
-        const SliverToBoxAdapter(child: DiscoveryCard()),
-
-        // 2. Due Reminders banner — kompakt, einzeilig, oeffnet Sheet
-        if (vault.dueReminders.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              BrainSpacing.screenPadding,
-              0,
-              BrainSpacing.screenPadding,
-              BrainSpacing.md,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: GestureDetector(
-                onTap: () => _showRemindersSheet(vault.dueReminders),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: BrainSpacing.md, vertical: BrainSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: BrainColors.surfaceLow,
-                    borderRadius: BrainSpacing.radiusMd,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.alarm_outlined,
-                          size: 16, color: BrainColors.tertiary),
-                      const SizedBox(width: BrainSpacing.sm),
-                      Text(
-                        '${vault.dueReminders.length} fällige '
-                        '${vault.dueReminders.length == 1 ? "Erinnerung" : "Erinnerungen"}',
-                        style: BrainTypography.labelMd
-                            .copyWith(color: BrainColors.onSurface),
-                      ),
-                      const Spacer(),
-                      Icon(Icons.arrow_forward_ios_rounded,
-                          size: 12, color: BrainColors.onSurfaceVariant),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+        // 1. Hero — Identität + Begrüßung + konditionelle Status-Zeile
+        SliverToBoxAdapter(
+          child: DashboardHero(
+            greeting: _greeting,
+            statusLine: statusLine,
+            onStatusTap: vault.dueReminders.isNotEmpty
+                ? () => _showRemindersSheet(vault.dueReminders)
+                : null,
           ),
+        ),
+
+        // 2. Capture Surface — folgt in A6.
 
         // 3. Recent Notes — PRIME real estate
         SliverToBoxAdapter(

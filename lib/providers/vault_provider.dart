@@ -24,6 +24,14 @@ class VaultProvider extends ChangeNotifier {
 
   List<Note> get notes => _notes;
   List<Note> get recentNotes => _notes.take(5).toList();
+
+  /// Count of notes created since local midnight — the dashboard's
+  /// "heute erfasst" pulse.
+  int get capturesToday {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    return _notes.where((n) => n.created.isAfter(start)).length;
+  }
   List<Note> get inboxNotes =>
       _notes.where((n) => n.status == NoteStatus.inbox).toList();
   /// Reminders whose [remindAt] is at-or-before now (i.e. actually due).
