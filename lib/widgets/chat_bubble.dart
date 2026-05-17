@@ -16,6 +16,16 @@ class ChatBubble extends StatelessWidget {
     required this.agentName,
   });
 
+  // Operatives UI: klare Verben statt Lore-Namen (Agent-IDs bleiben intern).
+  static const _agentLabels = {
+    'seeker': 'Suchen',
+    'librarian': 'Ordnen',
+    'connector': 'Verbinden',
+  };
+
+  String get _displayName =>
+      _agentLabels[agentName.toLowerCase()] ?? agentName;
+
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -48,7 +58,7 @@ class ChatBubble extends StatelessWidget {
             children: [
               if (!isUser) ...[
                 Text(
-                  agentName.toUpperCase(),
+                  _displayName.toUpperCase(),
                   style: BrainTypography.labelSm
                       .copyWith(color: BrainColors.secondary),
                 ),
