@@ -1,22 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/note_model.dart';
-import '../providers/vault_provider.dart';
 import '../providers/discovery_provider.dart';
 import '../services/cache_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
-import '../screens/note_detail_screen.dart';
 
-/// Proaktive Dashboard-Card — ersetzt den statischen Greeting-Header.
+/// Proaktive Dashboard-Card. Zeigt entweder eine Verbindungs-Entdeckung
+/// (echte Retrieval-Hilfe) oder — wenn keine vorliegt — eine schlichte
+/// Begrüßungszeile.
 ///
-/// Priorität der angezeigten Insight:
-///   1. Fällige Erinnerung (lokal, sofort)
-///   2. Verbindungs-Entdeckung (Server, async geladen)
-///   3. Verwandter Gedanke (letzter Capture, lokal)
-///   4. Muster-Beobachtung (häufigster Tag, lokal)
-///   5. Fallback: Greeting
+/// Hinweis: Frühere Insight-Varianten (Reminder / Related / Pattern) wurden
+/// bewusst entfernt (Dashboard-Diät). Ihre alten Dismiss-Keys
+/// (`reminder:` / `related:` / `pattern:`) können noch in der
+/// `insight_dismissed_v1`-Map liegen — die 24h-TTL-Prune-Logik in
+/// CacheService räumt sie von selbst weg, kein Migrations-Code nötig.
 class DiscoveryCard extends StatefulWidget {
   const DiscoveryCard({super.key});
 
@@ -50,22 +48,9 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
 
   @override
   Widget build(BuildContext context) {
-    final vault = context.watch<VaultProvider>();
     final discovery = context.watch<DiscoveryProvider>();
 
-    // 1. Fällige Erinnerung
-    if (vault.dueReminders.isNotEmpty) {
-      final note = vault.dueReminders.first;
-      final key = 'reminder:${note.id}';
-      if (!_isDismissed(key)) {
-        return _ReminderInsight(
-          note: note,
-          onDismiss: () => _dismiss(key),
-        );
-      }
-    }
-
-    // 2. Verbindungs-Entdeckung (Server)
+    // Verbindungs-Entdeckung (Server) — die einzige echte Retrieval-Insight.
     if (discovery.hasConnection) {
       final conn = discovery.connection!;
       final a = conn['note_a_title'] as String? ?? '';
@@ -81,34 +66,7 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
       }
     }
 
-    // 3. Verwandter Gedanke (letzter Capture)
-    if (vault.recentNotes.isNotEmpty) {
-      final note = vault.recentNotes.first;
-      final key = 'related:${note.id}';
-      if (!_isDismissed(key)) {
-        return _RelatedInsight(
-          note: note,
-          context: context,
-          onDismiss: () => _dismiss(key),
-        );
-      }
-    }
-
-    // 4. Muster-Beobachtung (häufigster Tag)
-    if (vault.tagFrequencies.isNotEmpty) {
-      final topTag = vault.tagFrequencies.first.key;
-      // Day-stamped key so a new day's pattern shows again.
-      final dayStamp = DateTime.now().toIso8601String().substring(0, 10);
-      final key = 'pattern:$dayStamp:$topTag';
-      if (!_isDismissed(key)) {
-        return _PatternInsight(
-          topic: topTag,
-          onDismiss: () => _dismiss(key),
-        );
-      }
-    }
-
-    // 5. Fallback: klassischer Greeting + Loading-Indikator (nicht dismissable)
+    // Sonst: schlichte Begrüßung.
     return _GreetingFallback(
       greeting: _greeting,
       loading: discovery.loading,
@@ -117,35 +75,6 @@ class _DiscoveryCardState extends State<DiscoveryCard> {
 }
 
 // ── Insight Varianten ─────────────────────────────────────────────────────────
-
-class _ReminderInsight extends StatelessWidget {
-  final Note note;
-  final VoidCallback? onDismiss;
-  const _ReminderInsight({required this.note, this.onDismiss});
-
-  @override
-  Widget build(BuildContext context) {
-    return _InsightShell(
-      label: 'JETZT FÄLLIG',
-      labelColor: BrainColors.tertiary,
-      icon: Icons.alarm_rounded,
-      iconColor: BrainColors.tertiary,
-      borderColor: BrainColors.tertiary,
-      onDismiss: onDismiss,
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => NoteDetailScreen(noteId: note.id)),
-      ),
-      child: Text(
-        note.title,
-        style: BrainTypography.headlineSm
-            .copyWith(color: BrainColors.onSurface),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
 
 class _ConnectionInsight extends StatelessWidget {
   final String noteATitle;
@@ -216,77 +145,6 @@ class _ConnectionInsight extends StatelessWidget {
   }
 }
 
-class _RelatedInsight extends StatelessWidget {
-  final Note note;
-  final BuildContext context;
-  final VoidCallback? onDismiss;
-  const _RelatedInsight({
-    required this.note,
-    required this.context,
-    this.onDismiss,
-  });
-
-  @override
-  Widget build(BuildContext ctx) {
-    return _InsightShell(
-      label: 'LETZTER GEDANKE',
-      labelColor: BrainColors.primary,
-      icon: Icons.psychology_outlined,
-      iconColor: BrainColors.primary,
-      borderColor: BrainColors.primary,
-      onDismiss: onDismiss,
-      onTap: () => Navigator.push(
-        ctx,
-        MaterialPageRoute(builder: (_) => NoteDetailScreen(noteId: note.id)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            note.title,
-            style: BrainTypography.headlineSm
-                .copyWith(color: BrainColors.onSurface),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          if (note.excerpt.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              note.excerpt,
-              style: BrainTypography.bodySm,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _PatternInsight extends StatelessWidget {
-  final String topic;
-  final VoidCallback? onDismiss;
-  const _PatternInsight({required this.topic, this.onDismiss});
-
-  @override
-  Widget build(BuildContext context) {
-    return _InsightShell(
-      label: 'DEIN MUSTER',
-      labelColor: BrainColors.outline,
-      icon: Icons.trending_up_rounded,
-      iconColor: BrainColors.outline,
-      borderColor: BrainColors.outline,
-      onDismiss: onDismiss,
-      child: Text(
-        'Du schreibst oft über #$topic',
-        style: BrainTypography.headlineSm
-            .copyWith(color: BrainColors.onSurface),
-      ),
-    );
-  }
-}
-
 class _GreetingFallback extends StatelessWidget {
   final String greeting;
   final bool loading;
@@ -341,7 +199,6 @@ class _InsightShell extends StatelessWidget {
   final Color iconColor;
   final Color borderColor;
   final Widget child;
-  final VoidCallback? onTap;
   final VoidCallback? onDismiss;
 
   const _InsightShell({
@@ -351,7 +208,6 @@ class _InsightShell extends StatelessWidget {
     required this.iconColor,
     required this.borderColor,
     required this.child,
-    this.onTap,
     this.onDismiss,
   });
 
@@ -364,9 +220,7 @@ class _InsightShell extends StatelessWidget {
         BrainSpacing.screenPadding,
         BrainSpacing.lg,
       ),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
+      child: Container(
           padding: BrainSpacing.paddingCard,
           decoration: BoxDecoration(
             color: borderColor.withValues(alpha: 0.06),
@@ -387,11 +241,7 @@ class _InsightShell extends StatelessWidget {
                       style: BrainTypography.labelSm
                           .copyWith(color: labelColor)),
                   const Spacer(),
-                  if (onTap != null)
-                    Icon(Icons.arrow_forward_ios_rounded,
-                        size: 11, color: labelColor),
-                  if (onDismiss != null) ...[
-                    if (onTap != null) const SizedBox(width: BrainSpacing.sm),
+                  if (onDismiss != null)
                     InkWell(
                       onTap: onDismiss,
                       borderRadius: BorderRadius.circular(12),
@@ -401,14 +251,12 @@ class _InsightShell extends StatelessWidget {
                             size: 14, color: BrainColors.outline),
                       ),
                     ),
-                  ],
                 ],
               ),
               const SizedBox(height: BrainSpacing.sm),
               child,
             ],
           ),
-        ),
       ),
     );
   }

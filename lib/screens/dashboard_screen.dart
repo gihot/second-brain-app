@@ -4,11 +4,10 @@ import '../providers/vault_provider.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
-import '../widgets/brain_stat_card.dart';
 import '../widgets/brain_card.dart';
 import '../widgets/tag_cloud.dart';
-import '../models/note_model.dart';
 import '../widgets/hall_badge.dart';
+import '../models/note_model.dart';
 import 'all_notes_screen.dart';
 import 'note_detail_screen.dart';
 import 'agent_chat_screen.dart';
@@ -114,214 +113,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return CustomScrollView(
       slivers: [
-        // Discovery Card (proactive insight / greeting)
+        // 1. Discovery Card (connection insight / minimal greeting)
         const SliverToBoxAdapter(child: DiscoveryCard()),
 
-        // Stat Cards Grid
-        SliverPadding(
-          padding: BrainSpacing.paddingScreen,
-          sliver: SliverGrid.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: BrainSpacing.cardGap,
-            crossAxisSpacing: BrainSpacing.cardGap,
-            childAspectRatio: 1.7,
-            children: [
-              BrainStatCard(
-                value: '${vault.status.totalNotes}',
-                label: 'Gedanken',
-                icon: Icons.description_outlined,
-                accentColor: BrainColors.primary,
-              ),
-              BrainStatCard(
-                value: '${vault.status.inboxCount}',
-                label: 'Inbox',
-                icon: Icons.inbox_outlined,
-                accentColor: BrainColors.tertiary,
-              ),
-              BrainStatCard(
-                value: '${vault.status.connectedCount}',
-                label: 'Verknüpft',
-                icon: Icons.hub_outlined,
-                accentColor: BrainColors.secondary,
-              ),
-              BrainStatCard(
-                value: vault.status.lastSyncText,
-                label: 'Letzter Sync',
-                icon: Icons.sync_outlined,
-                accentColor: BrainColors.outline,
-              ),
-            ],
-          ),
-        ),
-
-        // PARA Distribution chart
-        if (vault.notes.isNotEmpty)
-          SliverPadding(
-            padding: BrainSpacing.paddingScreen,
-            sliver: SliverToBoxAdapter(
-              child: _ParaChart(distribution: vault.paraDistribution),
-            ),
-          ),
-
-        // Tag Cloud
-        if (vault.tagFrequencies.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              BrainSpacing.screenPadding,
-              0,
-              BrainSpacing.screenPadding,
-              BrainSpacing.md,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('THEMEN', style: BrainTypography.labelSm),
-                  const SizedBox(height: BrainSpacing.sm),
-                  TagCloud(
-                    frequencies: vault.tagFrequencies,
-                    maxItems: 10,
-                    showAll: _tagsExpanded,
-                    onShowAll: () => setState(() => _tagsExpanded = true),
-                    onTagTap: (tag) => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SearchScreen(initialQuery: tag),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-        // Wings section
-        if (vault.wings.isNotEmpty)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              BrainSpacing.screenPadding,
-              0,
-              BrainSpacing.screenPadding,
-              BrainSpacing.md,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('WINGS', style: BrainTypography.labelSm),
-                  const SizedBox(height: BrainSpacing.sm),
-                  SizedBox(
-                    height: 60,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: vault.wings.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(width: BrainSpacing.sm),
-                      itemBuilder: (ctx, i) {
-                        final w = vault.wings[i];
-                        return GestureDetector(
-                          onTap: () => Navigator.push(
-                            ctx,
-                            MaterialPageRoute(
-                              builder: (_) => WingScreen(
-                                wing: w['wing'] as String,
-                                display: w['display'] as String,
-                              ),
-                            ),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: BrainColors.surfaceLow,
-                              borderRadius: BrainSpacing.radiusMd,
-                              border: Border.all(
-                                color: BrainColors.outlineVariant
-                                    .withValues(alpha: 0.15),
-                              ),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(w['display'] as String,
-                                    style: BrainTypography.bodyMd.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: BrainColors.onSurface)),
-                                Text('${w['count']} Gedanken',
-                                    style: BrainTypography.labelSm),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-        // Ask your Brain card
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-            BrainSpacing.screenPadding,
-            BrainSpacing.md,
-            BrainSpacing.screenPadding,
-            0,
-          ),
-          sliver: SliverToBoxAdapter(
-            child: GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const AgentChatScreen()),
-              ),
-              child: Container(
-                padding: BrainSpacing.paddingCard,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      BrainColors.primary.withValues(alpha: 0.12),
-                      BrainColors.secondary.withValues(alpha: 0.08),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BrainSpacing.radiusMd,
-                  border: Border.all(
-                    color: BrainColors.primary.withValues(alpha: 0.20),
-                    width: 0.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.psychology_outlined,
-                        color: BrainColors.primary, size: 22),
-                    const SizedBox(width: BrainSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Frag dein Gehirn',
-                              style: BrainTypography.bodyMd.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: BrainColors.onSurface)),
-                          Text('Chat mit Seeker, Librarian oder Connector',
-                              style: BrainTypography.bodySm),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios_rounded,
-                        size: 14, color: BrainColors.outline),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Due Reminders banner — kompakt, einzeilig, oeffnet Sheet mit Liste
+        // 2. Due Reminders banner — kompakt, einzeilig, oeffnet Sheet
         if (vault.dueReminders.isNotEmpty)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(
@@ -361,7 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-        // Recent Notes header
+        // 3. Recent Notes — PRIME real estate
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -390,8 +185,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ),
-
-        // Recent Notes list or empty state
         if (vault.recentNotes.isEmpty)
           SliverPadding(
             padding: BrainSpacing.paddingScreen,
@@ -464,11 +257,170 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(width: BrainSpacing.sm),
-                      Text(note.relativeTime, style: BrainTypography.labelSm),
+                      Text(note.relativeTime,
+                          style: BrainTypography.labelSm),
                     ],
                   ),
                 );
               },
+            ),
+          ),
+
+        // 4. Ask your Brain card
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+            BrainSpacing.screenPadding,
+            BrainSpacing.lg,
+            BrainSpacing.screenPadding,
+            0,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AgentChatScreen()),
+              ),
+              child: Container(
+                padding: BrainSpacing.paddingCard,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      BrainColors.primary.withValues(alpha: 0.12),
+                      BrainColors.secondary.withValues(alpha: 0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BrainSpacing.radiusMd,
+                  border: Border.all(
+                    color: BrainColors.primary.withValues(alpha: 0.20),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.psychology_outlined,
+                        color: BrainColors.primary, size: 22),
+                    const SizedBox(width: BrainSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Frag dein Gehirn',
+                              style: BrainTypography.bodyMd.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: BrainColors.onSurface)),
+                          Text('Chat mit Seeker, Librarian oder Connector',
+                              style: BrainTypography.bodySm),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios_rounded,
+                        size: 14, color: BrainColors.outline),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 5. Tag Cloud
+        if (vault.tagFrequencies.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              BrainSpacing.screenPadding,
+              BrainSpacing.lg,
+              BrainSpacing.screenPadding,
+              BrainSpacing.md,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('THEMEN', style: BrainTypography.labelSm),
+                  const SizedBox(height: BrainSpacing.sm),
+                  TagCloud(
+                    frequencies: vault.tagFrequencies,
+                    maxItems: 10,
+                    showAll: _tagsExpanded,
+                    onShowAll: () => setState(() => _tagsExpanded = true),
+                    onTagTap: (tag) => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SearchScreen(initialQuery: tag),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        // 6. Wings section
+        if (vault.wings.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              BrainSpacing.screenPadding,
+              0,
+              BrainSpacing.screenPadding,
+              BrainSpacing.md,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('WINGS', style: BrainTypography.labelSm),
+                  const SizedBox(height: BrainSpacing.sm),
+                  SizedBox(
+                    height: 60,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: vault.wings.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(width: BrainSpacing.sm),
+                      itemBuilder: (ctx, i) {
+                        final w = vault.wings[i];
+                        return GestureDetector(
+                          onTap: () => Navigator.push(
+                            ctx,
+                            MaterialPageRoute(
+                              builder: (_) => WingScreen(
+                                wing: w['wing'] as String,
+                                display: w['display'] as String,
+                              ),
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: BrainColors.surfaceLow,
+                              borderRadius: BrainSpacing.radiusMd,
+                              border: Border.all(
+                                color: BrainColors.outlineVariant
+                                    .withValues(alpha: 0.15),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(w['display'] as String,
+                                    style: BrainTypography.bodyMd.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: BrainColors.onSurface)),
+                                Text('${w['count']} Gedanken',
+                                    style: BrainTypography.labelSm),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -481,83 +433,3 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-// ── PARA Distribution Bar ─────────────────────────────────────────────────
-
-class _ParaChart extends StatelessWidget {
-  final Map<ParaCategory, int> distribution;
-
-  const _ParaChart({required this.distribution});
-
-  static const _colors = {
-    ParaCategory.projects: BrainColors.primary,
-    ParaCategory.areas: BrainColors.secondary,
-    ParaCategory.resources: BrainColors.tertiary,
-    ParaCategory.archive: BrainColors.outline,
-    ParaCategory.inbox: BrainColors.surfaceHighest,
-  };
-
-  static const _labels = {
-    ParaCategory.projects: 'Projects',
-    ParaCategory.areas: 'Areas',
-    ParaCategory.resources: 'Resources',
-    ParaCategory.archive: 'Archive',
-    ParaCategory.inbox: 'Inbox',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final total = distribution.values.fold(0, (a, b) => a + b);
-    if (total == 0) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('KNOWLEDGE MAP', style: BrainTypography.labelSm),
-        const SizedBox(height: BrainSpacing.sm),
-        // Stacked bar using Expanded flex
-        ClipRRect(
-          borderRadius: BrainSpacing.radiusSm,
-          child: SizedBox(
-            height: 8,
-            child: Row(
-              children: ParaCategory.values
-                  .where((c) => (distribution[c] ?? 0) > 0)
-                  .map((c) => Expanded(
-                        flex: distribution[c]!,
-                        child: Container(color: _colors[c]),
-                      ))
-                  .toList(),
-            ),
-          ),
-        ),
-        const SizedBox(height: BrainSpacing.sm),
-        // Legend
-        Wrap(
-          spacing: BrainSpacing.md,
-          runSpacing: 4,
-          children: ParaCategory.values
-              .where((c) => (distribution[c] ?? 0) > 0)
-              .map((c) => Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: _colors[c],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${_labels[c]} ${distribution[c]}',
-                        style: BrainTypography.labelSm,
-                      ),
-                    ],
-                  ))
-              .toList(),
-        ),
-      ],
-    );
-  }
-}
