@@ -87,7 +87,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       PopupMenuItem(
                           value: null,
                           onTap: () => ctx.read<SearchProvider>().setHallFilter(null),
-                          child: const Text('Alle Hallen')),
+                          child: const Text('Alle Kategorien')),
                       ...MemoryHall.values.map((h) => PopupMenuItem(
                             value: h,
                             child: Text(hallLabel(h)),
@@ -109,7 +109,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           Text(
                             search.hallFilter != null
                                 ? hallLabel(search.hallFilter!)
-                                : 'Hall',
+                                : 'Kategorie',
                             style: BrainTypography.labelSm.copyWith(
                               color: search.hallFilter != null
                                   ? hallColor(search.hallFilter!)
@@ -135,7 +135,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           context.read<SearchProvider>().setWingFilter,
                       itemBuilder: (_) => [
                         const PopupMenuItem(
-                            value: null, child: Text('Alle Wings')),
+                            value: null, child: Text('Alle Sammlungen')),
                         ...wings.map((w) => PopupMenuItem(
                               value: w['wing'] as String,
                               child: Text(w['display'] as String),
@@ -162,7 +162,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                           : w[0].toUpperCase() +
                                               w.substring(1))
                                       .join(' ')
-                                  : 'Wing',
+                                  : 'Sammlung',
                               style: BrainTypography.labelSm.copyWith(
                                 color: search.wingFilter != null
                                     ? BrainColors.primary

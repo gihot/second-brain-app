@@ -22,12 +22,12 @@ Color hallColor(MemoryHall hall) {
 
 String hallLabel(MemoryHall hall) {
   switch (hall) {
-    case MemoryHall.fact:        return 'Fact';
-    case MemoryHall.event:       return 'Event';
-    case MemoryHall.discovery:   return 'Discovery';
-    case MemoryHall.preference:  return 'Preference';
-    case MemoryHall.advice:      return 'Advice';
-    case MemoryHall.unclassified: return 'Unclassified';
+    case MemoryHall.fact:        return 'Fakt';
+    case MemoryHall.event:       return 'Ereignis';
+    case MemoryHall.discovery:   return 'Entdeckung';
+    case MemoryHall.preference:  return 'Präferenz';
+    case MemoryHall.advice:      return 'Rat';
+    case MemoryHall.unclassified: return 'Unsortiert';
   }
 }
 

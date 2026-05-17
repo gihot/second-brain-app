@@ -311,7 +311,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               style: BrainTypography.bodyMd.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: BrainColors.onSurface)),
-                          Text('Chat mit Seeker, Librarian oder Connector',
+                          Text('Finde und verknüpfe deine Gedanken',
                               style: BrainTypography.bodySm),
                         ],
                       ),
@@ -370,7 +370,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('WINGS', style: BrainTypography.labelSm),
+                  Text('SAMMLUNGEN', style: BrainTypography.labelSm),
                   const SizedBox(height: BrainSpacing.sm),
                   SizedBox(
                     height: 60,

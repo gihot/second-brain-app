@@ -191,7 +191,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     if (response == null) {
       setState(() {
         _loadingConnections = false;
-        _connectionError = 'Connector nicht erreichbar. Prüfe deine Verbindung.';
+        _connectionError = 'Verbindungssuche nicht erreichbar. Prüfe deine Verbindung.';
       });
       return;
     }
@@ -877,7 +877,7 @@ class _WingInputState extends State<_WingInput> {
         focusNode: _focus,
         style: BrainTypography.bodySm,
         decoration: InputDecoration(
-          hintText: 'Wing (e.g. Urban Arcanum)',
+          hintText: 'Sammlung (z.B. Garten-Projekt)',
           prefixIcon: Icon(Icons.folder_outlined,
               size: 16, color: BrainColors.outline),
           prefixIconConstraints:

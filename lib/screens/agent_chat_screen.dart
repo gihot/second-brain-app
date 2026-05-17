@@ -135,7 +135,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                         context.read<ChatProvider>().setHallScope,
                     itemBuilder: (_) => [
                       const PopupMenuItem(
-                          value: null, child: Text('Alle Hallen')),
+                          value: null, child: Text('Alle Kategorien')),
                       ...MemoryHall.values.map((h) => PopupMenuItem(
                             value: h,
                             child: Text(hallLabel(h)),
@@ -154,7 +154,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                       child: Text(
                         chat.hallScope != null
                             ? hallLabel(chat.hallScope!)
-                            : 'Hall',
+                            : 'Kategorie',
                         style: BrainTypography.labelSm.copyWith(
                           color: chat.hallScope != null
                               ? hallColor(chat.hallScope!)
@@ -171,7 +171,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                           context.read<ChatProvider>().setWingScope,
                       itemBuilder: (_) => [
                         const PopupMenuItem(
-                            value: null, child: Text('Alle Wings')),
+                            value: null, child: Text('Alle Sammlungen')),
                         ...wings.map((w) => PopupMenuItem(
                               value: w['wing'] as String,
                               child: Text(w['display'] as String),
@@ -194,7 +194,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                                       ? w
                                       : w[0].toUpperCase() + w.substring(1))
                                   .join(' ')
-                              : 'Wing',
+                              : 'Sammlung',
                           style: BrainTypography.labelSm.copyWith(
                             color: chat.wingScope != null
                                 ? BrainColors.primary
@@ -271,6 +271,14 @@ class _AgentChips extends StatelessWidget {
     required this.onSelect,
   });
 
+  // Operatives UI: klare Verben statt Lore-Namen. Die Agent-IDs
+  // (seeker/librarian/connector) bleiben intern unveraendert.
+  static const _labels = {
+    'seeker': 'Suchen',
+    'librarian': 'Ordnen',
+    'connector': 'Verbinden',
+  };
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -304,7 +312,7 @@ class _AgentChips extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  a[0].toUpperCase() + a.substring(1),
+                  _labels[a] ?? (a[0].toUpperCase() + a.substring(1)),
                   style: BrainTypography.labelSm.copyWith(
                     color: active
                         ? BrainColors.primary

@@ -9,7 +9,7 @@ import '../widgets/brain_card.dart';
 import '../widgets/hall_badge.dart';
 import 'note_detail_screen.dart';
 
-/// Shows all notes belonging to a Wing, grouped by Hall.
+/// Shows all notes belonging to a Sammlung, grouped by category.
 class WingScreen extends StatelessWidget {
   final String wing;
   final String display;
@@ -49,7 +49,7 @@ class WingScreen extends StatelessWidget {
       body: notes.isEmpty
           ? Center(
               child: Text(
-                'Noch keine Gedanken in diesem Wing',
+                'Noch keine Gedanken in dieser Sammlung',
                 style: BrainTypography.bodyMd
                     .copyWith(color: BrainColors.onSurfaceVariant),
               ),
