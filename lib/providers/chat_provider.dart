@@ -50,7 +50,13 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String text) async {
+  /// [notes] — compact summary of the user's vault, passed so the agent
+  /// has something to search/reason over. Without it Seeker/Librarian
+  /// see an empty vault. Caller supplies it from VaultProvider.
+  Future<void> sendMessage(
+    String text, {
+    List<Map<String, dynamic>> notes = const [],
+  }) async {
     if (text.trim().isEmpty) return;
     final now = DateTime.now();
 
@@ -71,6 +77,7 @@ class ChatProvider extends ChangeNotifier {
       _selectedAgent,
       text.trim(),
       context: {
+        'notes': notes,
         if (_wingScope != null) 'wing_scope': _wingScope,
         if (_hallScope != null) 'hall_scope': _hallScope!.name,
       },

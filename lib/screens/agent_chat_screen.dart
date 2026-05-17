@@ -59,7 +59,12 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
     final text = _controller.text;
     if (text.trim().isEmpty) return;
     _controller.clear();
-    await chat.sendMessage(text);
+    // Hand the agent a compact vault summary so Seeker/Librarian have
+    // something to search — without it they see an empty vault.
+    final notes = context
+        .read<VaultProvider>()
+        .summarizeNotesForContext(limit: 60);
+    await chat.sendMessage(text, notes: notes);
     _scrollToBottom();
   }
 
