@@ -110,9 +110,13 @@ class CacheService {
 
   // ── Offline Capture Queue ──────────────────
 
-  List<OfflineCapture> getPendingCaptures() =>
-      _captureQueue.values.where((c) => !c.synced).toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  List<OfflineCapture> getPendingCaptures() {
+    // Guard: settings tiles read this during build, which can race the
+    // async CacheService.init() at app start (LateInitializationError).
+    if (!_initialized) return [];
+    return _captureQueue.values.where((c) => !c.synced).toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
 
   Future<void> queueCapture(OfflineCapture capture) async {
     await _captureQueue.put(capture.id, capture);

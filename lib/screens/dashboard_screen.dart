@@ -9,6 +9,7 @@ import '../widgets/brain_card.dart';
 import '../widgets/tag_cloud.dart';
 import '../widgets/hall_badge.dart';
 import '../widgets/dashboard_hero.dart';
+import '../widgets/capture_surface.dart';
 import '../models/note_model.dart';
 import 'all_notes_screen.dart';
 import 'note_detail_screen.dart';
@@ -159,7 +160,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
 
-        // 2. Capture Surface — folgt in A6.
+        // 2. Capture Surface — lebendes Capture-Modul
+        SliverToBoxAdapter(
+          child: CaptureSurface(
+            captureCount: vault.capturesToday,
+            inboxCount: vault.status.inboxCount,
+          ),
+        ),
 
         // 3. Recent Notes — PRIME real estate
         SliverToBoxAdapter(
