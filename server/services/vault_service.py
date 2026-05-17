@@ -250,23 +250,50 @@ class VaultService:
                 notes.append(meta)
         return notes
 
+    # Trivial words that must not drive a match on their own.
+    _STOPWORDS = {
+        "der", "die", "das", "und", "ist", "war", "ein", "eine", "einen",
+        "mit", "den", "dem", "des", "was", "wie", "wer", "wo", "ich", "du",
+        "es", "sie", "er", "auf", "für", "von", "im", "in", "zu", "zum",
+        "zur", "noch", "nochmal", "mal", "dass", "oder", "aber", "nicht",
+        "the", "and", "for", "with", "this", "that",
+    }
+
     def search(self, query: str, limit: int = 20) -> list[dict]:
-        """Full-text search across all markdown files in the vault."""
-        lower = query.lower()
-        results = []
+        """Token-scored keyword search across all markdown files.
+
+        The query is split into meaningful tokens; notes are ranked by how
+        many distinct tokens they contain. This finds a note titled
+        "... Gemma4 Compatibility" for the query "was war das mit Gemma4" —
+        a whole-string substring match never would.
+        """
+        raw = [t for t in re.split(r"[^\w]+", query.lower()) if t]
+        tokens = [t for t in raw if len(t) >= 3 and t not in self._STOPWORDS]
+        if not tokens:
+            tokens = raw  # fall back to everything if the query was tiny
+        if not tokens:
+            return []
+
+        scored: list[tuple[int, dict]] = []
         for f in self._vault.rglob("*.md"):
             if ".git" in f.parts:
                 continue
             try:
                 text = f.read_text(encoding="utf-8")
-                if lower in text.lower():
+                low = text.lower()
+                score = sum(1 for t in set(tokens) if t in low)
+                if score > 0:
                     meta = self._parse_frontmatter(f)
                     if meta:
-                        excerpt = self._excerpt(text, lower)
-                        results.append({**meta, "excerpt": excerpt})
+                        first = next((t for t in tokens if t in low), tokens[0])
+                        scored.append(
+                            (score, {**meta, "excerpt": self._excerpt(text, first)})
+                        )
             except Exception:
                 pass
-        return results[:limit]
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [m for _, m in scored[:limit]]
 
     def get_all_notes(self, limit: int = 200) -> list[dict]:
         """Return all notes from every PARA folder as dicts."""
