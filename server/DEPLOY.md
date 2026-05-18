@@ -18,6 +18,14 @@ in a single volume mounted at `/data`.
 | `VAULT_PATH` | Where to clone the vault — **must be on the persistent volume** (e.g. `/data/vault`) |
 | `PORT` | Defaults to 8000; many platforms inject this automatically |
 
+### Optional environment variables
+
+| Var | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Enables semantic search (embedding index). Without it the server runs normally and search stays keyword-only. |
+| `EMBEDDING_MODEL` | Embedding model — defaults to `text-embedding-3-small`. |
+| `INDEX_PATH` | Where the embedding index JSON lives — defaults to a sibling of `VAULT_PATH` (e.g. `/data/embedding_index.json`), kept out of the Git vault. |
+
 > **Why persistent:** the server clones `GITHUB_REPO` into `VAULT_PATH`
 > on first boot, then pushes/pulls there. If the directory disappears
 > (container restart on ephemeral filesystem), the next boot re-clones —

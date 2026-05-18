@@ -12,6 +12,32 @@ from typing import Optional
 import git
 
 from config import get_settings
+from services.index_service import IndexService
+
+
+def parse_frontmatter(path: Path, vault_root: Path) -> Optional[dict]:
+    """Parse a vault markdown file into a frontmatter meta dict.
+
+    Returns keys: file_path (relative to vault_root), content, plus every
+    frontmatter field. Free function so it can be reused without an instance.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            return None
+        end = text.index("---", 3)
+        fm = text[3:end].strip()
+        result = {
+            "file_path": str(path.relative_to(vault_root)),
+            "content": text[end + 3:].strip(),
+        }
+        for line in fm.splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                result[k.strip()] = v.strip()
+        return result
+    except Exception:
+        return None
 
 
 class VaultService:
@@ -81,7 +107,9 @@ class VaultService:
             frontmatter += f"remind_at: {remind_at}\n"
         frontmatter += f"---\n\n"
         filepath.write_text(frontmatter + content, encoding="utf-8")
-        return str(filepath.relative_to(self._vault))
+        rel = str(filepath.relative_to(self._vault))
+        self._index_note(rel)
+        return rel
 
     def update_note(
         self,
@@ -168,11 +196,15 @@ class VaultService:
                 src.unlink()
                 dest.write_text(new_text, encoding="utf-8")
                 self._git_commit(f"update: {src.name} → {para}")
-                return str(dest.relative_to(self._vault))
+                rel = str(dest.relative_to(self._vault))
+                self._index_note(rel)
+                return rel
 
         src.write_text(new_text, encoding="utf-8")
         self._git_commit(f"update: {src.name}")
-        return str(src.relative_to(self._vault))
+        rel = str(src.relative_to(self._vault))
+        self._index_note(rel)
+        return rel
 
     def get_wings(self) -> list[dict]:
         """Return distinct wings with note counts and display names."""
@@ -212,6 +244,10 @@ class VaultService:
         src = self._safe_path(file_path)
         if not src.exists():
             raise FileNotFoundError(f"Note not found: {file_path}")
+        try:
+            IndexService.instance().remove_note(file_path)
+        except Exception as e:
+            print(f"Index removal skipped for {file_path}: {e}")
         src.unlink()
         self._git_commit(f"delete: {src.name}")
 
@@ -234,7 +270,9 @@ class VaultService:
         src.unlink()
         dest.write_text(content, encoding="utf-8")
         self._git_commit(f"move: {src.name} → {new_para}")
-        return str(dest.relative_to(self._vault))
+        rel = str(dest.relative_to(self._vault))
+        self._index_note(rel)
+        return rel
 
     # ── Read ───────────────────────────────────────────────────────────────────
 
@@ -341,20 +379,15 @@ class VaultService:
         return resolved
 
     def _parse_frontmatter(self, path: Path) -> Optional[dict]:
+        return parse_frontmatter(path, self._vault)
+
+    def _index_note(self, rel_path: str) -> None:
+        """Re-index a note after a mutation. Index errors must never surface."""
         try:
-            text = path.read_text(encoding="utf-8")
-            if not text.startswith("---"):
-                return None
-            end = text.index("---", 3)
-            fm = text[3:end].strip()
-            result = {"file_path": str(path.relative_to(self._vault)), "content": text[end + 3:].strip()}
-            for line in fm.splitlines():
-                if ":" in line:
-                    k, _, v = line.partition(":")
-                    result[k.strip()] = v.strip()
-            return result
-        except Exception:
-            return None
+            meta = parse_frontmatter(self._safe_path(rel_path), self._vault)
+            IndexService.instance().index_note(meta)
+        except Exception as e:
+            print(f"Index update skipped for {rel_path}: {e}")
 
     def _excerpt(self, text: str, query: str, radius: int = 80) -> str:
         lower = text.lower()

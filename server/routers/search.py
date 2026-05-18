@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Query
 
 from services.vault_service import VaultService
+from services.index_service import IndexService
 
 router = APIRouter()
 
@@ -14,7 +15,8 @@ async def search(
     hall: str | None = Query(None),
 ):
     vault = VaultService.instance()
-    results = vault.search(q, limit=limit)
+    kw = vault.search(q, limit=limit)
+    results = IndexService.instance().hybrid_search(q, kw, limit)
 
     # Apply Wing + Hall filters (layered retrieval)
     if wing:

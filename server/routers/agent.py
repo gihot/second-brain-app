@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from services.agent_service import AgentService
 from services.vault_service import VaultService
+from services.index_service import IndexService
 
 router = APIRouter()
 
@@ -25,9 +26,10 @@ async def run_agent(name: str, req: AgentRequest):
     # Inject vault data per agent type
     vault_context: dict = {}
     if name == "seeker":
+        kw = vault.search(req.message, limit=20)
         vault_context = {
             "today": date.today().isoformat(),
-            "vault_notes": vault.search(req.message, limit=20),
+            "vault_notes": IndexService.instance().hybrid_search(req.message, kw, 20),
         }
     elif name == "librarian":
         vault_context = {

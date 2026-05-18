@@ -18,6 +18,13 @@ async def lifespan(app: FastAPI):
     vault = VaultService.instance()
     await vault.ensure_vault()
     IdentityService.init(vault._vault)
+
+    from services.index_service import IndexService
+    try:
+        notes = vault.get_all_notes(limit=100000)
+        IndexService.instance().reconcile(notes)
+    except Exception as e:
+        print(f"Index reconcile skipped: {e}")
     yield
     # Shutdown: nothing to clean up
 
