@@ -11,7 +11,13 @@ import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 import '../widgets/brain_button.dart';
 import '../widgets/connection_card.dart';
-import '../widgets/hall_badge.dart';
+import 'note_detail/widgets/hall_selector.dart';
+import 'note_detail/widgets/para_badge.dart';
+import 'note_detail/widgets/remind_at_picker.dart';
+import 'note_detail/widgets/reminder_node.dart';
+import 'note_detail/widgets/thought_type_selector.dart';
+import 'note_detail/widgets/wing_chip.dart';
+import 'note_detail/widgets/wing_input.dart';
 
 /// Read + edit + archive + delete a single note.
 ///
@@ -417,7 +423,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     runSpacing: BrainSpacing.sm,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      _ThoughtTypeSelector(
+                      ThoughtTypeSelector(
                         thoughtType: _thoughtType,
                         editable: _editing,
                         onChanged: (t) => setState(() {
@@ -426,7 +432,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                           _dirty = true;
                         }),
                       ),
-                      _HallSelector(
+                      HallSelector(
                         hall: _hall,
                         editable: _editing,
                         onChanged: (h) => setState(() {
@@ -434,7 +440,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                           _dirty = true;
                         }),
                       ),
-                      _ParaBadge(
+                      ParaBadge(
                         para: _para,
                         editable: _editing,
                         onChanged: (p) => setState(() {
@@ -445,7 +451,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       if (!_editing &&
                           note.wing != null &&
                           note.wing!.isNotEmpty)
-                        _WingChip(wing: note.wing!),
+                        WingChip(wing: note.wing!),
                     ],
                   ),
 
@@ -462,10 +468,10 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   // Reminder Thought-Node (edit + view modes)
                   if (_editing && _thoughtType == ThoughtType.reminder) ...[
                     const SizedBox(height: BrainSpacing.sm),
-                    _ReminderNode(
+                    ReminderNode(
                       formatted:
                           _remindAt != null ? _formatRemindAt(_remindAt!) : null,
-                      child: _RemindAtPicker(
+                      child: RemindAtPicker(
                         value: _remindAt,
                         onChanged: (iso) => setState(() {
                           _remindAt = iso;
@@ -477,7 +483,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                       note.thoughtType == ThoughtType.reminder &&
                       note.remindAt != null) ...[
                     const SizedBox(height: BrainSpacing.sm),
-                    _ReminderNode(
+                    ReminderNode(
                       formatted: _formatRemindAt(note.remindAt!),
                     ),
                   ],
@@ -557,7 +563,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           // Wing input
           if (_editing) ...[
             const SizedBox(height: BrainSpacing.sm),
-            _WingInput(
+            WingInput(
               controller: _wingCtrl,
               wings: context.read<VaultProvider>().wings,
               onChanged: (_) {
@@ -641,518 +647,5 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         ],
       ),
     ));
-  }
-}
-
-class _ParaBadge extends StatelessWidget {
-  final ParaCategory para;
-  final bool editable;
-  final ValueChanged<ParaCategory> onChanged;
-
-  const _ParaBadge({
-    required this.para,
-    required this.editable,
-    required this.onChanged,
-  });
-
-  static const _labels = {
-    ParaCategory.inbox: 'Inbox',
-    ParaCategory.projects: 'Projects',
-    ParaCategory.areas: 'Areas',
-    ParaCategory.resources: 'Resources',
-    ParaCategory.archive: 'Archive',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final label = _labels[para] ?? 'Inbox';
-
-    final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: BrainColors.surfaceHigh,
-        borderRadius: BrainSpacing.radiusFull,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label, style: BrainTypography.labelSm),
-          if (editable) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down_rounded,
-                size: 16, color: BrainColors.outline),
-          ],
-        ],
-      ),
-    );
-
-    if (!editable) return badge;
-
-    return PopupMenuButton<ParaCategory>(
-      color: BrainColors.surfaceHigh,
-      onSelected: onChanged,
-      itemBuilder: (_) => _labels.entries
-          .map((e) => PopupMenuItem(value: e.key, child: Text(e.value)))
-          .toList(),
-      child: badge,
-    );
-  }
-}
-
-class _HallSelector extends StatelessWidget {
-  final MemoryHall hall;
-  final bool editable;
-  final ValueChanged<MemoryHall> onChanged;
-
-  const _HallSelector({
-    required this.hall,
-    required this.editable,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = hallColor(hall);
-    final label = hallLabel(hall);
-
-    // View-mode: a thin colored stripe + neutral label — recedes into the
-    // background, matches the card-list vocabulary (3px stripe = hall).
-    if (!editable) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 3,
-            height: 14,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: BrainTypography.labelSm
-                .copyWith(color: BrainColors.onSurfaceVariant),
-          ),
-        ],
-      );
-    }
-
-    // Edit-mode: keep the affordance — tinted badge with chevron.
-    final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BrainSpacing.radiusFull,
-        border: Border.all(color: color.withValues(alpha: 0.30), width: 0.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(label,
-              style: BrainTypography.labelSm.copyWith(color: color)),
-          const SizedBox(width: 4),
-          Icon(Icons.arrow_drop_down_rounded, size: 16, color: color),
-        ],
-      ),
-    );
-
-    return PopupMenuButton<MemoryHall>(
-      color: BrainColors.surfaceHigh,
-      onSelected: onChanged,
-      itemBuilder: (_) => MemoryHall.values
-          .map((h) => PopupMenuItem(
-                value: h,
-                child: Text(hallLabel(h),
-                    style: BrainTypography.bodyMd
-                        .copyWith(color: hallColor(h))),
-              ))
-          .toList(),
-      child: badge,
-    );
-  }
-}
-
-class _WingInput extends StatefulWidget {
-  final TextEditingController controller;
-  final List<Map<String, dynamic>> wings;
-  final ValueChanged<String>? onChanged;
-
-  const _WingInput({
-    required this.controller,
-    required this.wings,
-    this.onChanged,
-  });
-
-  @override
-  State<_WingInput> createState() => _WingInputState();
-}
-
-class _WingInputState extends State<_WingInput> {
-  late final FocusNode _focus;
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlay;
-
-  @override
-  void initState() {
-    super.initState();
-    _focus = FocusNode();
-    _focus.addListener(() {
-      if (!_focus.hasFocus) _removeOverlay();
-    });
-  }
-
-  @override
-  void dispose() {
-    _removeOverlay();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  List<Map<String, dynamic>> _suggestions(String query) {
-    if (query.isEmpty) return widget.wings;
-    final q = query.toLowerCase();
-    return widget.wings
-        .where((w) =>
-            (w['wing'] as String).contains(q) ||
-            (w['display'] as String).toLowerCase().contains(q))
-        .toList();
-  }
-
-  void _showSuggestions(String query) {
-    _removeOverlay();
-    final suggestions = _suggestions(query);
-    if (suggestions.isEmpty) return;
-
-    _overlay = OverlayEntry(
-      builder: (ctx) => Positioned(
-        width: 200,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, 36),
-          child: Material(
-            color: BrainColors.surfaceHigh,
-            borderRadius: BrainSpacing.radiusSm,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: suggestions
-                  .take(5)
-                  .map((w) => InkWell(
-                        onTap: () {
-                          widget.controller.text = w['display'] as String;
-                          widget.onChanged?.call(w['display'] as String);
-                          _removeOverlay();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(w['display'] as String,
-                                    style: BrainTypography.bodySm),
-                              ),
-                              Text('${w['count']}',
-                                  style: BrainTypography.labelSm),
-                            ],
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ),
-        ),
-      ),
-    );
-    Overlay.of(context).insert(_overlay!);
-  }
-
-  void _removeOverlay() {
-    _overlay?.remove();
-    _overlay = null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CompositedTransformTarget(
-      link: _layerLink,
-      child: TextField(
-        controller: widget.controller,
-        focusNode: _focus,
-        style: BrainTypography.bodySm,
-        decoration: InputDecoration(
-          hintText: 'Sammlung (z.B. Garten-Projekt)',
-          prefixIcon: Icon(Icons.folder_outlined,
-              size: 16, color: BrainColors.outline),
-          prefixIconConstraints:
-              const BoxConstraints(minWidth: 0, minHeight: 0),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-        onChanged: (v) {
-          widget.onChanged?.call(v);
-          _showSuggestions(v);
-        },
-      ),
-    );
-  }
-}
-
-// ── ThoughtType Selector ──────────────────────────────────────────────────────
-
-class _ThoughtTypeSelector extends StatelessWidget {
-  final ThoughtType thoughtType;
-  final bool editable;
-  final ValueChanged<ThoughtType> onChanged;
-
-  const _ThoughtTypeSelector({
-    required this.thoughtType,
-    required this.editable,
-    required this.onChanged,
-  });
-
-  static const _labels = {
-    ThoughtType.standard: 'Gedanke',
-    ThoughtType.reminder: 'Erinnerung',
-    ThoughtType.question: 'Frage',
-    ThoughtType.idea: 'Idee',
-  };
-
-  static const _icons = {
-    ThoughtType.standard: Icons.edit_note_outlined,
-    ThoughtType.reminder: Icons.alarm_outlined,
-    ThoughtType.question: Icons.help_outline_rounded,
-    ThoughtType.idea: Icons.lightbulb_outline_rounded,
-  };
-
-  static const _colors = {
-    ThoughtType.standard: BrainColors.outline,
-    ThoughtType.reminder: BrainColors.tertiary,
-    ThoughtType.question: BrainColors.secondary,
-    ThoughtType.idea: BrainColors.primary,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final label = _labels[thoughtType] ?? 'Gedanke';
-    final icon = _icons[thoughtType] ?? Icons.edit_note_outlined;
-    final color = _colors[thoughtType] ?? BrainColors.outline;
-
-    final isStandard = thoughtType == ThoughtType.standard;
-    final fillColor = isStandard
-        ? BrainColors.surfaceHigh
-        : color.withValues(alpha: 0.12);
-    final borderColor = isStandard
-        ? Colors.transparent
-        : BrainColors.outlineVariant.withValues(alpha: 0.10);
-    final fgColor = isStandard ? BrainColors.onSurfaceVariant : color;
-
-    final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: fillColor,
-        borderRadius: BrainSpacing.radiusFull,
-        border: Border.all(color: borderColor, width: 0.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: fgColor),
-          const SizedBox(width: 6),
-          Text(label, style: BrainTypography.labelSm.copyWith(color: fgColor)),
-          if (editable) ...[
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down_rounded, size: 14, color: fgColor),
-          ],
-        ],
-      ),
-    );
-
-    if (!editable) return badge;
-
-    return PopupMenuButton<ThoughtType>(
-      color: BrainColors.surfaceHigh,
-      onSelected: onChanged,
-      itemBuilder: (_) => ThoughtType.values
-          .map((t) => PopupMenuItem(
-                value: t,
-                child: Row(
-                  children: [
-                    Icon(_icons[t], size: 16, color: _colors[t]),
-                    const SizedBox(width: 8),
-                    Text(_labels[t]!,
-                        style: BrainTypography.bodyMd
-                            .copyWith(color: _colors[t])),
-                  ],
-                ),
-              ))
-          .toList(),
-      child: badge,
-    );
-  }
-}
-
-// ── RemindAt Picker ───────────────────────────────────────────────────────────
-
-class _RemindAtPicker extends StatelessWidget {
-  final String? value;
-  final ValueChanged<String?> onChanged;
-
-  const _RemindAtPicker({required this.value, required this.onChanged});
-
-  Future<void> _pick(BuildContext context) async {
-    final now = DateTime.now();
-    final initial = value != null
-        ? (DateTime.tryParse(value!)?.toLocal() ?? now)
-        : now;
-
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: BrainColors.primary,
-            surface: BrainColors.surfaceHigh,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (date == null || !context.mounted) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.dark(
-            primary: BrainColors.primary,
-            surface: BrainColors.surfaceHigh,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (time == null) return;
-
-    final combined = DateTime(
-        date.year, date.month, date.day, time.hour, time.minute);
-    onChanged(combined.toUtc().toIso8601String());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: InkWell(
-        onTap: () => _pick(context),
-        borderRadius: BrainSpacing.radiusFull,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.edit_calendar_outlined,
-                  size: 14, color: BrainColors.primary),
-              const SizedBox(width: 6),
-              Text(
-                value != null ? 'Datum ändern' : 'Datum & Uhrzeit wählen',
-                style: BrainTypography.labelSm
-                    .copyWith(color: BrainColors.primary),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Wing Chip (view-only) ─────────────────────────────────────────────────────
-
-class _WingChip extends StatelessWidget {
-  final String wing;
-  const _WingChip({required this.wing});
-
-  @override
-  Widget build(BuildContext context) {
-    final display = wing.split('-').map((w) {
-      if (w.isEmpty) return w;
-      return w[0].toUpperCase() + w.substring(1);
-    }).join(' ');
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: BrainColors.primary.withValues(alpha: 0.10),
-        borderRadius: BrainSpacing.radiusFull,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.folder_outlined, size: 14, color: BrainColors.primary),
-          const SizedBox(width: 4),
-          Text(display, style: BrainTypography.tag),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Reminder Thought-Node ─────────────────────────────────────────────────────
-
-class _ReminderNode extends StatelessWidget {
-  final String? formatted;
-  final Widget? child;
-
-  const _ReminderNode({this.formatted, this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(BrainSpacing.md),
-      decoration: BoxDecoration(
-        color: BrainColors.surfaceLow,
-        borderRadius: BrainSpacing.radiusMd,
-        border: Border.all(
-          color: BrainColors.outlineVariant.withValues(alpha: 0.10),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.alarm_outlined,
-                  size: 14, color: BrainColors.tertiary),
-              const SizedBox(width: 6),
-              Text(
-                'ERINNERUNG',
-                style: BrainTypography.labelSm.copyWith(
-                  color: BrainColors.onSurfaceVariant,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: BrainSpacing.xs),
-          Text(
-            formatted ?? '— noch kein Zeitpunkt —',
-            style: BrainTypography.labelMd
-                .copyWith(color: BrainColors.onSurface),
-          ),
-          if (child != null) ...[
-            const SizedBox(height: BrainSpacing.xs),
-            child!,
-          ],
-        ],
-      ),
-    );
   }
 }
