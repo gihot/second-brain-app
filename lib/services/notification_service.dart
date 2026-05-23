@@ -1,14 +1,15 @@
-import 'dart:async';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
 import 'package:flutter/foundation.dart';
+import 'package:web/web.dart' as web;
+
 import '../models/note_model.dart';
 import 'cache_service.dart';
 
-// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
-
 /// Manages browser push notifications for due reminders.
 ///
-/// - Uses the Web Notifications API (dart:html) — no-op on non-web.
+/// - Uses the Web Notifications API (package:web) — no-op on non-web.
 /// - Tracks already-notified note IDs to avoid re-firing after page reload.
 /// - Enabled/disabled preference stored in Hive meta box.
 class NotificationService {
@@ -26,9 +27,9 @@ class NotificationService {
 
   /// 'granted' | 'denied' | 'default'
   String get permissionState {
-    if (!kIsWeb) return 'denied';
+    if (!kIsWeb || !isSupported) return 'denied';
     try {
-      return html.Notification.permission ?? 'default';
+      return web.Notification.permission;
     } catch (_) {
       return 'denied';
     }
@@ -39,7 +40,7 @@ class NotificationService {
   bool get isSupported {
     if (!kIsWeb) return false;
     try {
-      return html.Notification.supported;
+      return globalContext.has('Notification');
     } catch (_) {
       return false;
     }
@@ -50,8 +51,9 @@ class NotificationService {
   Future<bool> requestPermission() async {
     if (!isSupported) return false;
     try {
-      final result = await html.Notification.requestPermission();
-      return result == 'granted';
+      final result =
+          await web.Notification.requestPermission().toDart;
+      return result.toDart == 'granted';
     } catch (_) {
       return false;
     }
@@ -103,10 +105,9 @@ class NotificationService {
 
   void _showNotification({required String title, required String body}) {
     try {
-      html.Notification(
+      web.Notification(
         title,
-        body: body,
-        icon: 'icons/Icon-192.png',
+        web.NotificationOptions(body: body, icon: 'icons/Icon-192.png'),
       );
     } catch (_) {}
   }

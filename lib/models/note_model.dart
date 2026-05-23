@@ -31,8 +31,8 @@ class Note extends HiveObject {
   @HiveField(8)
   String? filePath; // relative path in vault
 
-  @HiveField(9)
-  List<String> linkedNoteIds; // forward links
+  // NOTE: HiveField(9) was `linkedNoteIds` — removed 2026-05-21. Don't reuse
+  // the index; Hive ignores unknown field bytes on old reads.
 
   @HiveField(10)
   MemoryHall hall;
@@ -56,7 +56,6 @@ class Note extends HiveObject {
     this.status = NoteStatus.inbox,
     this.para = ParaCategory.inbox,
     this.filePath,
-    this.linkedNoteIds = const [],
     this.hall = MemoryHall.unclassified,
     this.wing,
     this.thoughtType = ThoughtType.standard,
@@ -71,7 +70,6 @@ class Note extends HiveObject {
     NoteStatus? status,
     ParaCategory? para,
     String? filePath,
-    List<String>? linkedNoteIds,
     MemoryHall? hall,
     String? wing,
     bool clearWing = false,
@@ -89,7 +87,6 @@ class Note extends HiveObject {
       status: status ?? this.status,
       para: para ?? this.para,
       filePath: filePath ?? this.filePath,
-      linkedNoteIds: linkedNoteIds ?? this.linkedNoteIds,
       hall: hall ?? this.hall,
       wing: clearWing ? null : (wing ?? this.wing),
       thoughtType: thoughtType ?? this.thoughtType,

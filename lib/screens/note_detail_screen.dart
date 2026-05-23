@@ -175,9 +175,11 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     Navigator.pop(context);
   }
 
+  /// Fetches the embedding-index nearest neighbors for this note. Cheap and
+  /// instant (no Claude call) since the vectors are already on the server.
+  ///
   /// [silent] = true for the auto-trigger on screen open: a missing server
-  /// must NOT surface an error (the manual "Verbindungen finden"-Button
-  /// stays as fallback). Manual invocation reports errors normally.
+  /// must NOT surface an error. Manual invocation reports errors normally.
   Future<void> _findConnections({bool silent = false}) async {
     final note = _readNote();
     if (note == null) return;
@@ -186,17 +188,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       _connectionError = null;
     });
 
-    final vault = context.read<VaultProvider>();
-    final otherNotes = vault.summarizeNotesForContext(excludeId: note.id);
-
-    final message =
-        'Finde sinnvolle Verbindungen für diesen Gedanken:\n\nTitel: ${note.title}\n\nInhalt:\n${_stripFrontmatter(note.content)}\n\nTags: ${note.tags.join(', ')}';
-
-    final response = await ApiService.instance.invokeAgent(
-      'connector',
-      message,
-      context: {'notes': otherNotes, 'response_format': 'json'},
-    );
+    final response = await ApiService.instance.getRelated(note.id, limit: 5);
 
     if (!mounted) return;
 
@@ -210,20 +202,18 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       return;
     }
 
-    final metadata = response['metadata'] as Map<String, dynamic>?;
-    final rawConnections = metadata?['connections'] as List?;
-    if (rawConnections == null) {
-      setState(() {
-        _loadingConnections = false;
-        _connectionError = 'Keine Verbindungen gefunden.';
-      });
-      return;
-    }
-
-    final parsed = rawConnections
-        .whereType<Map>()
-        .map((e) => Map<String, dynamic>.from(e))
-        .toList();
+    // Map embedding hits to the ConnectionCard format we cache + render.
+    final parsed = response.map((r) {
+      final sim = (r['similarity'] as num?)?.toDouble() ?? 0.0;
+      final percent = (sim * 100).round().clamp(0, 100);
+      return {
+        'file_path': r['file_path'] as String? ?? '',
+        'title': r['title'] as String? ?? '',
+        'connection_type': 'ähnlich',
+        'explanation': '$percent% Übereinstimmung',
+        'similarity': sim,
+      };
+    }).toList();
 
     await CacheService.instance.saveConnections(widget.noteId, parsed);
     setState(() {
@@ -630,10 +620,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                     padding: const EdgeInsets.only(
                         bottom: BrainSpacing.cardGap),
                     child: ConnectionCard(
-                      targetTitle: (c['file_path'] as String? ?? 'Unknown')
-                          .split('/')
-                          .last
-                          .replaceAll('.md', ''),
+                      targetTitle: (c['title'] as String?)?.trim().isNotEmpty == true
+                          ? c['title'] as String
+                          : (c['file_path'] as String? ?? 'Unknown')
+                              .split('/')
+                              .last
+                              .replaceAll('.md', ''),
                       connectionType:
                           c['connection_type'] as String? ?? 'related',
                       explanation: c['explanation'] as String? ?? '',

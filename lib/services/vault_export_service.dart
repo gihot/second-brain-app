@@ -1,10 +1,9 @@
 import 'dart:convert';
-
-// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
+import 'dart:js_interop';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
+import 'package:web/web.dart' as web;
 
 import '../models/note_model.dart';
 import 'cache_service.dart';
@@ -143,14 +142,19 @@ class VaultExportService {
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   void _triggerWebDownload(Uint8List bytes, String fileName) {
-    final blob = html.Blob([bytes], 'application/zip');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download', fileName)
-      ..style.display = 'none';
-    html.document.body?.append(anchor);
+    final blobParts = [bytes.toJS].toJS;
+    final blob = web.Blob(
+      blobParts,
+      web.BlobPropertyBag(type: 'application/zip'),
+    );
+    final url = web.URL.createObjectURL(blob);
+    final anchor = web.HTMLAnchorElement()
+      ..href = url
+      ..setAttribute('download', fileName);
+    anchor.style.display = 'none';
+    web.document.body?.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    html.Url.revokeObjectUrl(url);
+    web.URL.revokeObjectURL(url);
   }
 }

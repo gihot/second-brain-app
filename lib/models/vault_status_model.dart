@@ -1,14 +1,12 @@
 class VaultStatus {
   final int totalNotes;
   final int inboxCount;
-  final int connectedCount;
   final DateTime? lastSync;
   final bool isServerReachable;
 
   const VaultStatus({
     this.totalNotes = 0,
     this.inboxCount = 0,
-    this.connectedCount = 0,
     this.lastSync,
     this.isServerReachable = false,
   });
@@ -25,14 +23,12 @@ class VaultStatus {
   VaultStatus copyWith({
     int? totalNotes,
     int? inboxCount,
-    int? connectedCount,
     DateTime? lastSync,
     bool? isServerReachable,
   }) {
     return VaultStatus(
       totalNotes: totalNotes ?? this.totalNotes,
       inboxCount: inboxCount ?? this.inboxCount,
-      connectedCount: connectedCount ?? this.connectedCount,
       lastSync: lastSync ?? this.lastSync,
       isServerReachable: isServerReachable ?? this.isServerReachable,
     );

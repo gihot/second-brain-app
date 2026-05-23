@@ -232,11 +232,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: '${vault.status.inboxCount}',
                   ),
                   _SettingsTile(
-                    icon: Icons.hub_outlined,
-                    label: 'Verknüpft',
-                    value: '${vault.status.connectedCount}',
-                  ),
-                  _SettingsTile(
                     icon: Icons.upload_file_outlined,
                     label: 'Aus Vault importieren',
                     value: '',

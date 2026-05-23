@@ -26,7 +26,7 @@ class NoteAdapter extends TypeAdapter<Note> {
       status: fields[6] as NoteStatus,
       para: fields[7] as ParaCategory,
       filePath: fields[8] as String?,
-      linkedNoteIds: (fields[9] as List).cast<String>(),
+      // fields[9] (legacy linkedNoteIds) intentionally ignored.
       hall: fields[10] == null ? MemoryHall.unclassified : fields[10] as MemoryHall,
       wing: fields[11] as String?,
       thoughtType: fields[12] == null ? ThoughtType.standard : fields[12] as ThoughtType,
@@ -37,7 +37,7 @@ class NoteAdapter extends TypeAdapter<Note> {
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,8 +56,7 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..write(obj.para)
       ..writeByte(8)
       ..write(obj.filePath)
-      ..writeByte(9)
-      ..write(obj.linkedNoteIds)
+      // writeByte(9) intentionally skipped — legacy linkedNoteIds.
       ..writeByte(10)
       ..write(obj.hall)
       ..writeByte(11)

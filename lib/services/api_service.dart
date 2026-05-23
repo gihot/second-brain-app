@@ -159,6 +159,21 @@ class ApiService {
     return body != null;
   }
 
+  // ── Related Notes (embedding-based) ───────────────────────────────────────
+
+  /// Returns up to [limit] notes most similar to [noteId] per the embedding
+  /// index. Returns null on transport failure, `[]` if the index is disabled
+  /// or the note isn't indexed yet.
+  Future<List<Map<String, dynamic>>?> getRelated(String noteId,
+      {int limit = 5}) async {
+    final body = await _get(
+      '/vault/related/${Uri.encodeComponent(noteId)}?limit=$limit',
+    );
+    if (body == null) return null;
+    final list = body['related'] as List?;
+    return list?.cast<Map<String, dynamic>>() ?? const [];
+  }
+
   // ── Wings ─────────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>?> getWings() async {

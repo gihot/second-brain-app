@@ -175,7 +175,6 @@ class VaultProvider extends ChangeNotifier {
     _status = VaultStatus(
       totalNotes: _notes.length,
       inboxCount: _notes.where((n) => n.status == NoteStatus.inbox).length,
-      connectedCount: _notes.where((n) => n.linkedNoteIds.isNotEmpty).length,
       lastSync: _cache.lastSync,
       isServerReachable: _isServerReachable,
     );
@@ -307,7 +306,6 @@ class VaultProvider extends ChangeNotifier {
         status: conflictCopy.status,
         para: conflictCopy.para,
         filePath: null, // local-only; user decides what to do
-        linkedNoteIds: conflictCopy.linkedNoteIds,
         hall: conflictCopy.hall,
         wing: conflictCopy.wing,
         thoughtType: conflictCopy.thoughtType,

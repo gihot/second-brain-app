@@ -1,31 +1,67 @@
-import 'package:flutter/foundation.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
-/// Web Speech API wrapper using dart:html. Chromium-only (Chrome, Edge, Brave).
+import 'package:flutter/foundation.dart';
+
+// ── JS-interop shim for the experimental Web Speech API ──────────────────
+// Chromium ships it as `webkitSpeechRecognition`. We only model the members
+// we actually use; the rest stays untyped JS.
+
+@JS('webkitSpeechRecognition')
+extension type _SpeechRecognition._(JSObject _) implements JSObject {
+  external _SpeechRecognition();
+  external set lang(String v);
+  external set interimResults(bool v);
+  external set maxAlternatives(int v);
+  external set continuous(bool v);
+  external set onresult(JSFunction f);
+  external set onend(JSFunction f);
+  external set onerror(JSFunction f);
+  external void start();
+  external void stop();
+}
+
+@JS()
+extension type _SpeechRecognitionEvent._(JSObject _) implements JSObject {
+  external _SpeechRecognitionResultList get results;
+}
+
+@JS()
+extension type _SpeechRecognitionResultList._(JSObject _) implements JSObject {
+  external int get length;
+  @JS('item')
+  external _SpeechRecognitionResult item(int index);
+}
+
+@JS()
+extension type _SpeechRecognitionResult._(JSObject _) implements JSObject {
+  @JS('item')
+  external _SpeechRecognitionAlternative item(int index);
+}
+
+@JS()
+extension type _SpeechRecognitionAlternative._(JSObject _) implements JSObject {
+  external String get transcript;
+}
+
+bool _hasSpeechRecognition() {
+  try {
+    return globalContext.has('webkitSpeechRecognition') ||
+        globalContext.has('SpeechRecognition');
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Web Speech API wrapper using js_interop. Chromium-only (Chrome, Edge, Brave).
 /// Falls back gracefully on unsupported browsers.
 class SpeechService {
   static bool get isSupported {
     if (!kIsWeb) return false;
-    try {
-      // Check if SpeechRecognition or webkitSpeechRecognition exists on window
-      return html.window.speechSynthesis != null ||
-          _hasSpeechRecognition();
-    } catch (_) {
-      return false;
-    }
+    return _hasSpeechRecognition();
   }
 
-  static bool _hasSpeechRecognition() {
-    try {
-      html.SpeechRecognition();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  html.SpeechRecognition? _recognition;
+  _SpeechRecognition? _recognition;
   bool _listening = false;
 
   bool get isListening => _listening;
@@ -35,36 +71,38 @@ class SpeechService {
     required void Function() onEnd,
     String lang = 'de-DE',
   }) {
-    if (!kIsWeb) return;
+    if (!kIsWeb || !isSupported) return;
     try {
-      _recognition = html.SpeechRecognition();
-      _recognition!.lang = lang;
-      _recognition!.interimResults = false;
-      _recognition!.maxAlternatives = 1;
-      _recognition!.continuous = false;
+      final rec = _SpeechRecognition()
+        ..lang = lang
+        ..interimResults = false
+        ..maxAlternatives = 1
+        ..continuous = false;
 
-      _recognition!.onResult.listen((event) {
+      rec.onresult = ((JSAny event) {
         try {
-          final results = event.results;
-          if (results == null || results.isEmpty) return;
-          final first = results.first as html.SpeechRecognitionResult;
+          final ev = event as _SpeechRecognitionEvent;
+          final results = ev.results;
+          if (results.length == 0) return;
+          final first = results.item(0);
           final alt = first.item(0);
-          final transcript = alt?.transcript ?? '';
+          final transcript = alt.transcript;
           if (transcript.isNotEmpty) onResult(transcript);
         } catch (_) {}
-      });
+      }).toJS;
 
-      _recognition!.onEnd.listen((_) {
+      rec.onend = ((JSAny _) {
         _listening = false;
         onEnd();
-      });
+      }).toJS;
 
-      _recognition!.onError.listen((_) {
+      rec.onerror = ((JSAny _) {
         _listening = false;
         onEnd();
-      });
+      }).toJS;
 
-      _recognition!.start();
+      rec.start();
+      _recognition = rec;
       _listening = true;
     } catch (_) {
       _listening = false;
