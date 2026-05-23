@@ -17,6 +17,12 @@ from typing import Optional
 import bcrypt
 
 
+# Pre-computed bcrypt hash used as a timing-side-channel guard when an
+# email is unknown. Generated once at import (gensalt randomizes per
+# server start — value is never compared for truth, only for timing).
+_DUMMY_HASH = bcrypt.hashpw(b"dummy", bcrypt.gensalt())
+
+
 class UserService:
     _db_path: Optional[Path] = None
 
@@ -77,9 +83,22 @@ class UserService:
 
     @classmethod
     def verify(cls, email: str, password: str) -> Optional[dict]:
-        """Return the user dict on success, None on bad credentials."""
+        """Return the user dict on success, None on bad credentials.
+
+        Note on timing: when the email is unknown we still run a bcrypt
+        check against [_DUMMY_HASH] so the response latency is
+        indistinguishable from a real "bad password". `bcrypt.checkpw` is
+        synchronous; this method is currently only invoked via
+        `asyncio.to_thread(UserService.verify, ...)` from
+        `routers/auth.py`, so the dummy call lives in the same threadpool
+        worker as the real one and does NOT block the event loop. If you
+        ever invoke `verify()` directly from async code, both paths need
+        to go through `run_in_executor` to keep the symmetry.
+        """
         email = (email or "").strip().lower()
         if not email or not password:
+            # Match real-path cost so empty inputs aren't detectably faster.
+            bcrypt.checkpw(b"dummy", _DUMMY_HASH)
             return None
         with cls._conn() as conn:
             row = conn.execute(
@@ -87,6 +106,8 @@ class UserService:
                 (email,),
             ).fetchone()
         if row is None:
+            # Unknown user — dummy compare to equalize latency vs. real check.
+            bcrypt.checkpw(password.encode("utf-8"), _DUMMY_HASH)
             return None
         if not bcrypt.checkpw(password.encode("utf-8"), row["password_hash"].encode("utf-8")):
             return None

@@ -6,11 +6,12 @@
 """
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 
 from auth import create_token, verify_token
 from config import get_settings
+from rate_limit import limiter
 from services.user_service import UserService
 from services.vault_service import VaultService
 
@@ -28,7 +29,8 @@ class _AuthResponse(BaseModel):
 
 
 @router.post("/login", response_model=_AuthResponse)
-async def login(creds: _Creds):
+@limiter.limit("5/minute;30/hour")
+async def login(request: Request, creds: _Creds):
     user = await asyncio.to_thread(
         UserService.verify, str(creds.email), creds.password
     )
@@ -49,7 +51,8 @@ async def login(creds: _Creds):
 
 
 @router.post("/signup", response_model=_AuthResponse)
-async def signup(creds: _Creds):
+@limiter.limit("3/hour")
+async def signup(request: Request, creds: _Creds):
     settings = get_settings()
     if not settings.signup_enabled:
         raise HTTPException(

@@ -7,8 +7,11 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from config import get_settings
+from rate_limit import limiter
 from routers import agent, auth, capture, discovery, inbox, search, vault
 from services.user_service import UserService
 
@@ -59,6 +62,12 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+# slowapi: shared limiter instance lives in rate_limit.py so routers can
+# decorate their handlers. Exception handler turns RateLimitExceeded into
+# HTTP 429.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Auth is Authorization-Header based, not cookies — credentials are not needed.
 # Explicit origin list avoids the spec-illegal "*" + credentials combination.
