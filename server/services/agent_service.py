@@ -25,18 +25,29 @@ class AgentService:
             raise FileNotFoundError(f"Agent not found: {name}")
         return path.read_text(encoding="utf-8")
 
-    async def run(self, agent_name: str, user_message: str, context: dict | None = None) -> dict:
-        """Run an agent and return its response + any tool calls made."""
+    async def run(
+        self,
+        agent_name: str,
+        user_message: str,
+        context: dict | None = None,
+        user_id: str | None = None,
+    ) -> dict:
+        """Run an agent and return its response + any tool calls made.
+
+        When `user_id` is provided, the user's identity.md content is
+        prepended to the system prompt for personalization.
+        """
         system_prompt = self._load_agent(agent_name)
 
-        # Prepend user identity context if available (cached)
-        try:
-            from services.identity_service import IdentityService
-            identity = IdentityService.instance().get()
-            if identity:
-                system_prompt = f"## User Identity\n{identity}\n\n---\n\n{system_prompt}"
-        except Exception:
-            pass  # IdentityService not initialized yet (e.g., during startup)
+        # Prepend user identity context if available (per-user).
+        if user_id:
+            try:
+                from services.identity_service import IdentityService
+                identity = IdentityService.for_user(user_id).get()
+                if identity:
+                    system_prompt = f"## User Identity\n{identity}\n\n---\n\n{system_prompt}"
+            except Exception:
+                pass
 
         messages = []
         if context:

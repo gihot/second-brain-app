@@ -1,9 +1,10 @@
 """POST /capture — Scribe agent processes raw text into a titled, tagged note."""
 import asyncio
 from datetime import datetime, timezone
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
+from auth import verify_token
 from services.vault_service import VaultService
 from services.agent_service import AgentService
 
@@ -28,12 +29,17 @@ class CaptureResponse(BaseModel):
 
 
 @router.post("", response_model=CaptureResponse)
-async def capture(req: CaptureRequest, background: BackgroundTasks):
+async def capture(
+    req: CaptureRequest,
+    background: BackgroundTasks,
+    payload: dict = Depends(verify_token),
+):
     if not req.text.strip():
         raise HTTPException(status_code=422, detail="Text cannot be empty")
 
     import uuid
     note_id = req.note_id or str(uuid.uuid4())
+    user_id = payload["sub"]
 
     # Run Scribe agent to generate title + tags
     now_utc = datetime.now(timezone.utc)
@@ -46,6 +52,7 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
             "today_utc": now_utc.strftime("%Y-%m-%d"),
             "now_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%S"),
         },
+        user_id=user_id,
     )
 
     meta = result.get("metadata", {})
@@ -62,7 +69,7 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
         import re
         suggested_wing = re.sub(r"[^a-z0-9]+", "-", suggested_wing.lower()).strip("-")
 
-    vault = VaultService.instance()
+    vault = VaultService.for_user(user_id)
     file_path = await asyncio.to_thread(
         vault.write_note,
         note_id, title, req.text, tags, para,

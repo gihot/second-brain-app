@@ -33,6 +33,25 @@ class Settings:
         str(Path(os.environ.get("VAULT_PATH", "/tmp/vault")).parent / "embedding_index.json"),
     )
 
+    # Persistent data root — auth.db, per-user vaults, per-user indexes
+    # all live under this directory on the persistent volume.
+    data_root: str = os.environ.get(
+        "DATA_ROOT",
+        str(Path(os.environ.get("VAULT_PATH", "/tmp/vault")).parent),
+    )
+
+    # Bootstrap: when the users table is empty AND both vars are set,
+    # the lifespan handler creates this user on first boot and migrates
+    # the legacy /data/vault to /data/users/<uid>/vault.
+    bootstrap_email: str = os.environ.get("BOOTSTRAP_EMAIL", "")
+    bootstrap_password: str = os.environ.get("BOOTSTRAP_PASSWORD", "")
+
+    # Whether POST /auth/signup is open. Default: closed (single-user phase).
+    signup_enabled: bool = os.environ.get("SIGNUP_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    # JWT lifetime — 30 days, rolling (refresh = re-login for now).
+    jwt_ttl_days: int = int(os.environ.get("JWT_TTL_DAYS", "30"))
+
 
 @lru_cache
 def get_settings() -> Settings:

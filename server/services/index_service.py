@@ -33,21 +33,27 @@ def _cosine_topk(qvec, matrix, ids, k):
 
 
 class IndexService:
-    _instance: Optional["IndexService"] = None
+    """Per-user, lazily-cached. Index file lives next to the user's vault
+    under `<data_root>/users/<user_id>/embedding_index.json`."""
 
-    def __init__(self):
+    _instances: dict[str, "IndexService"] = {}
+
+    def __init__(self, user_id: str):
         self._settings = get_settings()
-        self._vault = Path(self._settings.vault_path)
-        self._index_path = Path(self._settings.index_path)
+        user_root = Path(self._settings.data_root) / "users" / user_id
+        self._vault = user_root / "vault"
+        self._index_path = user_root / "embedding_index.json"
         self.enabled = bool(self._settings.openai_api_key)
         self._client = None  # lazy OpenAI client
         self._index = self._load_index()
 
     @classmethod
-    def instance(cls) -> "IndexService":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+    def for_user(cls, user_id: str) -> "IndexService":
+        inst = cls._instances.get(user_id)
+        if inst is None:
+            inst = cls(user_id)
+            cls._instances[user_id] = inst
+        return inst
 
     # ── Index file ─────────────────────────────────────────────────────────────
 

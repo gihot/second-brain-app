@@ -8,24 +8,27 @@ client-side from VaultProvider to keep latency low.
 import re
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-from services.vault_service import VaultService
+from auth import verify_token
 from services.agent_service import AgentService
+from services.vault_service import VaultService
 
 router = APIRouter()
 
-# In-memory 24h cache
-_cache: dict = {"data": None, "at": None}
+# In-memory cache, keyed per user (single-user vault: ~one entry).
+_cache: dict[str, dict] = {}
 
 
 @router.get("/daily")
-async def daily_discovery():
-    """Return a connection insight between recent notes, cached 24h."""
-    if _cache["at"] and datetime.now(timezone.utc) - _cache["at"] < timedelta(hours=24):
-        return _cache["data"]
+async def daily_discovery(payload: dict = Depends(verify_token)):
+    """Return a connection insight between recent notes, cached 24h per user."""
+    user_id = payload["sub"]
+    cached = _cache.get(user_id)
+    if cached and datetime.now(timezone.utc) - cached["at"] < timedelta(hours=24):
+        return cached["data"]
 
-    vault = VaultService.instance()
+    vault = VaultService.for_user(user_id)
     notes = vault.get_all_notes(limit=10)
 
     result: dict = {
@@ -56,7 +59,7 @@ async def daily_discovery():
 
         try:
             agent = AgentService()
-            response = await agent.run("connector", message, context=context)
+            response = await agent.run("connector", message, context=context, user_id=user_id)
             metadata = response.get("metadata", {})
             connections = metadata.get("connections", [])
 
@@ -81,15 +84,14 @@ async def daily_discovery():
         except Exception:
             pass  # Fail silently — dashboard still works with local insights
 
-    _cache["data"] = result
-    _cache["at"] = datetime.now(timezone.utc)
+    _cache[user_id] = {"data": result, "at": datetime.now(timezone.utc)}
     return result
 
 
 @router.post("/invalidate")
-async def invalidate_cache():
+async def invalidate_cache(payload: dict = Depends(verify_token)):
     """Force-refresh on next request (e.g. after major vault changes)."""
-    _cache["at"] = None
+    _cache.pop(payload["sub"], None)
     return {"invalidated": True}
 
 

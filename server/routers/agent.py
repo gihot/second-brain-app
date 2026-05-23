@@ -1,12 +1,13 @@
 """POST /agent/{name} — Run any agent with automatic vault context injection."""
 import asyncio
 from datetime import date
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from auth import verify_token
 from services.agent_service import AgentService
-from services.vault_service import VaultService
 from services.index_service import IndexService
+from services.vault_service import VaultService
 
 router = APIRouter()
 
@@ -17,12 +18,17 @@ class AgentRequest(BaseModel):
 
 
 @router.post("/{name}")
-async def run_agent(name: str, req: AgentRequest):
+async def run_agent(
+    name: str,
+    req: AgentRequest,
+    payload: dict = Depends(verify_token),
+):
     allowed = {"scribe", "seeker", "sorter", "librarian", "connector"}
     if name not in allowed:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
 
-    vault = VaultService.instance()
+    user_id = payload["sub"]
+    vault = VaultService.for_user(user_id)
 
     # Inject vault data per agent type
     vault_context: dict = {}
@@ -31,7 +37,7 @@ async def run_agent(name: str, req: AgentRequest):
         vault_context = {
             "today": date.today().isoformat(),
             "vault_notes": await asyncio.to_thread(
-                IndexService.instance().hybrid_search, req.message, kw, 20
+                IndexService.for_user(user_id).hybrid_search, req.message, kw, 20
             ),
         }
     elif name == "librarian":
@@ -50,7 +56,7 @@ async def run_agent(name: str, req: AgentRequest):
 
     agent = AgentService()
     try:
-        result = await agent.run(name, req.message, merged or None)
+        result = await agent.run(name, req.message, merged or None, user_id=user_id)
         return result
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not configured")

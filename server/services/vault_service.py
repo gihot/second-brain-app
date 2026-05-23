@@ -17,35 +17,64 @@ from services.index_service import IndexService
 
 
 class VaultService:
-    _instance: Optional["VaultService"] = None
+    """Per-user, lazily-cached instance: `VaultService.for_user(user_id)`.
 
-    def __init__(self):
+    Vault path: `<data_root>/users/<user_id>/vault/`. The legacy single
+    `VaultService.instance()` API is gone — every call site must now pass
+    a user_id (which comes from the JWT payload).
+    """
+
+    _instances: dict[str, "VaultService"] = {}
+
+    def __init__(self, user_id: str):
         self._settings = get_settings()
-        self._vault = Path(self._settings.vault_path)
+        self._user_id = user_id
+        self._vault = Path(self._settings.data_root) / "users" / user_id / "vault"
 
     @classmethod
-    def instance(cls) -> "VaultService":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
+    def for_user(cls, user_id: str) -> "VaultService":
+        inst = cls._instances.get(user_id)
+        if inst is None:
+            inst = cls(user_id)
+            cls._instances[user_id] = inst
+        return inst
+
+    @property
+    def vault_path(self) -> Path:
+        return self._vault
 
     # ── Setup ─────────────────────────────────────────────────────────────────
 
     async def ensure_vault(self) -> None:
-        """Clone vault on first boot, pull on subsequent boots."""
+        """Clone vault on first boot, pull on subsequent boots.
+
+        Also runs a lazy embedding-index reconcile once per vault — a
+        `.reconciled` flag-file inside the vault dir prevents repeats.
+        """
         if not self._settings.github_repo:
             self._vault.mkdir(parents=True, exist_ok=True)
             (self._vault / "00-Inbox").mkdir(exist_ok=True)
-            return
-
-        repo_url = f"https://{self._settings.github_token}@github.com/{self._settings.github_repo}.git"
-
-        if not (self._vault / ".git").exists():
-            self._vault.mkdir(parents=True, exist_ok=True)
-            git.Repo.clone_from(repo_url, self._vault)
         else:
-            repo = git.Repo(self._vault)
-            repo.remotes.origin.pull()
+            repo_url = f"https://{self._settings.github_token}@github.com/{self._settings.github_repo}.git"
+            if not (self._vault / ".git").exists():
+                self._vault.mkdir(parents=True, exist_ok=True)
+                git.Repo.clone_from(repo_url, self._vault)
+            else:
+                repo = git.Repo(self._vault)
+                repo.remotes.origin.pull()
+
+        # Lazy reconcile — first time only, flag-file in vault dir.
+        flag = self._vault / ".reconciled"
+        if not flag.exists():
+            try:
+                import asyncio
+                notes = await asyncio.to_thread(self.get_all_notes, 100000)
+                await asyncio.to_thread(
+                    IndexService.for_user(self._user_id).reconcile, notes
+                )
+                flag.touch()
+            except Exception as e:
+                print(f"Lazy reconcile skipped for user {self._user_id}: {e}")
 
     # ── Write ──────────────────────────────────────────────────────────────────
 
@@ -221,7 +250,7 @@ class VaultService:
         if not src.exists():
             raise FileNotFoundError(f"Note not found: {file_path}")
         try:
-            IndexService.instance().remove_note(file_path)
+            IndexService.for_user(self._user_id).remove_note(file_path)
         except Exception as e:
             print(f"Index removal skipped for {file_path}: {e}")
         src.unlink()
@@ -361,7 +390,7 @@ class VaultService:
         """Re-index a note after a mutation. Index errors must never surface."""
         try:
             meta = parse_frontmatter(self._safe_path(rel_path), self._vault)
-            IndexService.instance().index_note(meta)
+            IndexService.for_user(self._user_id).index_note(meta)
         except Exception as e:
             print(f"Index update skipped for {rel_path}: {e}")
 

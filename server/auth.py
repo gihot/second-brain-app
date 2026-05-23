@@ -1,10 +1,14 @@
 """
 JWT authentication middleware.
-Token is issued once (via /token endpoint or pre-shared) and sent in Authorization header.
+
+`verify_token` is the FastAPI dependency — returns the payload dict so
+handlers can pull `payload["sub"]` (= user_id) downstream.
 """
+from datetime import datetime, timedelta, timezone
+
+import jwt
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
 
 from config import get_settings
 
@@ -26,12 +30,15 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 
-def create_token(subject: str = "second-brain-app") -> str:
-    """Generate a non-expiring token for personal use. Call once during setup."""
-    from datetime import datetime, timezone
+def create_token(user_id: str, email: str) -> str:
+    """Issue a JWT carrying the user_id (as `sub`) + email, with a
+    configurable expiry (default 30 days)."""
     settings = get_settings()
+    now = datetime.now(timezone.utc)
     payload = {
-        "sub": subject,
-        "iat": datetime.now(timezone.utc),
+        "sub": user_id,
+        "email": email,
+        "iat": now,
+        "exp": now + timedelta(days=settings.jwt_ttl_days),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)

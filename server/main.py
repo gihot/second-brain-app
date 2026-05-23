@@ -2,38 +2,61 @@
 Second Brain Cloud Bridge
 FastAPI server that connects the Flutter app to the Git vault and Claude AI agents.
 """
-import asyncio
-
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from auth import verify_token
-from routers import capture, search, inbox, vault, agent, discovery
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from config import get_settings
+from routers import agent, auth, capture, discovery, inbox, search, vault
+from services.user_service import UserService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: clone/pull vault on boot
-    from services.vault_service import VaultService
-    from services.identity_service import IdentityService
-    vault = VaultService.instance()
-    await vault.ensure_vault()
-    IdentityService.init(vault._vault)
+    # Startup: init the user DB and optionally bootstrap the first user.
+    settings = get_settings()
+    data_root = Path(settings.data_root)
+    UserService.init(data_root / "auth.db")
 
-    from services.index_service import IndexService
-    try:
-        notes = await asyncio.to_thread(vault.get_all_notes, 100000)
-        await asyncio.to_thread(IndexService.instance().reconcile, notes)
-    except Exception as e:
-        print(f"Index reconcile skipped: {e}")
+    if (
+        UserService.count() == 0
+        and settings.bootstrap_email
+        and settings.bootstrap_password
+    ):
+        try:
+            uid = UserService.create(
+                settings.bootstrap_email, settings.bootstrap_password
+            )
+            print(f"Bootstrap user created: {settings.bootstrap_email} ({uid})")
+
+            # Migrate any legacy single-vault under the new user namespace.
+            legacy_vault = Path(settings.vault_path)            # e.g. /data/vault
+            new_vault = data_root / "users" / uid / "vault"
+            if legacy_vault.exists() and not new_vault.exists():
+                new_vault.parent.mkdir(parents=True, exist_ok=True)
+                legacy_vault.rename(new_vault)
+                print(f"Migrated legacy vault → {new_vault}")
+
+            legacy_index = data_root / "embedding_index.json"
+            new_index = data_root / "users" / uid / "embedding_index.json"
+            if legacy_index.exists() and not new_index.exists():
+                new_index.parent.mkdir(parents=True, exist_ok=True)
+                legacy_index.rename(new_index)
+                print(f"Migrated legacy index → {new_index}")
+        except Exception as e:
+            # Loud-fail in the logs, but don't take the server down — the
+            # operator can fix env vars + restart.
+            print(f"Bootstrap failed: {e}")
+
     yield
-    # Shutdown: nothing to clean up
+    # Shutdown: nothing to clean up.
 
 
 app = FastAPI(
     title="Second Brain Cloud Bridge",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -50,15 +73,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount routers — all protected by JWT
-app.include_router(capture.router, prefix="/capture", tags=["capture"], dependencies=[Depends(verify_token)])
-app.include_router(search.router, prefix="/search", tags=["search"], dependencies=[Depends(verify_token)])
-app.include_router(inbox.router, prefix="/inbox", tags=["inbox"], dependencies=[Depends(verify_token)])
-app.include_router(vault.router, prefix="/vault", tags=["vault"], dependencies=[Depends(verify_token)])
-app.include_router(agent.router, prefix="/agent", tags=["agent"], dependencies=[Depends(verify_token)])
-app.include_router(discovery.router, prefix="/discovery", tags=["discovery"], dependencies=[Depends(verify_token)])
+# Auth router — login/signup are open by design; /me uses verify_token
+# internally as a per-handler dependency.
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+
+# Data routers — each handler pulls verify_token + extracts user_id from
+# the payload itself. No router-level dependency to avoid the empty-payload
+# pattern of the previous setup.
+app.include_router(capture.router, prefix="/capture", tags=["capture"])
+app.include_router(search.router, prefix="/search", tags=["search"])
+app.include_router(inbox.router, prefix="/inbox", tags=["inbox"])
+app.include_router(vault.router, prefix="/vault", tags=["vault"])
+app.include_router(agent.router, prefix="/agent", tags=["agent"])
+app.include_router(discovery.router, prefix="/discovery", tags=["discovery"])
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0"}

@@ -1,12 +1,13 @@
 """Vault routes: status, full read, sync, and per-note write/delete."""
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from services.vault_service import VaultService
+from auth import verify_token
 from services.identity_service import IdentityService
 from services.index_service import IndexService
+from services.vault_service import VaultService
 
 router = APIRouter()
 
@@ -29,23 +30,29 @@ class NoteDeleteRequest(BaseModel):
 
 
 @router.get("/status")
-async def vault_status():
-    vault = VaultService.instance()
+async def vault_status(payload: dict = Depends(verify_token)):
+    vault = VaultService.for_user(payload["sub"])
     return vault.get_status()
 
 
 @router.get("/notes")
-async def get_all_notes(limit: int = 200):
+async def get_all_notes(
+    limit: int = 200,
+    payload: dict = Depends(verify_token),
+):
     """Return all notes from the vault for client-side sync."""
-    vault = VaultService.instance()
+    vault = VaultService.for_user(payload["sub"])
     notes = vault.get_all_notes(limit=limit)
     return {"notes": notes}
 
 
 @router.put("/notes")
-async def update_note(req: NoteUpdateRequest):
+async def update_note(
+    req: NoteUpdateRequest,
+    payload: dict = Depends(verify_token),
+):
     """Update an existing note's frontmatter and/or content."""
-    vault = VaultService.instance()
+    vault = VaultService.for_user(payload["sub"])
     try:
         new_path = await asyncio.to_thread(
             vault.update_note,
@@ -68,9 +75,12 @@ async def update_note(req: NoteUpdateRequest):
 
 
 @router.delete("/notes")
-async def delete_note(req: NoteDeleteRequest):
+async def delete_note(
+    req: NoteDeleteRequest,
+    payload: dict = Depends(verify_token),
+):
     """Permanently delete a note from the vault."""
-    vault = VaultService.instance()
+    vault = VaultService.for_user(payload["sub"])
     try:
         await asyncio.to_thread(vault.delete_note, req.file_path)
         return {"deleted": req.file_path}
@@ -79,9 +89,9 @@ async def delete_note(req: NoteDeleteRequest):
 
 
 @router.get("/wings")
-async def get_wings():
+async def get_wings(payload: dict = Depends(verify_token)):
     """Return all distinct wings with counts."""
-    vault = VaultService.instance()
+    vault = VaultService.for_user(payload["sub"])
     return {"wings": vault.get_wings()}
 
 
@@ -91,15 +101,22 @@ class WingRenameRequest(BaseModel):
 
 
 @router.put("/wings/rename")
-async def rename_wing(req: WingRenameRequest):
+async def rename_wing(
+    req: WingRenameRequest,
+    payload: dict = Depends(verify_token),
+):
     """Rename a wing across all notes."""
-    vault = VaultService.instance()
+    vault = VaultService.for_user(payload["sub"])
     count = vault.rename_wing(req.old_wing, req.new_wing)
     return {"updated": count, "new_wing": req.new_wing}
 
 
 @router.get("/related/{note_id}")
-async def related_notes(note_id: str, limit: int = 5):
+async def related_notes(
+    note_id: str,
+    limit: int = 5,
+    payload: dict = Depends(verify_token),
+):
     """Embedding-based nearest-neighbor lookup for a single note.
 
     Returns up to `limit` other notes ranked by cosine similarity. Empty
@@ -107,23 +124,23 @@ async def related_notes(note_id: str, limit: int = 5):
     note isn't indexed yet — never raises.
     """
     related = await asyncio.to_thread(
-        IndexService.instance().related_notes, note_id, limit
+        IndexService.for_user(payload["sub"]).related_notes, note_id, limit
     )
     return {"related": related}
 
 
 @router.post("/sync")
-async def sync_vault():
+async def sync_vault(payload: dict = Depends(verify_token)):
     """Pull latest changes from GitHub."""
-    vault = VaultService.instance()
+    vault = VaultService.for_user(payload["sub"])
     await vault.ensure_vault()
     return {"message": "Vault synced"}
 
 
 @router.get("/identity")
-async def get_identity():
+async def get_identity(payload: dict = Depends(verify_token)):
     """Return the current identity.md content."""
-    return {"content": IdentityService.instance().get()}
+    return {"content": IdentityService.for_user(payload["sub"]).get()}
 
 
 class IdentityUpdateRequest(BaseModel):
@@ -131,7 +148,10 @@ class IdentityUpdateRequest(BaseModel):
 
 
 @router.put("/identity")
-async def update_identity(req: IdentityUpdateRequest):
+async def update_identity(
+    req: IdentityUpdateRequest,
+    payload: dict = Depends(verify_token),
+):
     """Update identity.md (max 800 chars)."""
-    IdentityService.instance().update(req.content)
+    IdentityService.for_user(payload["sub"]).update(req.content)
     return {"content": req.content.strip()[:800]}

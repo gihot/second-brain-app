@@ -1,7 +1,8 @@
 """GET /inbox + POST /inbox/triage — Sorter agent processes all inbox notes."""
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
+from auth import verify_token
 from services.vault_service import VaultService
 from services.agent_service import AgentService
 
@@ -9,8 +10,8 @@ router = APIRouter()
 
 
 @router.get("")
-async def get_inbox():
-    vault = VaultService.instance()
+async def get_inbox(payload: dict = Depends(verify_token)):
+    vault = VaultService.for_user(payload["sub"])
     notes = vault.get_inbox_notes()
     return {"notes": notes, "count": len(notes)}
 
@@ -20,8 +21,13 @@ class TriageRequest(BaseModel):
 
 
 @router.post("/triage")
-async def triage(req: TriageRequest, background: BackgroundTasks):
-    vault = VaultService.instance()
+async def triage(
+    req: TriageRequest,
+    background: BackgroundTasks,
+    payload: dict = Depends(verify_token),
+):
+    user_id = payload["sub"]
+    vault = VaultService.for_user(user_id)
     inbox_notes = vault.get_inbox_notes()
 
     if req.note_ids:
@@ -31,7 +37,7 @@ async def triage(req: TriageRequest, background: BackgroundTasks):
         return {"triaged": 0, "message": "Inbox is already empty"}
 
     # Run Sorter agent for each note (batched in background)
-    background.add_task(_triage_notes, inbox_notes)
+    background.add_task(_triage_notes, user_id, inbox_notes)
 
     return {
         "triaged": len(inbox_notes),
@@ -39,8 +45,8 @@ async def triage(req: TriageRequest, background: BackgroundTasks):
     }
 
 
-async def _triage_notes(notes: list[dict]) -> None:
-    vault = VaultService.instance()
+async def _triage_notes(user_id: str, notes: list[dict]) -> None:
+    vault = VaultService.for_user(user_id)
     agent = AgentService()
 
     for note in notes:
@@ -53,6 +59,7 @@ async def _triage_notes(notes: list[dict]) -> None:
                     "tags": note.get("tags", []),
                     "file_path": note.get("file_path", ""),
                 },
+                user_id=user_id,
             )
             meta = result.get("metadata", {})
             para = meta.get("para") or "03-Resources"
