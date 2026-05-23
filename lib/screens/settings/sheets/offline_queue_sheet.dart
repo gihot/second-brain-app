@@ -143,7 +143,7 @@ class _OfflineQueueSheetState extends State<OfflineQueueSheet> {
                                   await widget.onAdopt(c);
                                   _refresh();
                                 },
-                                child: Text('Als Note übernehmen',
+                                child: Text('Als Gedanken übernehmen',
                                     style: BrainTypography.button.copyWith(
                                         color: BrainColors.primary)),
                               ),

@@ -126,7 +126,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
         : rawWing.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
 
     final updated = note.copyWith(
-      title: _titleCtrl.text.trim().isEmpty ? 'Untitled' : _titleCtrl.text.trim(),
+      title: _titleCtrl.text.trim().isEmpty ? 'Unbenannt' : _titleCtrl.text.trim(),
       content: _contentCtrl.text,
       tags: tags,
       para: _para,

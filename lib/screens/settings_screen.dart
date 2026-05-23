@@ -137,11 +137,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               // ── Connection ──────────────────────────────────────────
               SettingsSection(
-                title: 'CONNECTION',
+                title: 'VERBINDUNG',
                 items: [
                   SettingsTile(
                     icon: Icons.cloud_outlined,
-                    label: 'API Server',
+                    label: 'API-Server',
                     value: _checking
                         ? 'Prüfe...'
                         : _serverReachable
@@ -155,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   SettingsTile(
                     icon: Icons.vpn_key_outlined,
-                    label: 'API Token',
+                    label: 'API-Schlüssel',
                     value: api.isConfigured ? '••••••••' : 'Nicht gesetzt',
                     onTap: () => _showApiTokenDialog(context),
                   ),
@@ -224,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               // ── Vault ───────────────────────────────────────────────
               SettingsSection(
-                title: 'VAULT',
+                title: 'SPEICHER',
                 items: [
                   SettingsTile(
                     icon: Icons.description_outlined,
@@ -294,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: BrainTypography.bodySm,
                       decoration: const InputDecoration(
                         hintText:
-                            'I\'m a software engineer building a second brain. I think in systems and value precision...',
+                            'Ich bin Architekt und baue mir ein zweites Gehirn. Ich denke in Systemen und mag Klarheit...',
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
                       ),
@@ -360,8 +360,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (_) => InputDialog(
-        title: 'API Token',
-        hint: 'Paste your JWT token',
+        title: 'API-Schlüssel',
+        hint: 'Deinen JWT-Schlüssel einfügen',
         controller: ctrl,
         obscureText: true,
         onSave: (value) async {

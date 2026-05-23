@@ -96,11 +96,11 @@ class Note extends HiveObject {
 
   String get relativeTime {
     final diff = DateTime.now().difference(modified);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inMinutes < 1) return 'gerade eben';
+    if (diff.inMinutes < 60) return 'vor ${diff.inMinutes}m';
+    if (diff.inHours < 24) return 'vor ${diff.inHours}h';
+    if (diff.inDays < 7) return 'vor ${diff.inDays}d';
+    return 'vor ${(diff.inDays / 7).floor()}w';
   }
 
   String get excerpt {

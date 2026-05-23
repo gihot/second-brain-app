@@ -341,7 +341,7 @@ class VaultProvider extends ChangeNotifier {
       // Server also omits `title` sometimes — keep the historical default.
       final withTitle = (patched['title'] == null ||
               (patched['title'] as String).isEmpty)
-          ? {...patched, 'title': 'Untitled'}
+          ? {...patched, 'title': 'Unbenannt'}
           : patched;
       return noteFromMap(withTitle);
     } catch (_) {
@@ -489,7 +489,7 @@ class VaultProvider extends ChangeNotifier {
 
   String _generateTitle(String text) {
     final firstLine = text.split('\n').first.trim();
-    if (firstLine.isEmpty) return 'Untitled';
+    if (firstLine.isEmpty) return 'Unbenannt';
     if (firstLine.length <= 60) return firstLine;
     return '${firstLine.split(' ').take(8).join(' ')}...';
   }

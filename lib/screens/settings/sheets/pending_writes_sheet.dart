@@ -97,10 +97,10 @@ class _PendingWritesSheetState extends State<PendingWritesSheet> {
                                     'Alle ${_writes.length} verwerfen?',
                                     style: BrainTypography.titleMd),
                                 content: Text(
-                                  'Die lokalen Notes bleiben erhalten — '
+                                  'Die lokalen Gedanken bleiben erhalten — '
                                   'nur die Sync-Anfragen an den Server werden '
-                                  'gelöscht. Sinnvoll wenn die Eintraege auf '
-                                  'Notes verweisen, die nie beim Server '
+                                  'gelöscht. Sinnvoll wenn die Einträge auf '
+                                  'Gedanken verweisen, die nie beim Server '
                                   'ankamen.',
                                   style: BrainTypography.bodyMd,
                                 ),
