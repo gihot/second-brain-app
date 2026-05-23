@@ -28,10 +28,10 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
 
 def create_token(subject: str = "second-brain-app") -> str:
     """Generate a non-expiring token for personal use. Call once during setup."""
-    import datetime
+    from datetime import datetime, timezone
     settings = get_settings()
     payload = {
         "sub": subject,
-        "iat": datetime.datetime.utcnow(),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)

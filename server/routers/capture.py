@@ -1,4 +1,5 @@
 """POST /capture — Scribe agent processes raw text into a titled, tagged note."""
+import asyncio
 from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
@@ -62,12 +63,13 @@ async def capture(req: CaptureRequest, background: BackgroundTasks):
         suggested_wing = re.sub(r"[^a-z0-9]+", "-", suggested_wing.lower()).strip("-")
 
     vault = VaultService.instance()
-    file_path = vault.write_note(
+    file_path = await asyncio.to_thread(
+        vault.write_note,
         note_id, title, req.text, tags, para,
-        hall=hall,
-        wing=suggested_wing or None,
-        thought_type=thought_type,
-        remind_at=remind_at,
+        hall,
+        suggested_wing or None,
+        thought_type,
+        remind_at,
     )
 
     # Push to GitHub in background (non-blocking)

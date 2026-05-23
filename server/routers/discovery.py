@@ -6,7 +6,7 @@ Local insights (reminders, related note, tag pattern) are computed
 client-side from VaultProvider to keep latency low.
 """
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
 
@@ -22,7 +22,7 @@ _cache: dict = {"data": None, "at": None}
 @router.get("/daily")
 async def daily_discovery():
     """Return a connection insight between recent notes, cached 24h."""
-    if _cache["at"] and datetime.utcnow() - _cache["at"] < timedelta(hours=24):
+    if _cache["at"] and datetime.now(timezone.utc) - _cache["at"] < timedelta(hours=24):
         return _cache["data"]
 
     vault = VaultService.instance()
@@ -30,7 +30,7 @@ async def daily_discovery():
 
     result: dict = {
         "connection": None,
-        "cached_at": datetime.utcnow().isoformat(),
+        "cached_at": datetime.now(timezone.utc).isoformat(),
     }
 
     if len(notes) >= 2:
@@ -82,7 +82,7 @@ async def daily_discovery():
             pass  # Fail silently — dashboard still works with local insights
 
     _cache["data"] = result
-    _cache["at"] = datetime.utcnow()
+    _cache["at"] = datetime.now(timezone.utc)
     return result
 
 

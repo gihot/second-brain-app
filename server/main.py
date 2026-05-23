@@ -2,6 +2,8 @@
 Second Brain Cloud Bridge
 FastAPI server that connects the Flutter app to the Git vault and Claude AI agents.
 """
+import asyncio
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -21,8 +23,8 @@ async def lifespan(app: FastAPI):
 
     from services.index_service import IndexService
     try:
-        notes = vault.get_all_notes(limit=100000)
-        IndexService.instance().reconcile(notes)
+        notes = await asyncio.to_thread(vault.get_all_notes, 100000)
+        await asyncio.to_thread(IndexService.instance().reconcile, notes)
     except Exception as e:
         print(f"Index reconcile skipped: {e}")
     yield
@@ -35,10 +37,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Auth is Authorization-Header based, not cookies — credentials are not needed.
+# Explicit origin list avoids the spec-illegal "*" + credentials combination.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tighten in production
-    allow_credentials=True,
+    allow_origins=[
+        "https://gihot.github.io",  # GitHub Pages deploy
+    ],
+    allow_origin_regex=r"^http://localhost(:\d+)?$",  # local `flutter run`
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

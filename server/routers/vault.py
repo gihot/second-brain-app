@@ -1,9 +1,12 @@
 """Vault routes: status, full read, sync, and per-note write/delete."""
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from services.vault_service import VaultService
 from services.identity_service import IdentityService
+from services.index_service import IndexService
 
 router = APIRouter()
 
@@ -44,7 +47,8 @@ async def update_note(req: NoteUpdateRequest):
     """Update an existing note's frontmatter and/or content."""
     vault = VaultService.instance()
     try:
-        new_path = vault.update_note(
+        new_path = await asyncio.to_thread(
+            vault.update_note,
             req.file_path,
             title=req.title,
             content=req.content,
@@ -68,7 +72,7 @@ async def delete_note(req: NoteDeleteRequest):
     """Permanently delete a note from the vault."""
     vault = VaultService.instance()
     try:
-        vault.delete_note(req.file_path)
+        await asyncio.to_thread(vault.delete_note, req.file_path)
         return {"deleted": req.file_path}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -92,6 +96,20 @@ async def rename_wing(req: WingRenameRequest):
     vault = VaultService.instance()
     count = vault.rename_wing(req.old_wing, req.new_wing)
     return {"updated": count, "new_wing": req.new_wing}
+
+
+@router.get("/related/{note_id}")
+async def related_notes(note_id: str, limit: int = 5):
+    """Embedding-based nearest-neighbor lookup for a single note.
+
+    Returns up to `limit` other notes ranked by cosine similarity. Empty
+    list when the embedding index is disabled (no OPENAI_API_KEY) or the
+    note isn't indexed yet — never raises.
+    """
+    related = await asyncio.to_thread(
+        IndexService.instance().related_notes, note_id, limit
+    )
+    return {"related": related}
 
 
 @router.post("/sync")

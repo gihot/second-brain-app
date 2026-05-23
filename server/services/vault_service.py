@@ -5,39 +5,15 @@ All file I/O is sandboxed inside vault_path — no path traversal possible.
 import os
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import git
 
 from config import get_settings
+from services.frontmatter import parse_frontmatter
 from services.index_service import IndexService
-
-
-def parse_frontmatter(path: Path, vault_root: Path) -> Optional[dict]:
-    """Parse a vault markdown file into a frontmatter meta dict.
-
-    Returns keys: file_path (relative to vault_root), content, plus every
-    frontmatter field. Free function so it can be reused without an instance.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-        if not text.startswith("---"):
-            return None
-        end = text.index("---", 3)
-        fm = text[3:end].strip()
-        result = {
-            "file_path": str(path.relative_to(vault_root)),
-            "content": text[end + 3:].strip(),
-        }
-        for line in fm.splitlines():
-            if ":" in line:
-                k, _, v = line.partition(":")
-                result[k.strip()] = v.strip()
-        return result
-    except Exception:
-        return None
 
 
 class VaultService:
@@ -86,7 +62,7 @@ class VaultService:
         folder.mkdir(parents=True, exist_ok=True)
         filepath = folder / filename
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         tag_list = ", ".join(f'"{t}"' for t in tags)
         frontmatter = (
             f"---\n"
@@ -150,7 +126,7 @@ class VaultService:
                 fm_lines.append((k.strip(), v.strip()))
 
         # Apply updates
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         updates: dict[str, str] = {"modified": now}
         if title is not None:
             updates["title"] = title
@@ -232,7 +208,7 @@ class VaultService:
             if meta and meta.get("wing") == old_wing:
                 content = f.read_text(encoding="utf-8")
                 content = re.sub(r"^wing: .+$", f"wing: {new_normalized}", content, flags=re.MULTILINE)
-                content = re.sub(r"^modified: .+$", f"modified: {datetime.utcnow().isoformat()}", content, flags=re.MULTILINE)
+                content = re.sub(r"^modified: .+$", f"modified: {datetime.now(timezone.utc).isoformat()}", content, flags=re.MULTILINE)
                 f.write_text(content, encoding="utf-8")
                 updated += 1
         if updated:
@@ -265,7 +241,7 @@ class VaultService:
         # Update frontmatter fields
         content = re.sub(r"^status: .+$", f"status: {new_status}", content, flags=re.MULTILINE)
         content = re.sub(r"^para: .+$", f"para: {new_para}", content, flags=re.MULTILINE)
-        content = re.sub(r"^modified: .+$", f"modified: {datetime.utcnow().isoformat()}", content, flags=re.MULTILINE)
+        content = re.sub(r"^modified: .+$", f"modified: {datetime.now(timezone.utc).isoformat()}", content, flags=re.MULTILINE)
 
         src.unlink()
         dest.write_text(content, encoding="utf-8")
@@ -352,7 +328,7 @@ class VaultService:
         return {
             "total_notes": total,
             "inbox_count": inbox_count,
-            "last_sync": datetime.utcnow().isoformat(),
+            "last_sync": datetime.now(timezone.utc).isoformat(),
         }
 
     # ── Git ────────────────────────────────────────────────────────────────────

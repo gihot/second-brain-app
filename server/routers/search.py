@@ -1,4 +1,6 @@
 """GET /search — Seeker agent: local full-text + optional AI semantic ranking."""
+import asyncio
+
 from fastapi import APIRouter, Query
 
 from services.vault_service import VaultService
@@ -15,8 +17,10 @@ async def search(
     hall: str | None = Query(None),
 ):
     vault = VaultService.instance()
-    kw = vault.search(q, limit=limit)
-    results = IndexService.instance().hybrid_search(q, kw, limit)
+    kw = await asyncio.to_thread(vault.search, q, limit)
+    results = await asyncio.to_thread(
+        IndexService.instance().hybrid_search, q, kw, limit
+    )
 
     # Apply Wing + Hall filters (layered retrieval)
     if wing:

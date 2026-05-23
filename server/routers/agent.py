@@ -1,4 +1,5 @@
 """POST /agent/{name} — Run any agent with automatic vault context injection."""
+import asyncio
 from datetime import date
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -26,20 +27,22 @@ async def run_agent(name: str, req: AgentRequest):
     # Inject vault data per agent type
     vault_context: dict = {}
     if name == "seeker":
-        kw = vault.search(req.message, limit=20)
+        kw = await asyncio.to_thread(vault.search, req.message, 20)
         vault_context = {
             "today": date.today().isoformat(),
-            "vault_notes": IndexService.instance().hybrid_search(req.message, kw, 20),
+            "vault_notes": await asyncio.to_thread(
+                IndexService.instance().hybrid_search, req.message, kw, 20
+            ),
         }
     elif name == "librarian":
         vault_context = {
             "today": date.today().isoformat(),
             "vault_status": vault.get_status(),
-            "all_notes": vault.get_all_notes(limit=200),
+            "all_notes": await asyncio.to_thread(vault.get_all_notes, 200),
         }
     elif name == "connector":
         vault_context = {
-            "all_notes": vault.get_all_notes(limit=50),
+            "all_notes": await asyncio.to_thread(vault.get_all_notes, 50),
         }
 
     # Merge: vault data first, then client context (wing/hall scope) on top

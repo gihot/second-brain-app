@@ -21,31 +21,7 @@ from typing import Optional
 import numpy as np
 
 from config import get_settings
-
-
-def _parse_note(path: Path, vault_root: Path) -> Optional[dict]:
-    """Parse a vault markdown file into a frontmatter meta dict.
-
-    Returns keys: file_path (relative), content, plus every frontmatter field.
-    Mirrors VaultService._parse_frontmatter without importing it.
-    """
-    try:
-        text = path.read_text(encoding="utf-8")
-        if not text.startswith("---"):
-            return None
-        end = text.index("---", 3)
-        fm = text[3:end].strip()
-        result = {
-            "file_path": str(path.relative_to(vault_root)),
-            "content": text[end + 3:].strip(),
-        }
-        for line in fm.splitlines():
-            if ":" in line:
-                k, _, v = line.partition(":")
-                result[k.strip()] = v.strip()
-        return result
-    except Exception:
-        return None
+from services.frontmatter import parse_frontmatter
 
 
 def _cosine_topk(qvec, matrix, ids, k):
@@ -230,6 +206,39 @@ class IndexService:
         top_ids = _cosine_topk(qvecs[0], matrix, ids, limit)
         return [self._index["notes"][nid]["file_path"] for nid in top_ids]
 
+    def related_notes(self, note_id: str, limit: int) -> list[dict]:
+        """Nearest-neighbor lookup for a single note in the embedding index.
+
+        Returns up to `limit` other notes (excluding `note_id` itself) ranked
+        by cosine similarity, each as `{file_path, title, similarity}`.
+        Returns `[]` when the index is disabled or the note is not indexed.
+        """
+        if not self.enabled:
+            return []
+        entry = self._index["notes"].get(note_id)
+        if not entry:
+            return []
+        other_ids = [nid for nid in self._index["notes"] if nid != note_id]
+        if not other_ids:
+            return []
+        qvec = np.asarray(entry["vector"], dtype=np.float32)
+        matrix = np.asarray(
+            [self._index["notes"][nid]["vector"] for nid in other_ids],
+            dtype=np.float32,
+        )
+        sims = matrix @ qvec / (
+            np.linalg.norm(matrix, axis=1) * np.linalg.norm(qvec) + 1e-9
+        )
+        order = np.argsort(-sims)[:limit]
+        return [
+            {
+                "file_path": self._index["notes"][other_ids[i]]["file_path"],
+                "title": self._index["notes"][other_ids[i]]["title"],
+                "similarity": float(sims[i]),
+            }
+            for i in order
+        ]
+
     def hybrid_search(self, query: str, keyword_results: list[dict],
                       limit: int) -> list[dict]:
         """Combine semantic ranking with the keyword result set.
@@ -255,7 +264,7 @@ class IndexService:
             if path in kw_by_path:
                 results.append(kw_by_path[path])
             else:
-                note = _parse_note(self._vault / path, self._vault)
+                note = parse_frontmatter(self._vault / path, self._vault)
                 if note:
                     results.append(note)
         return results

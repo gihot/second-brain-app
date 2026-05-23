@@ -16,7 +16,7 @@ AGENTS_DIR = Path(__file__).parent.parent / "agents"
 class AgentService:
     def __init__(self):
         self._settings = get_settings()
-        self._client = anthropic.Anthropic(api_key=self._settings.anthropic_api_key)
+        self._client = anthropic.AsyncAnthropic(api_key=self._settings.anthropic_api_key)
 
     def _load_agent(self, name: str) -> str:
         """Load agent system prompt from agents/<name>.md"""
@@ -47,7 +47,7 @@ class AgentService:
         else:
             messages.append({"role": "user", "content": user_message})
 
-        response = self._client.messages.create(
+        response = await self._client.messages.create(
             model=self._settings.claude_model,
             max_tokens=2048,
             system=system_prompt,
