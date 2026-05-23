@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
+import '../models/note_codec.dart';
 import '../models/note_model.dart';
 import 'cache_service.dart';
 import 'vault_import_service.dart';
@@ -28,7 +29,7 @@ class VaultExportService {
       final md = _toMarkdown(n);
       final bytes = utf8.encode(md);
       // Mirror the vault folder layout the server uses.
-      final folder = _paraFolder(n.para);
+      final folder = paraToServer(n.para);
       final filename = _safeFilename(n.title.isEmpty ? n.id : n.title);
       archive.addFile(
         ArchiveFile('$folder/$filename.md', bytes.length, bytes),
@@ -102,13 +103,13 @@ class VaultExportService {
     buf.writeln('tags: ${jsonEncode(n.tags)}');
     buf.writeln('created: ${n.created.toIso8601String()}');
     buf.writeln('modified: ${n.modified.toIso8601String()}');
-    buf.writeln('status: ${n.status.name}');
-    buf.writeln('para: ${_paraFolder(n.para)}');
-    buf.writeln('hall: ${n.hall.name}');
+    buf.writeln('status: ${statusToServer(n.status)}');
+    buf.writeln('para: ${paraToServer(n.para)}');
+    buf.writeln('hall: ${hallToServer(n.hall)}');
     if (n.wing != null && n.wing!.isNotEmpty) {
       buf.writeln('wing: ${n.wing}');
     }
-    buf.writeln('thought_type: ${n.thoughtType.name}');
+    buf.writeln('thought_type: ${thoughtTypeToServer(n.thoughtType)}');
     if (n.remindAt != null && n.remindAt!.isNotEmpty) {
       buf.writeln('remind_at: ${n.remindAt}');
     }
@@ -123,14 +124,6 @@ class VaultExportService {
     if (match == null) return content;
     return content.substring(match.end);
   }
-
-  String _paraFolder(ParaCategory p) => switch (p) {
-        ParaCategory.projects => '01-Projects',
-        ParaCategory.areas => '02-Areas',
-        ParaCategory.resources => '03-Resources',
-        ParaCategory.archive => '04-Archive',
-        ParaCategory.inbox => '00-Inbox',
-      };
 
   String _safeFilename(String s) {
     // Drop characters Windows / iOS would choke on.

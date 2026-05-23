@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../models/note_codec.dart';
 import '../models/note_model.dart';
 import 'cache_service.dart';
 
 /// Parses markdown notes exported from the GitHub vault and writes them
 /// back to the local Hive cache. Used for emergency recovery and the
-/// future ZIP-Import flow.
+/// ZIP-Import flow.
+///
+/// Domain mapping (Map ↔ Note, enum ↔ server string) lives in
+/// [note_codec.dart] — this file only owns the Dart-specific YAML parsing.
 ///
 /// Vault file format (matches `server/services/vault_service.py`):
 ///
@@ -48,27 +52,13 @@ class VaultImportService {
     final body = text.substring(fmMatch.end);
     final fm = _parseFrontmatter(yaml);
 
-    final id = fm['id']?.toString().trim();
-    final title = fm['title']?.toString().trim();
-    if (id == null || id.isEmpty || title == null || title.isEmpty) {
-      return null;
-    }
-
-    return Note(
-      id: id,
-      title: title,
-      content: body,
-      tags: _parseTagList(fm['tags']),
-      created: _parseDate(fm['created']) ?? DateTime.now(),
-      modified: _parseDate(fm['modified']) ?? DateTime.now(),
-      status: _parseStatus(fm['status']),
-      para: _parsePara(fm['para']),
-      filePath: filename,
-      hall: _parseHall(fm['hall']),
-      wing: _nullIfEmpty(fm['wing']?.toString().trim()),
-      thoughtType: _parseThoughtType(fm['thought_type']),
-      remindAt: _nullIfEmpty(fm['remind_at']?.toString().trim()),
-    );
+    // Hand the parsed map to the shared codec — it does enum mapping and
+    // builds the Note, identically to how server payloads are deserialized.
+    return noteFromMap({
+      ...fm,
+      'content': body,
+      'file_path': filename,
+    });
   }
 
   /// Imports a list of (filename, bytes) tuples. Returns counts.
@@ -96,7 +86,7 @@ class VaultImportService {
     );
   }
 
-  // ── Frontmatter helpers (tiny YAML subset, no package needed) ───────────
+  // ── YAML helpers (tiny subset, no package needed) ────────────────────────
 
   Map<String, dynamic> _parseFrontmatter(String yaml) {
     final out = <String, dynamic>{};
@@ -115,75 +105,6 @@ class VaultImportService {
       out[key] = value;
     }
     return out;
-  }
-
-  List<String> _parseTagList(dynamic raw) {
-    if (raw == null) return const [];
-    final s = raw.toString().trim();
-    if (s.isEmpty) return const [];
-    // Inline list: ["a", "b"] or [a, b]
-    if (s.startsWith('[') && s.endsWith(']')) {
-      final inner = s.substring(1, s.length - 1);
-      return inner
-          .split(',')
-          .map((t) => t.trim().replaceAll(RegExp("^[\"']|[\"']\$"), ''))
-          .where((t) => t.isNotEmpty)
-          .toList();
-    }
-    return [s];
-  }
-
-  DateTime? _parseDate(dynamic raw) {
-    if (raw == null) return null;
-    return DateTime.tryParse(raw.toString().trim());
-  }
-
-  String? _nullIfEmpty(String? s) {
-    if (s == null || s.isEmpty) return null;
-    return s;
-  }
-
-  NoteStatus _parseStatus(dynamic raw) {
-    final s = raw?.toString().trim().toLowerCase() ?? '';
-    return switch (s) {
-      'processed' => NoteStatus.processed,
-      'archived' => NoteStatus.archived,
-      _ => NoteStatus.inbox,
-    };
-  }
-
-  ParaCategory _parsePara(dynamic raw) {
-    final s = raw?.toString().trim().toLowerCase() ?? '';
-    return switch (s) {
-      // Folder-style values from server
-      '01-projects' || 'projects' => ParaCategory.projects,
-      '02-areas' || 'areas' => ParaCategory.areas,
-      '03-resources' || 'resources' => ParaCategory.resources,
-      '04-archive' || 'archive' => ParaCategory.archive,
-      _ => ParaCategory.inbox, // 00-Inbox or anything else
-    };
-  }
-
-  MemoryHall _parseHall(dynamic raw) {
-    final s = raw?.toString().trim().toLowerCase() ?? '';
-    return switch (s) {
-      'fact' => MemoryHall.fact,
-      'event' => MemoryHall.event,
-      'discovery' => MemoryHall.discovery,
-      'preference' => MemoryHall.preference,
-      'advice' => MemoryHall.advice,
-      _ => MemoryHall.unclassified,
-    };
-  }
-
-  ThoughtType _parseThoughtType(dynamic raw) {
-    final s = raw?.toString().trim().toLowerCase() ?? '';
-    return switch (s) {
-      'reminder' => ThoughtType.reminder,
-      'question' => ThoughtType.question,
-      'idea' => ThoughtType.idea,
-      _ => ThoughtType.standard,
-    };
   }
 }
 

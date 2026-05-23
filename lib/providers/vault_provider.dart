@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import '../models/note_codec.dart';
 import '../models/note_model.dart';
 import '../models/vault_status_model.dart';
 import '../services/cache_service.dart';
@@ -332,58 +333,17 @@ class VaultProvider extends ChangeNotifier {
 
   Note? _noteFromServerMap(Map<String, dynamic> m) {
     try {
-      final id = m['id'] as String? ?? m['file_path'] as String? ?? '';
-      if (id.isEmpty) return null;
-      final title = m['title'] as String? ?? 'Untitled';
-      final content = m['content'] as String? ?? '';
-      final tagsRaw = m['tags'] as String? ?? '';
-      final tags = tagsRaw
-          .replaceAll('[', '')
-          .replaceAll(']', '')
-          .split(',')
-          .map((t) => t.trim().replaceAll('"', '').replaceAll("'", ''))
-          .where((t) => t.isNotEmpty)
-          .toList();
-      final createdStr = m['created'] as String?;
-      final modifiedStr = m['modified'] as String?;
-      final created = createdStr != null ? DateTime.tryParse(createdStr) ?? DateTime.now() : DateTime.now();
-      final modified = modifiedStr != null ? DateTime.tryParse(modifiedStr) ?? created : created;
-
-      final statusStr = (m['status'] as String? ?? 'inbox').toLowerCase();
-      final status = statusStr == 'archived'
-          ? NoteStatus.archived
-          : statusStr == 'processed'
-              ? NoteStatus.processed
-              : NoteStatus.inbox;
-
-      final paraStr = (m['para'] as String? ?? '00-Inbox').toLowerCase();
-      final para = paraStr.contains('project')
-          ? ParaCategory.projects
-          : paraStr.contains('area')
-              ? ParaCategory.areas
-              : paraStr.contains('resource')
-                  ? ParaCategory.resources
-                  : paraStr.contains('archive')
-                      ? ParaCategory.archive
-                      : ParaCategory.inbox;
-
-      final hallStr = (m['hall'] as String? ?? 'unclassified').toLowerCase();
-      final hall = _hallFromServer(hallStr);
-      final wing = m['wing'] as String?;
-
-      return Note(
-        id: id,
-        title: title,
-        content: content,
-        tags: tags,
-        created: created,
-        modified: modified,
-        status: status,
-        para: para,
-        filePath: m['file_path'] as String?,
-        hall: hall,
-        wing: wing,
-      );
+      // Server omits `id` for legacy notes — fall back to file_path so the
+      // note still round-trips.
+      final patched = (m['id'] == null || (m['id'] as String).isEmpty)
+          ? {...m, 'id': m['file_path'] ?? ''}
+          : m;
+      // Server also omits `title` sometimes — keep the historical default.
+      final withTitle = (patched['title'] == null ||
+              (patched['title'] as String).isEmpty)
+          ? {...patched, 'title': 'Untitled'}
+          : patched;
+      return noteFromMap(withTitle);
     } catch (_) {
       return null;
     }
@@ -418,19 +378,7 @@ class VaultProvider extends ChangeNotifier {
 
   Future<void> _syncNoteToServer(Note note) async {
     if (note.filePath == null) return; // local-only note, nothing to sync
-    final payload = <String, dynamic>{
-      'op': 'update',
-      'file_path': note.filePath,
-      'title': note.title,
-      'content': _stripFrontmatter(note.content),
-      'tags': note.tags,
-      'status': _statusToServer(note.status),
-      'para': _paraToServer(note.para),
-      'hall': _hallToServer(note.hall),
-      if (note.wing != null) 'wing': note.wing,
-      'thought_type': _thoughtTypeToServer(note.thoughtType),
-      if (note.remindAt != null) 'remind_at': note.remindAt,
-    };
+    final payload = noteToServerMap(note);
 
     if (!_isServerReachable) {
       await _cache.queueWrite(payload);
@@ -499,48 +447,6 @@ class VaultProvider extends ChangeNotifier {
     _loadFromCache();
     await _syncNoteToServer(processed);
   }
-
-  // ── Serialization helpers for server shape ──────────────────────────
-
-  String _stripFrontmatter(String content) {
-    final match = RegExp(r'^---.*?---\s*', dotAll: true).firstMatch(content);
-    if (match == null) return content;
-    return content.substring(match.end);
-  }
-
-  String _statusToServer(NoteStatus s) => switch (s) {
-        NoteStatus.inbox => 'inbox',
-        NoteStatus.processed => 'processed',
-        NoteStatus.archived => 'archived',
-      };
-
-  String _paraToServer(ParaCategory p) => switch (p) {
-        ParaCategory.inbox => '00-Inbox',
-        ParaCategory.projects => '01-Projects',
-        ParaCategory.areas => '02-Areas',
-        ParaCategory.resources => '03-Resources',
-        ParaCategory.archive => '04-Archive',
-      };
-
-  String _hallToServer(MemoryHall h) => switch (h) {
-        MemoryHall.fact => 'fact',
-        MemoryHall.event => 'event',
-        MemoryHall.discovery => 'discovery',
-        MemoryHall.preference => 'preference',
-        MemoryHall.advice => 'advice',
-        MemoryHall.unclassified => 'unclassified',
-      };
-
-  String _thoughtTypeToServer(ThoughtType t) => t.name;
-
-  MemoryHall _hallFromServer(String s) => switch (s) {
-        'fact' => MemoryHall.fact,
-        'event' => MemoryHall.event,
-        'discovery' => MemoryHall.discovery,
-        'preference' => MemoryHall.preference,
-        'advice' => MemoryHall.advice,
-        _ => MemoryHall.unclassified,
-      };
 
   /// Refresh from server on demand (pull-to-refresh).
   Future<void> refresh() async {
