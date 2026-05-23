@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../services/api_service.dart';
+import '../services/cache_service.dart';
 
 /// Tristate auth status — UI gates on this.
 enum AuthStatus { loading, loggedOut, loggedIn }
@@ -24,6 +25,9 @@ class AuthProvider extends ChangeNotifier {
 
   /// Boot-time: read stored token, verify via GET /auth/me. Any failure
   /// (no token, expired, unknown user) → logged out.
+  ///
+  /// On success, opens the per-user Hive cache **before** flipping into
+  /// `loggedIn` so the AppShell never sees a stale (other-user) cache.
   Future<void> init() async {
     // Wire the 401-callback first so any in-flight request can trigger logout.
     _api.onUnauthorized = _onUnauthorized;
@@ -34,14 +38,13 @@ class AuthProvider extends ChangeNotifier {
     }
     final me = await _api.getMe();
     if (me == null) {
-      // Token invalid / server unreachable. Treat as logged-out: a user
-      // with no working session should land on the LoginScreen rather
-      // than a broken AppShell.
+      // Token invalid / server unreachable. Treat as logged-out.
       await _api.clearToken();
       _user = null;
       _setStatus(AuthStatus.loggedOut);
       return;
     }
+    await CacheService.instance.init(me['id'] as String);
     _user = me;
     _setStatus(AuthStatus.loggedIn);
   }
@@ -55,12 +58,16 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    await CacheService.instance.init(result.user!['id'] as String);
     _user = result.user;
     _setStatus(AuthStatus.loggedIn);
     return true;
   }
 
   Future<void> logout() async {
+    // Close the cache BEFORE flipping state so any post-logout rebuild
+    // sees a closed cache rather than the just-logged-out user's data.
+    await CacheService.instance.close();
     await _api.clearToken();
     _user = null;
     _loginError = null;

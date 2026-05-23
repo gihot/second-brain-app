@@ -133,20 +133,22 @@ class VaultProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isServerReachable => _isServerReachable;
 
+  /// Light boot path — does NOT open the cache itself anymore
+  /// (AuthProvider owns that, per-user). We still pre-init the API layer
+  /// so the 401-callback can fire even before any user logs in, and start
+  /// the auto-pull timer that no-ops when there's no token to use.
   Future<void> initialize() async {
     _loading = true;
     notifyListeners();
 
     try {
-      await _cache.init();
       await _api.init();
+      // Cache may already be open (post-login init() raced ahead) or not
+      // yet (pre-login boot). Either way: load whatever's there. If
+      // nothing, _notes stays empty until the AuthGate calls refresh().
       _loadFromCache();
 
-      // Async server check — doesn't block UI
       _checkServerAndSync();
-      // Background poll so Desktop ↔ Mobile stay in sync without a
-      // manual Settings → Sync tap. JS event loop pauses the timer
-      // automatically when the tab/PWA is backgrounded.
       _startAutoPull();
     } catch (e) {
       _error = e.toString();

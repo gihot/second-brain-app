@@ -16,9 +16,11 @@ class BackgroundProvider with ChangeNotifier {
 
   BackgroundProvider();
 
-  /// Reads persisted bytes after CacheService has finished init. Idempotent.
+  /// Reads persisted bytes from the cache. Idempotent and safe to call
+  /// before/after login — when the cache is closed, [getBackgroundImage]
+  /// returns null and we keep the default. The AuthGate calls this after
+  /// the per-user cache opens so the value reflects the current user.
   Future<void> init() async {
-    await CacheService.instance.init();
     _bytes = CacheService.instance.getBackgroundImage();
     notifyListeners();
   }

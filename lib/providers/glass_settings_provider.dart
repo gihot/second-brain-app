@@ -26,9 +26,11 @@ class GlassSettingsProvider with ChangeNotifier {
   double get fillOpacity => _fillOpacity;
   double get tintOpacity => _tintOpacity;
 
-  /// Reads persisted values after CacheService init. Idempotent.
+  /// Reads persisted values from the cache. Idempotent and safe to call
+  /// before/after login — when the cache is closed, [getDouble] returns
+  /// null and the defaults stay. The AuthGate calls this after the
+  /// per-user cache opens so values reflect the current user.
   Future<void> init() async {
-    await CacheService.instance.init();
     final m = CacheService.instance;
     final f = m.getDouble(_fillKey);
     final t = m.getDouble(_tintKey);

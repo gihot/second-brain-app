@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/background_provider.dart';
+import '../providers/glass_settings_provider.dart';
 import '../providers/vault_provider.dart';
 import '../theme/brain_colors.dart';
 import 'app_shell.dart';
@@ -33,6 +35,9 @@ class _AuthGateState extends State<AuthGate> {
         // "setState during build" check.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
+          // Re-read per-user cache contents now that the cache is open.
+          context.read<BackgroundProvider>().init();
+          context.read<GlassSettingsProvider>().init();
           context.read<VaultProvider>().refresh();
         });
       }
