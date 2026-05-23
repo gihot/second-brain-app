@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/brain_theme.dart';
-import 'screens/app_shell.dart';
+import 'screens/auth_gate.dart';
+import 'providers/auth_provider.dart';
 import 'providers/vault_provider.dart';
 import 'providers/capture_provider.dart';
 import 'providers/search_provider.dart';
@@ -24,6 +25,13 @@ class SecondBrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // AuthProvider must come first — it wires ApiService.onUnauthorized
+        // in its init(), and every downstream provider relies on the API
+        // layer. The AuthGate widget hides the AppShell until login resolves.
+        ChangeNotifierProvider(create: (_) => AuthProvider()..init()),
+        // Vault loads from local cache immediately; remote sync waits for
+        // a token (ApiService returns null without one). On login the
+        // AuthGate triggers VaultProvider.refresh() to pull from server.
         ChangeNotifierProvider(create: (_) => VaultProvider()..initialize()),
         ChangeNotifierProxyProvider<VaultProvider, CaptureProvider>(
           create: (ctx) => CaptureProvider(
@@ -51,7 +59,7 @@ class SecondBrainApp extends StatelessWidget {
         title: 'Second Brain',
         debugShowCheckedModeBanner: false,
         theme: BrainTheme.dark(),
-        home: const AppShell(),
+        home: const AuthGate(),
       ),
     );
   }

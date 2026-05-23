@@ -14,10 +14,10 @@ class VaultStatus {
   String get lastSyncText {
     if (lastSync == null) return '--';
     final diff = DateTime.now().difference(lastSync!);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return 'gerade eben';
+    if (diff.inMinutes < 60) return 'vor ${diff.inMinutes}m';
+    if (diff.inHours < 24) return 'vor ${diff.inHours}h';
+    return 'vor ${diff.inDays}d';
   }
 
   VaultStatus copyWith({

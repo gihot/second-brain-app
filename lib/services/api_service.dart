@@ -12,47 +12,79 @@ class ApiService {
   static ApiService get instance => _instance ??= ApiService._();
 
   static const _storage = FlutterSecureStorage();
-  static const _baseUrlKey = 'api_base_url';
   static const _tokenKey = 'api_token';
 
-  // Hardcoded server URL — single source of truth. Update this constant +
-  // redeploy to migrate every client at once. Stored overrides are no
-  // longer respected; any stale value from a previous session is purged
-  // on next init.
+  // Server URL is a build-time constant — that's not a secret, just a
+  // deployment detail. Updating the URL means a new release.
   static const _kServerBaseUrl =
       'https://second-brain-app-production-dcee.up.railway.app';
-  // JWT signed with JWT_SECRET=35445065cfe5c59681d9f72f4b6f3549f6132ebf05cde5572f9426200894003f
-  // Payload: {"sub":"second-brain-app","iat":1778880250}
-  // If you rotate JWT_SECRET on the server, regenerate this token to match.
-  static const _kDefaultToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzZWNvbmQtYnJhaW4tYXBwIiwiaWF0IjoxNzc4ODgwMjUwfQ.fG7Y-NP4XDUjO4lI6dnUn0kYgHYSxAQeQz3S5DdGwzY';
 
-  String? _baseUrl;
   String? _token;
   bool _initialized = false;
 
+  /// Set by [AuthProvider] so the api layer can trigger logout on any 401.
+  void Function()? onUnauthorized;
+
+  String get baseUrl => _kServerBaseUrl;
+
   Future<void> init() async {
     if (_initialized) return;
-    // URL + token are both hardcoded — wipe any stored values so old
-    // mismatched JWTs on a user's device can't override the fresh one.
-    _baseUrl = _kServerBaseUrl;
-    _token = _kDefaultToken;
     try {
-      await _storage.delete(key: _baseUrlKey);
-      await _storage.delete(key: _tokenKey);
-    } catch (_) {}
+      _token = await _storage.read(key: _tokenKey);
+    } catch (_) {
+      _token = null;
+    }
     _initialized = true;
   }
 
-  /// Token can still be overridden per device. URL changes are no-ops.
-  Future<void> configure({required String baseUrl, required String token}) async {
-    // baseUrl param kept for API compatibility — ignored. URL is hardcoded.
+  bool get hasToken => _token != null && _token!.isNotEmpty;
+
+  Future<void> setToken(String token) async {
     _token = token;
-    await _storage.write(key: _tokenKey, value: _token);
+    await _storage.write(key: _tokenKey, value: token);
   }
 
-  bool get isConfigured => _baseUrl != null && _token != null;
-  String? get savedBaseUrl => _baseUrl;
+  Future<void> clearToken() async {
+    _token = null;
+    try {
+      await _storage.delete(key: _tokenKey);
+    } catch (_) {}
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  /// Returns `(user, errorMessage)`: on success `user` is set; on failure
+  /// `user` is null and `errorMessage` carries a user-friendly hint.
+  Future<({Map<String, dynamic>? user, String? error})> login(
+      String email, String password) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/login'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        await setToken(body['token'] as String);
+        return (user: body['user'] as Map<String, dynamic>, error: null);
+      }
+      if (response.statusCode == 401) {
+        return (user: null, error: 'E-Mail oder Passwort falsch.');
+      }
+      return (user: null, error: 'Anmeldung fehlgeschlagen (HTTP ${response.statusCode}).');
+    } catch (e) {
+      return (user: null, error: 'Server nicht erreichbar.');
+    }
+  }
+
+  /// Returns the current user from the server. `null` on any failure
+  /// (incl. 401 — caller should treat that as "log out").
+  Future<Map<String, dynamic>?> getMe() async {
+    final body = await _get('/auth/me');
+    return body?['user'] as Map<String, dynamic>?;
+  }
 
   // ── Capture ───────────────────────────────────────────────────────────────
 
@@ -230,10 +262,9 @@ class ApiService {
   // ── Health Check ───────────────────────────────────────────────────────────
 
   Future<bool> ping() async {
-    if (!isConfigured) return false;
     try {
       final response = await http
-          .get(Uri.parse('$_baseUrl/health'))
+          .get(Uri.parse('$baseUrl/health'))
           .timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (_) {
@@ -245,13 +276,10 @@ class ApiService {
   /// Returns latency in ms when reachable, or a short error message.
   Future<({bool ok, int? latencyMs, String? error})>
       pingWithLatency() async {
-    if (!isConfigured) {
-      return (ok: false, latencyMs: null, error: 'Nicht konfiguriert');
-    }
     final sw = Stopwatch()..start();
     try {
       final response = await http
-          .get(Uri.parse('$_baseUrl/health'))
+          .get(Uri.parse('$baseUrl/health'))
           .timeout(const Duration(seconds: 5));
       sw.stop();
       if (response.statusCode == 200) {
@@ -272,18 +300,28 @@ class ApiService {
 
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_token',
+        if (_token != null) 'Authorization': 'Bearer $_token',
       };
 
+  /// Centralized 401-handling: fires the AuthProvider's logout once.
+  void _handle401(int statusCode) {
+    if (statusCode == 401) {
+      try {
+        onUnauthorized?.call();
+      } catch (_) {}
+    }
+  }
+
   Future<Map<String, dynamic>?> _get(String path) async {
-    if (!isConfigured) return null;
+    if (!hasToken) return null;
     try {
       final response = await http
-          .get(Uri.parse('$_baseUrl$path'), headers: _headers)
+          .get(Uri.parse('$baseUrl$path'), headers: _headers)
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
+      _handle401(response.statusCode);
       debugPrint('ApiService GET $path → ${response.statusCode}');
       return null;
     } catch (e) {
@@ -293,11 +331,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> _put(String path, Map<String, dynamic> body) async {
-    if (!isConfigured) return null;
+    if (!hasToken) return null;
     try {
       final response = await http
           .put(
-            Uri.parse('$_baseUrl$path'),
+            Uri.parse('$baseUrl$path'),
             headers: _headers,
             body: jsonEncode(body),
           )
@@ -305,6 +343,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
+      _handle401(response.statusCode);
       debugPrint('ApiService PUT $path → ${response.statusCode}');
       return null;
     } catch (e) {
@@ -314,9 +353,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> _delete(String path, Map<String, dynamic> body) async {
-    if (!isConfigured) return null;
+    if (!hasToken) return null;
     try {
-      final request = http.Request('DELETE', Uri.parse('$_baseUrl$path'))
+      final request = http.Request('DELETE', Uri.parse('$baseUrl$path'))
         ..headers.addAll(_headers)
         ..body = jsonEncode(body);
       final streamed = await request.send().timeout(const Duration(seconds: 15));
@@ -324,6 +363,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
+      _handle401(response.statusCode);
       debugPrint('ApiService DELETE $path → ${response.statusCode}');
       return null;
     } catch (e) {
@@ -333,11 +373,11 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> _post(String path, Map<String, dynamic> body) async {
-    if (!isConfigured) return null;
+    if (!hasToken) return null;
     try {
       final response = await http
           .post(
-            Uri.parse('$_baseUrl$path'),
+            Uri.parse('$baseUrl$path'),
             headers: _headers,
             body: jsonEncode(body),
           )
@@ -345,6 +385,7 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
+      _handle401(response.statusCode);
       debugPrint('ApiService POST $path → ${response.statusCode}');
       return null;
     } catch (e) {

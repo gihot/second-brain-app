@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/capture_provider.dart';
 import '../providers/vault_provider.dart';
 import '../services/api_service.dart';
@@ -16,7 +17,6 @@ import 'settings/sheets/offline_queue_sheet.dart';
 import 'settings/sheets/pending_writes_sheet.dart';
 import 'settings/widgets/background_image_tile.dart';
 import 'settings/widgets/glass_settings_tile.dart';
-import 'settings/widgets/input_dialog.dart';
 import 'settings/widgets/notification_toggle_tile.dart';
 import 'settings/widgets/settings_section.dart';
 import 'settings/widgets/settings_tile.dart';
@@ -115,7 +115,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final vault = context.watch<VaultProvider>();
-    final api = ApiService.instance;
 
     return CustomScrollView(
       slivers: [
@@ -135,6 +134,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: BrainSpacing.paddingScreen,
           sliver: SliverList.list(
             children: [
+              // ── Konto ───────────────────────────────────────────────
+              SettingsSection(
+                title: 'KONTO',
+                items: [
+                  SettingsTile(
+                    icon: Icons.account_circle_outlined,
+                    label: 'Angemeldet als',
+                    value: context.watch<AuthProvider>().email,
+                  ),
+                  SettingsTile(
+                    icon: Icons.logout_rounded,
+                    label: 'Abmelden',
+                    value: '',
+                    valueColor: BrainColors.error,
+                    onTap: () => _confirmLogout(context),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: BrainSpacing.lg),
+
               // ── Connection ──────────────────────────────────────────
               SettingsSection(
                 title: 'VERBINDUNG',
@@ -152,12 +172,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : BrainColors.tertiary,
                     // URL ist hardcoded — kein Edit-Dialog. Tap nur Re-Check.
                     onTap: _checkServer,
-                  ),
-                  SettingsTile(
-                    icon: Icons.vpn_key_outlined,
-                    label: 'API-Schlüssel',
-                    value: api.isConfigured ? '••••••••' : 'Nicht gesetzt',
-                    onTap: () => _showApiTokenDialog(context),
                   ),
                   SettingsTile(
                     icon: Icons.sync_outlined,
@@ -355,25 +369,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ── Dialogs ──────────────────────────────────────────────────────────────
 
-  void _showApiTokenDialog(BuildContext context) {
-    final ctrl = TextEditingController();
-    showDialog(
+  Future<void> _confirmLogout(BuildContext context) async {
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => InputDialog(
-        title: 'API-Schlüssel',
-        hint: 'Deinen JWT-Schlüssel einfügen',
-        controller: ctrl,
-        obscureText: true,
-        onSave: (value) async {
-          final url = ApiService.instance.savedBaseUrl ?? '';
-          await ApiService.instance.configure(baseUrl: url, token: value);
-          if (mounted) {
-            setState(() {});
-            _checkServer();
-          }
-        },
+      builder: (ctx) => AlertDialog(
+        backgroundColor: BrainColors.surfaceLow,
+        title: Text('Abmelden?', style: BrainTypography.titleMd),
+        content: Text(
+          'Deine lokal gespeicherten Gedanken bleiben auf diesem Gerät erhalten. '
+          'Du musst dich neu anmelden, um wieder mit dem Server zu synchronisieren.',
+          style: BrainTypography.bodyMd,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Abbrechen',
+                style: BrainTypography.button
+                    .copyWith(color: BrainColors.outline)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Abmelden',
+                style: BrainTypography.button
+                    .copyWith(color: BrainColors.error)),
+          ),
+        ],
       ),
     );
+    if (ok != true || !mounted) return;
+    await context.read<AuthProvider>().logout();
+    // AuthGate re-renders into LoginScreen automatically.
   }
 
   Future<void> _runConnectionTest(BuildContext context) async {
