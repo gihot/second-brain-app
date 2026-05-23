@@ -46,35 +46,45 @@ class VaultService:
     # ── Setup ─────────────────────────────────────────────────────────────────
 
     async def ensure_vault(self) -> None:
-        """Clone vault on first boot, pull on subsequent boots.
+        """Light-weight first-touch setup: clone the repo if missing, pull
+        otherwise. Cheap (a git pull on a small repo is <1s) — safe to
+        await from a request handler.
 
-        Also runs a lazy embedding-index reconcile once per vault — a
-        `.reconciled` flag-file inside the vault dir prevents repeats.
+        The slow embedding reconcile is *not* part of this method anymore.
+        Callers that want both should schedule [reconcile_if_needed] as
+        a BackgroundTask so the user's response is not blocked by
+        OpenAI calls. See routers/auth.py for the canonical pattern.
         """
         if not self._settings.github_repo:
             self._vault.mkdir(parents=True, exist_ok=True)
             (self._vault / "00-Inbox").mkdir(exist_ok=True)
-        else:
-            repo_url = f"https://{self._settings.github_token}@github.com/{self._settings.github_repo}.git"
-            if not (self._vault / ".git").exists():
-                self._vault.mkdir(parents=True, exist_ok=True)
-                git.Repo.clone_from(repo_url, self._vault)
-            else:
-                repo = git.Repo(self._vault)
-                repo.remotes.origin.pull()
+            return
 
-        # Lazy reconcile — first time only, flag-file in vault dir.
+        repo_url = f"https://{self._settings.github_token}@github.com/{self._settings.github_repo}.git"
+        if not (self._vault / ".git").exists():
+            self._vault.mkdir(parents=True, exist_ok=True)
+            git.Repo.clone_from(repo_url, self._vault)
+        else:
+            repo = git.Repo(self._vault)
+            repo.remotes.origin.pull()
+
+    def reconcile_if_needed(self) -> None:
+        """Run the embedding-index reconcile **once** per vault. Idempotent
+        via the `.reconciled` flag-file. Synchronous — meant to be
+        scheduled as a BackgroundTask, not awaited from a request handler.
+
+        For a fresh vault with N notes this triggers ~N/100 OpenAI
+        embedding batches and can easily take 10-30s. Do not await.
+        """
         flag = self._vault / ".reconciled"
-        if not flag.exists():
-            try:
-                import asyncio
-                notes = await asyncio.to_thread(self.get_all_notes, 100000)
-                await asyncio.to_thread(
-                    IndexService.for_user(self._user_id).reconcile, notes
-                )
-                flag.touch()
-            except Exception as e:
-                print(f"Lazy reconcile skipped for user {self._user_id}: {e}")
+        if flag.exists():
+            return
+        try:
+            notes = self.get_all_notes(limit=100000)
+            IndexService.for_user(self._user_id).reconcile(notes)
+            flag.touch()
+        except Exception as e:
+            print(f"Lazy reconcile skipped for user {self._user_id}: {e}")
 
     # ── Write ──────────────────────────────────────────────────────────────────
 
