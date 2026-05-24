@@ -66,7 +66,17 @@ class CacheService {
         await Hive.openBox<OfflineCapture>(_captureQueueBoxName(userId));
     _meta = await Hive.openBox<dynamic>(_metaBoxName(userId));
 
-    await _migrateLegacyIfNeeded();
+    // Migration is best-effort. If it throws (e.g. a corrupted legacy
+    // box on web, or a Hive version mismatch), we must NOT block login —
+    // the user can always recover their notes from the server. Failed
+    // migrations leave the legacy box on disk for later cleanup or
+    // export, but never gate the rest of the app.
+    try {
+      await _migrateLegacyIfNeeded();
+    } catch (e, st) {
+      // ignore: avoid_print
+      print('Legacy cache migration skipped due to error: $e\n$st');
+    }
 
     _currentUserId = userId;
   }
