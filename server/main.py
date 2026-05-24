@@ -13,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from config import get_settings
 from rate_limit import limiter
 from routers import agent, auth, capture, discovery, inbox, search, vault
+from services.paused_pairs_service import PausedPairsService
 from services.user_service import UserService
 
 
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     data_root = Path(settings.data_root)
     UserService.init(data_root / "auth.db")
+    PausedPairsService.init(data_root / "auth.db")
 
     if (
         UserService.count() == 0

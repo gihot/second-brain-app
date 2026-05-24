@@ -63,4 +63,27 @@ class DiscoveryProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  /// "Wisch weg" — pauses this pair for 14 days on the server, clears
+  /// the local connection so the card disappears immediately.
+  /// Server failure is non-fatal: the local card still vanishes for the
+  /// rest of the session, the user just sees it again tomorrow.
+  Future<void> dismiss() async {
+    final c = _connection;
+    if (c == null) return;
+    final aId = (c['note_a_id'] as String?) ?? '';
+    final bId = (c['note_b_id'] as String?) ?? '';
+
+    // Optimistic UI update — card goes away right now.
+    _connection = null;
+    notifyListeners();
+    await CacheService.instance.saveDiscoveryCache(jsonEncode({
+      'connection': null,
+      'cached_at': DateTime.now().toIso8601String(),
+    }));
+
+    if (aId.isNotEmpty && bId.isNotEmpty) {
+      await ApiService.instance.dismissConnection(aId, bId);
+    }
+  }
 }

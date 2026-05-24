@@ -259,6 +259,16 @@ class ApiService {
     return _get('/discovery/daily');
   }
 
+  /// Pause the (note_a, note_b) pair for 14 days on the server so the
+  /// daily-discovery card stops suggesting it.
+  Future<bool> dismissConnection(String noteAId, String noteBId) async {
+    final body = await _post('/discovery/dismiss', {
+      'note_a_id': noteAId,
+      'note_b_id': noteBId,
+    });
+    return body != null;
+  }
+
   // ── Health Check ───────────────────────────────────────────────────────────
 
   Future<bool> ping() async {

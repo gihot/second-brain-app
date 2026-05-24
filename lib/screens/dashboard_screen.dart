@@ -158,14 +158,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         SliverToBoxAdapter(
           child: AmbientRetrieval(
             connection: discovery.hasConnection ? discovery.connection : null,
+            onDismissConnection: () =>
+                context.read<DiscoveryProvider>().dismiss(),
             resurfacedNote: resurfaced,
             onResurfacedTap: resurfaced == null
                 ? null
                 : () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            NoteDetailScreen(noteId: resurfaced.id),
+                        builder: (_) => NoteDetailScreen(
+                          noteId: resurfaced.id,
+                        ),
                       ),
                     ),
           ),

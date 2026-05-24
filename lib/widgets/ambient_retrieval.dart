@@ -10,8 +10,13 @@ import '../theme/brain_typography.dart';
 /// Priority: a discovered connection (server) outranks a resurfaced old
 /// thought (local, time-based). When neither applies it renders nothing.
 class AmbientRetrieval extends StatelessWidget {
-  /// Server connection map: {note_a_title, note_b_title, explanation}.
+  /// Server connection map: keys note_a_title, note_b_title, note_a_id,
+  /// note_b_id, explanation, connection_type.
   final Map<String, dynamic>? connection;
+
+  /// Triggered by the small dismiss-X on the connection card. The pair
+  /// gets paused for 14 days on the server.
+  final VoidCallback? onDismissConnection;
 
   /// A local note that comes back into view because it's a few weeks old.
   final Note? resurfacedNote;
@@ -20,6 +25,7 @@ class AmbientRetrieval extends StatelessWidget {
   const AmbientRetrieval({
     super.key,
     this.connection,
+    this.onDismissConnection,
     this.resurfacedNote,
     this.onResurfacedTap,
   });
@@ -37,6 +43,7 @@ class AmbientRetrieval extends StatelessWidget {
     required String label,
     required Widget body,
     VoidCallback? onTap,
+    VoidCallback? onDismiss,
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -72,7 +79,24 @@ class AmbientRetrieval extends StatelessWidget {
                       letterSpacing: 1.0,
                     ),
                   ),
-                  if (onTap != null) ...[
+                  if (onDismiss != null) ...[
+                    const Spacer(),
+                    // Dezent — fast unsichtbar bis hover/tap. Bewusst klein,
+                    // damit das Element nie zu einer Action-Bar wird.
+                    InkResponse(
+                      onTap: onDismiss,
+                      radius: 14,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 14,
+                          color:
+                              BrainColors.onSurfaceVariant.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    ),
+                  ] else if (onTap != null) ...[
                     const Spacer(),
                     Icon(Icons.arrow_forward_ios_rounded,
                         size: 11, color: BrainColors.onSurfaceVariant),
@@ -97,6 +121,7 @@ class AmbientRetrieval extends StatelessWidget {
       icon: Icons.hub_outlined,
       accent: BrainColors.secondary,
       label: 'DEIN GEHIRN SIEHT EINEN ZUSAMMENHANG',
+      onDismiss: onDismissConnection,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
