@@ -19,11 +19,16 @@ class CaptureProvider extends ChangeNotifier {
 
   CaptureState _state = CaptureState.idle;
   String? _error;
+  List<CaptureSimilar> _lastSimilarNotes = const [];
 
   CaptureState get state => _state;
   bool get isCapturing => _state == CaptureState.capturing;
   bool get didSucceed => _state == CaptureState.success;
   String? get error => _error;
+  /// Plan 2.1: Nachbarn der zuletzt gespeicherten Notiz. Wird beim
+  /// nächsten capture() überschrieben (immer das Ergebnis der jüngsten
+  /// Speicherung — auch wenn das eine leere Liste ist).
+  List<CaptureSimilar> get lastSimilarNotes => _lastSimilarNotes;
 
   CaptureProvider(this._vault);
 
@@ -38,6 +43,9 @@ class CaptureProvider extends ChangeNotifier {
 
     _state = CaptureState.capturing;
     _error = null;
+    // Vorherige similar-notes räumen: solange capture läuft, ist die
+    // Liste „stale" — UI darf sie nicht mehr anzeigen.
+    _lastSimilarNotes = const [];
     notifyListeners();
 
     try {
@@ -51,6 +59,7 @@ class CaptureProvider extends ChangeNotifier {
 
       Note workingNote = localNote;
       if (serverResult != null) {
+        _lastSimilarNotes = serverResult.similarNotes;
         // Update local note with AI-generated title, tags, hall + wing
         workingNote = localNote.copyWith(
           title: serverResult.title,

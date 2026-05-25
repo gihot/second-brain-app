@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/capture_provider.dart';
+import '../screens/note_detail_screen.dart';
+import '../services/api_service.dart' show CaptureSimilar;
 import '../services/speech_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
@@ -310,11 +312,18 @@ class _CaptureSurfaceState extends State<CaptureSurface>
       });
       _setState(CaptureUiState.justSaved);
       _savedTimer?.cancel();
-      _savedTimer = Timer(const Duration(milliseconds: 1400), () {
-        if (mounted && _state == CaptureUiState.justSaved) {
-          _setState(CaptureUiState.idle);
-        }
-      });
+      // Plan 2.1: wenn Server ähnliche Notizen gemeldet hat, brauchen
+      // wir mehr Zeit zum Lesen+Tappen (~6s). Ohne Hinweis bleibt es
+      // bei den knappen 1.4s der reinen „gespeichert"-Bestätigung.
+      final hasSimilar = context.read<CaptureProvider>().lastSimilarNotes.isNotEmpty;
+      _savedTimer = Timer(
+        Duration(milliseconds: hasSimilar ? 6000 : 1400),
+        () {
+          if (mounted && _state == CaptureUiState.justSaved) {
+            _setState(CaptureUiState.idle);
+          }
+        },
+      );
     } else {
       _setState(CaptureUiState.idle);
     }
@@ -406,20 +415,72 @@ class _CaptureSurfaceState extends State<CaptureSurface>
   }
 
   Widget _savedView() {
-    return Row(
+    // Plan 2.1: wenn beim Speichern semantische Nachbarn ≥ 0.75 cosine
+    // gefunden wurden, hängt unter der „Gespeichert"-Zeile eine
+    // optionale „↗ N ähnliche Gedanken existieren — anschauen?"-Zeile.
+    // Tap öffnet ein Bottom-Sheet mit den Treffern, Auto-Dismiss nach
+    // 6s (siehe _handleCapture). Niemals modal, niemals blockierend.
+    final similar = context.watch<CaptureProvider>().lastSimilarNotes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          Icons.check_circle_rounded,
-          size: 22,
-          color: BrainColors.secondary,
+        Row(
+          children: [
+            Icon(
+              Icons.check_circle_rounded,
+              size: 22,
+              color: BrainColors.secondary,
+            ),
+            const SizedBox(width: BrainSpacing.sm),
+            Text(
+              'Gedanke gespeichert',
+              style:
+                  BrainTypography.bodyMd.copyWith(color: BrainColors.onSurface),
+            ),
+          ],
         ),
-        const SizedBox(width: BrainSpacing.sm),
-        Text(
-          'Gedanke gespeichert',
-          style: BrainTypography.bodyMd.copyWith(color: BrainColors.onSurface),
-        ),
+        if (similar.isNotEmpty) ...[
+          const SizedBox(height: BrainSpacing.sm),
+          _SimilarNotesHint(
+            similar: similar,
+            onTap: () => _openSimilarSheet(similar),
+          ),
+        ],
       ],
     );
+  }
+
+  void _openSimilarSheet(List<CaptureSimilar> similar) {
+    // Auto-Dismiss-Timer stoppen, sobald der User aktiv interagiert —
+    // sonst klappt das Saved-View während er noch im Sheet liest weg.
+    _savedTimer?.cancel();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: BrainColors.solidSurfaceHigh,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(BrainSpacing.radiusLg.topLeft.x),
+        ),
+      ),
+      builder: (sheetContext) => _SimilarNotesSheet(
+        similar: similar,
+        onPick: (s) {
+          Navigator.of(sheetContext).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => NoteDetailScreen(noteId: s.noteId),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(() {
+      // Nach dem Schließen wieder in den Idle-State — der Saved-View
+      // hatte beim Öffnen seinen Lebenszweck bereits erfüllt.
+      if (mounted && _state == CaptureUiState.justSaved) {
+        _setState(CaptureUiState.idle);
+      }
+    });
   }
 
   Widget _captureView(bool hasText) {
@@ -645,6 +706,122 @@ class _ReminderChip extends StatelessWidget {
             ),
             const SizedBox(width: 5),
             Text(label, style: BrainTypography.labelSm.copyWith(color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+/// Plan 2.1: schmale, optionale Zeile unter „Gespeichert". Sagt nur
+/// wie viele Nachbarn ≥ 0.75 cosine existieren — kein Titel-Spoiler,
+/// damit der User die Tiefe selbst entscheidet (Tap fürs Bottom-Sheet).
+class _SimilarNotesHint extends StatelessWidget {
+  final List<CaptureSimilar> similar;
+  final VoidCallback onTap;
+
+  const _SimilarNotesHint({required this.similar, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final n = similar.length;
+    final label = n == 1
+        ? '1 ähnlicher Gedanke existiert'
+        : '$n ähnliche Gedanken existieren';
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BrainSpacing.radiusSm,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.north_east_rounded,
+              size: 16,
+              color: BrainColors.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$label — anschauen?',
+              style: BrainTypography.bodySm.copyWith(
+                color: BrainColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom-Sheet mit den semantischen Nachbarn der gerade gespeicherten
+/// Notiz. Tap auf einen Eintrag → Note-Detail. Sheet schließt sich,
+/// und der Saved-View kehrt zu Idle zurück (siehe whenComplete im
+/// Aufrufer). Maximal 3 Einträge, einheitliche Höhe pro Row.
+class _SimilarNotesSheet extends StatelessWidget {
+  final List<CaptureSimilar> similar;
+  final ValueChanged<CaptureSimilar> onPick;
+
+  const _SimilarNotesSheet({required this.similar, required this.onPick});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          BrainSpacing.lg,
+          BrainSpacing.lg,
+          BrainSpacing.lg,
+          BrainSpacing.md,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Schon mal gedacht?',
+              style: BrainTypography.titleMd.copyWith(
+                color: BrainColors.onSurface,
+              ),
+            ),
+            const SizedBox(height: BrainSpacing.xs),
+            Text(
+              'Semantisch nah an dem was du gerade gespeichert hast.',
+              style: BrainTypography.bodySm.copyWith(
+                color: BrainColors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: BrainSpacing.md),
+            for (final s in similar)
+              InkWell(
+                onTap: () => onPick(s),
+                borderRadius: BrainSpacing.radiusSm,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s.title,
+                          style: BrainTypography.bodyMd.copyWith(
+                            color: BrainColors.onSurface,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: BrainSpacing.sm),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: BrainColors.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),

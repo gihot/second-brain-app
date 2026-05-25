@@ -238,6 +238,7 @@ class IndexService:
         order = np.argsort(-sims)[:limit]
         return [
             {
+                "note_id": other_ids[i],
                 "file_path": self._index["notes"][other_ids[i]]["file_path"],
                 "title": self._index["notes"][other_ids[i]]["title"],
                 "similarity": float(sims[i]),

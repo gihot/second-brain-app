@@ -101,6 +101,18 @@ class ApiService {
       'advice' => MemoryHall.advice,
       _ => MemoryHall.unclassified,
     };
+    // Plan 2.1: similar_notes vom Server in typed CaptureSimilar überführen.
+    // Server liefert nur Treffer ≥ 0.75 cosine; Client filtert hier nicht
+    // noch mal nach — Schwelle gehört server-seitig zentralisiert.
+    final rawSimilar = body['similar_notes'] as List? ?? const [];
+    final similarNotes = rawSimilar
+        .cast<Map<String, dynamic>>()
+        .map((m) => CaptureSimilar(
+              noteId: m['note_id'] as String,
+              title: m['title'] as String,
+              similarity: (m['similarity'] as num).toDouble(),
+            ))
+        .toList(growable: false);
     return CaptureResult(
       noteId: body['note_id'] as String,
       title: body['title'] as String,
@@ -109,6 +121,7 @@ class ApiService {
       para: body['para'] as String,
       hall: hall,
       suggestedWing: body['suggested_wing'] as String?,
+      similarNotes: similarNotes,
     );
   }
 
@@ -413,6 +426,9 @@ class CaptureResult {
   final String para;
   final MemoryHall hall;
   final String? suggestedWing;
+  /// Plan 2.1: Nachbarn der gerade gespeicherten Notiz (≥ 0.75 cosine,
+  /// max 3). Leer wenn Embedding-Index aus oder nichts über Schwelle.
+  final List<CaptureSimilar> similarNotes;
 
   const CaptureResult({
     required this.noteId,
@@ -422,5 +438,22 @@ class CaptureResult {
     required this.para,
     this.hall = MemoryHall.unclassified,
     this.suggestedWing,
+    this.similarNotes = const [],
+  });
+}
+
+/// Ein semantischer Nachbar der gerade gespeicherten Notiz, vom Server
+/// im Capture-Response geliefert. Eigene Klasse statt Map, weil das
+/// Tuple {note_id, title, similarity} an mehreren Stellen weiterwandert
+/// (Provider, Bottom-Sheet, Navigation).
+class CaptureSimilar {
+  final String noteId;
+  final String title;
+  final double similarity;
+
+  const CaptureSimilar({
+    required this.noteId,
+    required this.title,
+    required this.similarity,
   });
 }
