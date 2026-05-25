@@ -60,8 +60,9 @@ class AmbientRetrieval extends StatelessWidget {
           decoration: BoxDecoration(
             color: BrainColors.surfaceLow,
             borderRadius: BrainSpacing.radiusMd,
+            // Bewusst dünn — die Karte soll Beifang sein, nie Stargast.
             border: Border.all(
-              color: accent.withValues(alpha: 0.18),
+              color: accent.withValues(alpha: 0.10),
               width: 0.5,
             ),
           ),
@@ -70,13 +71,14 @@ class AmbientRetrieval extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(icon, size: 13, color: accent),
+                  Icon(icon, size: 12, color: accent.withValues(alpha: 0.85)),
                   const SizedBox(width: 5),
                   Text(
                     label,
                     style: BrainTypography.labelSm.copyWith(
-                      color: accent,
-                      letterSpacing: 1.0,
+                      color: accent.withValues(alpha: 0.85),
+                      letterSpacing: 1.1,
+                      fontSize: 10,
                     ),
                   ),
                   if (onDismiss != null) ...[

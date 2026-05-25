@@ -55,7 +55,8 @@ class CaptureSurface extends StatefulWidget {
   State<CaptureSurface> createState() => _CaptureSurfaceState();
 }
 
-class _CaptureSurfaceState extends State<CaptureSurface> {
+class _CaptureSurfaceState extends State<CaptureSurface>
+    with SingleTickerProviderStateMixin {
   final _controller = TextEditingController();
   final _tagsController = TextEditingController();
   final _focusNode = FocusNode();
@@ -68,24 +69,61 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
   /// Macro-state. See [CaptureUiState] for the transition map.
   CaptureUiState _state = CaptureUiState.idle;
 
+  /// Idle-pulse: after 8s of no interaction while at rest, the border
+  /// gently breathes to suggest „hier rein". Stops the moment the
+  /// surface gets focus or any other state change happens.
+  late final AnimationController _idleController;
+  Timer? _idleTimer;
+  static const _idleDelay = Duration(seconds: 8);
+
   bool get _isRecording =>
       _state == CaptureUiState.recording ||
       _state == CaptureUiState.holdRecording;
 
+  bool get _focused => _focusNode.hasFocus;
+
   void _setState(CaptureUiState next) {
     if (_state == next) return;
     setState(() => _state = next);
+    _scheduleIdlePulse();
   }
 
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() => setState(() {}));
+    _focusNode.addListener(() {
+      setState(() {});
+      _scheduleIdlePulse();
+    });
+    _idleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _scheduleIdlePulse();
+  }
+
+  /// Cancels any ongoing pulse + restarts the inactivity timer. If the
+  /// surface is at rest (`idle` + not focused) when the timer fires,
+  /// the pulse begins. Any interaction restarts the timer.
+  void _scheduleIdlePulse() {
+    _idleTimer?.cancel();
+    if (_idleController.isAnimating) {
+      _idleController.stop();
+      _idleController.value = 0;
+    }
+    if (_state != CaptureUiState.idle || _focused) return;
+    _idleTimer = Timer(_idleDelay, () {
+      if (!mounted) return;
+      if (_state != CaptureUiState.idle || _focused) return;
+      _idleController.repeat(reverse: true);
+    });
   }
 
   @override
   void dispose() {
     _savedTimer?.cancel();
+    _idleTimer?.cancel();
+    _idleController.dispose();
     _controller.dispose();
     _tagsController.dispose();
     _focusNode.dispose();
@@ -93,9 +131,10 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
     super.dispose();
   }
 
-  bool get _focused => _focusNode.hasFocus;
-
   String get _prompt {
+    // Inbox-Druck zuerst (echter Handlungsgrund), dann Tagesleistung,
+    // dann tageszeit-abhängige Variante. Statisches Fallback ist die
+    // klassische Frage.
     if (widget.inboxCount > 0) {
       return 'Du hast ${widget.inboxCount} unsortierte Gedanken — '
           'oder erfass einen neuen';
@@ -103,6 +142,9 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
     if (widget.captureCount > 0) {
       return 'Heute schon ${widget.captureCount} erfasst. Was noch?';
     }
+    final hour = DateTime.now().hour;
+    if (hour < 11) return 'Morgenstrahl?';
+    if (hour >= 21) return 'Vor dem Schlafen noch?';
     return 'Was geht dir gerade durch den Kopf?';
   }
 
@@ -288,19 +330,46 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(BrainSpacing.md),
-          decoration: BoxDecoration(
-            color: BrainColors.surfaceLow,
-            borderRadius: BrainSpacing.radiusLg,
-            border: Border.all(
-              color: _focused
-                  ? BrainColors.primary.withValues(alpha: 0.30)
-                  : BrainColors.outlineVariant.withValues(alpha: 0.12),
-              width: 1,
-            ),
-          ),
+        child: AnimatedBuilder(
+          animation: _idleController,
+          builder: (context, child) {
+            // Idle-Pulse: border alpha schwingt 0 → 0.15 → 0 wenn der Idle-
+            // Timer abgelaufen ist (Controller läuft repeat-reverse).
+            final pulseAlpha = _idleController.value * 0.15;
+            final Color borderColor;
+            if (_focused) {
+              borderColor = BrainColors.primary.withValues(alpha: 0.40);
+            } else if (pulseAlpha > 0) {
+              borderColor = BrainColors.primary.withValues(alpha: pulseAlpha);
+            } else {
+              borderColor =
+                  BrainColors.outlineVariant.withValues(alpha: 0.12);
+            }
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(BrainSpacing.lg),
+              decoration: BoxDecoration(
+                // Etwas heller als der Rest des Dashboards — hebt Capture
+                // visuell raus, ohne ein hard-edge zu sein.
+                color: BrainColors.surface,
+                borderRadius: BrainSpacing.radiusLg,
+                border: Border.all(
+                  color: borderColor,
+                  width: _focused ? 1.4 : 1,
+                ),
+                boxShadow: _focused
+                    ? [
+                        BoxShadow(
+                          color: BrainColors.captureGlow,
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: child,
+            );
+          },
           child: switch (_state) {
             CaptureUiState.holdRecording => _listeningView(),
             CaptureUiState.justSaved => _savedView(),
@@ -362,13 +431,18 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
           textInputAction: TextInputAction.newline,
           decoration: InputDecoration(
             hintText: _prompt,
+            // Etwas wärmer als outlineVariant (war zu zurückgenommen),
+            // damit der Prompt einlädt statt sich zu verstecken.
             hintStyle: BrainTypography.bodyMd.copyWith(
-              color: BrainColors.outlineVariant.withValues(alpha: 0.7),
+              color: BrainColors.onSurfaceVariant.withValues(alpha: 0.75),
             ),
             border: InputBorder.none,
             isCollapsed: true,
           ),
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) {
+            setState(() {});
+            _scheduleIdlePulse(); // jede Tastatureingabe killt den Pulse
+          },
         ),
 
         // Focus-only: optional tags + active reminder pill.
@@ -490,16 +564,25 @@ class _IconChip extends StatelessWidget {
       onLongPressEnd:
           onLongPressEnd == null ? null : (_) => onLongPressEnd!(),
       child: Container(
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: active
-              ? BrainColors.error.withValues(alpha: 0.15)
+              ? BrainColors.error.withValues(alpha: 0.18)
               : BrainColors.surfaceHigh,
           shape: BoxShape.circle,
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: BrainColors.error.withValues(alpha: 0.30),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Icon(icon,
-            size: 18,
+            size: 20,
             color: active
                 ? BrainColors.error
                 : BrainColors.onSurfaceVariant),
