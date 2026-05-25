@@ -23,54 +23,58 @@ class BrainBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: BrainSpacing.maxContentWidth,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _SegmentedPill(
-                    children: [
-                      _NavItem(
-                        icon: Icons.home_outlined,
-                        label: 'HOME',
-                        isActive: currentIndex == 0,
-                        onTap: () => onTap(0),
-                      ),
-                      _NavItem(
-                        icon: Icons.search_rounded,
-                        label: 'SUCHE',
-                        isActive: currentIndex == 1,
-                        onTap: () => onTap(1),
-                      ),
-                      _NavItem(
-                        icon: Icons.inbox_outlined,
-                        label: 'INBOX',
-                        isActive: currentIndex == 2,
-                        onTap: () => onTap(2),
-                        badgeCount: inboxCount,
-                      ),
-                      _NavItem(
-                        icon: Icons.settings_outlined,
-                        label: 'OPTIONEN',
-                        isActive: currentIndex == 3,
-                        onTap: () => onTap(3),
-                      ),
-                    ],
+    return SizedBox(
+      height: BrainSpacing.bottomNavHeight,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: BrainSpacing.maxContentWidth,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _SegmentedPill(
+                      children: [
+                        _NavItem(
+                          icon: Icons.home_outlined,
+                          label: 'HOME',
+                          isActive: currentIndex == 0,
+                          onTap: () => onTap(0),
+                        ),
+                        _NavItem(
+                          icon: Icons.search_rounded,
+                          label: 'SUCHE',
+                          isActive: currentIndex == 1,
+                          onTap: () => onTap(1),
+                        ),
+                        _NavItem(
+                          icon: Icons.inbox_outlined,
+                          label: 'INBOX',
+                          isActive: currentIndex == 2,
+                          onTap: () => onTap(2),
+                          badgeCount: inboxCount,
+                        ),
+                        _NavItem(
+                          icon: Icons.settings_outlined,
+                          label: 'OPTIONEN',
+                          isActive: currentIndex == 3,
+                          onTap: () => onTap(3),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                _CaptureNavItem(
-                  isActive: currentIndex == 4,
-                  onTap: () => onTap(4),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  _CaptureNavItem(
+                    isActive: currentIndex == 4,
+                    onTap: () => onTap(4),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

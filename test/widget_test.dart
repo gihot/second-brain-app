@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:second_brain/theme/brain_spacing.dart';
 import 'package:second_brain/widgets/brain_bottom_nav.dart';
 
 void main() {
@@ -22,6 +23,10 @@ void main() {
       expect(find.text('OPTIONEN'), findsOneWidget);
       expect(find.text('SPRECHEN'), findsNothing);
       expect(find.byIcon(Icons.mic_rounded), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(BrainBottomNav)).height,
+        BrainSpacing.bottomNavHeight,
+      );
     },
   );
 }
