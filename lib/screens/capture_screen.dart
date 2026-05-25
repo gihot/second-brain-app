@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/capture_provider.dart';
@@ -7,10 +8,16 @@ import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 
 /// Full capture screen. Headline + minimal textarea + capture CTA.
-/// Opened via the CAPTURE nav tab.
+/// Opened via the MIC nav tab (rightmost).
+///
+/// `voiceTrigger`: incrementing this ValueNotifier (e.g. on MIC tab tap)
+/// starts a voice-capture session immediately. The screen stays alive
+/// inside the IndexedStack, so we can't recreate it with a flag — we
+/// listen to a notifier instead.
 class CaptureScreen extends StatefulWidget {
   final String? initialText;
-  const CaptureScreen({super.key, this.initialText});
+  final ValueListenable<int>? voiceTrigger;
+  const CaptureScreen({super.key, this.initialText, this.voiceTrigger});
 
   @override
   State<CaptureScreen> createState() => _CaptureScreenState();
@@ -29,10 +36,23 @@ class _CaptureScreenState extends State<CaptureScreen> {
     if (widget.initialText != null && widget.initialText!.isNotEmpty) {
       _controller.text = widget.initialText!;
     }
+    widget.voiceTrigger?.addListener(_onVoiceTrigger);
+  }
+
+  void _onVoiceTrigger() {
+    // Schedule for post-frame so the tap-induced rebuild settles before
+    // we kick off the speech-recognition machinery (touches ScaffoldMessenger
+    // for the unsupported-snackbar path).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_speech.isListening) return; // already recording — no-op
+      _toggleVoice();
+    });
   }
 
   @override
   void dispose() {
+    widget.voiceTrigger?.removeListener(_onVoiceTrigger);
     _controller.dispose();
     _focusNode.dispose();
     _speech.dispose();

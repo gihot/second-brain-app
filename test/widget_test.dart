@@ -8,7 +8,7 @@ void main() {
   // IndexedDB-capable platform — not available in `flutter test`. So this
   // smoke test pumps just the bottom-nav widget and asserts the real,
   // current German labels are present.
-  testWidgets('BrainBottomNav renders the canonical German labels',
+  testWidgets('BrainBottomNav renders the canonical labels (MIC rightmost)',
       (WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -17,8 +17,8 @@ void main() {
     ));
     expect(find.text('HOME'), findsOneWidget);
     expect(find.text('SUCHE'), findsOneWidget);
-    expect(find.text('ERFASSEN'), findsOneWidget);
     expect(find.text('INBOX'), findsOneWidget);
     expect(find.text('OPTIONEN'), findsOneWidget);
+    expect(find.text('SPRECHEN'), findsOneWidget);
   });
 }

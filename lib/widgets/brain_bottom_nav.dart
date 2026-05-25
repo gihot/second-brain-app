@@ -5,10 +5,14 @@ import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 
 /// Frosted glass bottom navigation.
-/// Capture is the center nav item with a gradient accent — not a floating FAB.
+/// MIC sits as the rightmost item — biggest, gradient accent, slight glow.
+/// Voice is the hero capture path; this is its hauptplatz.
 /// Labels: JetBrains Mono, uppercase, 9px tracking-wide.
+///
+/// Index mapping (matches AppShell._screens):
+///   0 = Home, 1 = Search, 2 = Inbox, 3 = Settings, 4 = Capture (MIC).
 class BrainBottomNav extends StatelessWidget {
-  final int currentIndex; // 0=Home 1=Search 2=Capture 3=Inbox 4=Settings
+  final int currentIndex;
   final ValueChanged<int> onTap;
   final int inboxCount;
 
@@ -54,20 +58,20 @@ class BrainBottomNav extends StatelessWidget {
                     isActive: currentIndex == 1,
                     onTap: () => onTap(1),
                   ),
-                  _CaptureNavItem(
-                    isActive: currentIndex == 2,
-                    onTap: () => onTap(2),
-                  ),
                   _NavItem(
                     icon: Icons.inbox_outlined,
                     label: 'INBOX',
-                    isActive: currentIndex == 3,
-                    onTap: () => onTap(3),
+                    isActive: currentIndex == 2,
+                    onTap: () => onTap(2),
                     badgeCount: inboxCount,
                   ),
                   _NavItem(
                     icon: Icons.settings_outlined,
                     label: 'OPTIONEN',
+                    isActive: currentIndex == 3,
+                    onTap: () => onTap(3),
+                  ),
+                  _CaptureNavItem(
                     isActive: currentIndex == 4,
                     onTap: () => onTap(4),
                   ),
@@ -175,7 +179,10 @@ class _NavItemState extends State<_NavItem> {
   }
 }
 
-/// Center capture item — gradient accent, slightly larger icon.
+/// MIC — die Haupt-Capture-Aktion. Größer, kräftiger Gradient, immer
+/// sichtbarer Glow (auch wenn inaktiv) damit der Button als „das
+/// macht hier was" erkannt wird. Voice-Capture ist der schnellste
+/// Capture-Weg unterwegs.
 class _CaptureNavItem extends StatefulWidget {
   final bool isActive;
   final VoidCallback onTap;
@@ -208,41 +215,36 @@ class _CaptureNavItemState extends State<_CaptureNavItem> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  gradient: widget.isActive
-                      ? BrainColors.captureGradient
-                      : null,
-                  color: widget.isActive
-                      ? null
-                      : BrainColors.primary.withValues(alpha: 0.10),
+                  // Always gradient — MIC ist immer „da", nicht erst wenn
+                  // aktiv. Aktiv = noch heller, etwas mehr Glow.
+                  gradient: BrainColors.captureGradient,
                   shape: BoxShape.circle,
-                  boxShadow: widget.isActive
-                      ? [
-                          BoxShadow(
-                            color: BrainColors.captureGlow,
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: BrainColors.captureGlow.withValues(
+                        alpha: widget.isActive ? 0.85 : 0.55,
+                      ),
+                      blurRadius: widget.isActive ? 22 : 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                child: Icon(
-                  Icons.add_rounded,
-                  size: 22,
-                  color: widget.isActive
-                      ? Colors.white
-                      : BrainColors.onSurfaceVariant.withValues(alpha: 0.6),
+                child: const Icon(
+                  Icons.mic_rounded,
+                  size: 26,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'ERFASSEN',
+                'SPRECHEN',
                 style: BrainTypography.navLabel.copyWith(
                   color: widget.isActive
                       ? BrainColors.primary
-                      : BrainColors.onSurfaceVariant.withValues(alpha: 0.6),
+                      : BrainColors.onSurfaceVariant.withValues(alpha: 0.85),
                 ),
               ),
             ],
