@@ -9,10 +9,35 @@ import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 
+/// Macro-state of the capture surface. One field replaces what used to
+/// be four orthogonal-ish bools (_holdRecording, _pendingHoldCapture,
+/// _saving, _justSaved). Focus and reminder-toggle remain separate
+/// because they're independent concerns (the field can be focused while
+/// recording or while saving — they're not macro modes).
+///
+/// Transitions (happy paths):
+///   idle  → recording      (tap mic)
+///   idle  → holdRecording  (long-press mic)
+///   recording → idle       (tap mic again / speech.onEnd)
+///   holdRecording → holdSettling   (release mic)
+///   holdSettling → saving           (got text → auto-submit)
+///   holdSettling → idle             (no text → back to rest)
+///   idle  → saving         (tap "Erfassen")
+///   saving → justSaved → idle (1.4s success flash)
+///   saving → idle          (server failure)
+enum CaptureUiState {
+  idle,
+  recording,
+  holdRecording,
+  holdSettling,
+  saving,
+  justSaved,
+}
+
 /// Inline "living" capture module for the dashboard. Capture as mental
 /// discharge — not "create a note".
 ///
-/// Three states, no screen change:
+/// Three visual states, no screen change:
 ///  1. Resting — calm surface, contextual prompt, subtle voice + reminder.
 ///  2. Focus   — text field active, surface expands, tag + reminder row.
 ///  3. Saved   — brief "Gespeichert ✓", then collapses back to resting.
@@ -38,13 +63,19 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
 
   bool _isReminder = false;
   DateTime? _remindAt;
-  bool _saving = false;
-  bool _justSaved = false;
   Timer? _savedTimer;
 
-  // Voice-First: hold the mic, speak, release -> thought is captured.
-  bool _holdRecording = false;
-  bool _pendingHoldCapture = false;
+  /// Macro-state. See [CaptureUiState] for the transition map.
+  CaptureUiState _state = CaptureUiState.idle;
+
+  bool get _isRecording =>
+      _state == CaptureUiState.recording ||
+      _state == CaptureUiState.holdRecording;
+
+  void _setState(CaptureUiState next) {
+    if (_state == next) return;
+    setState(() => _state = next);
+  }
 
   @override
   void initState() {
@@ -87,10 +118,13 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
     }
     if (_speech.isListening) {
       _speech.stopListening();
-      setState(() {});
+      // Speech.onEnd will flip back to idle; do it eagerly too in case
+      // onEnd is slow to fire.
+      _setState(CaptureUiState.idle);
       return;
     }
     _focusNode.requestFocus();
+    _setState(CaptureUiState.recording);
     _speech.startListening(
       onResult: (transcript) {
         setState(() {
@@ -101,10 +135,13 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
           );
         });
       },
-      onEnd: () => setState(() {}),
+      onEnd: () {
+        if (_state == CaptureUiState.recording) {
+          _setState(CaptureUiState.idle);
+        }
+      },
       lang: 'de-DE',
     );
-    setState(() {});
   }
 
   // ── Voice-First: Hold-to-Talk ───────────────────────────────────────────
@@ -120,7 +157,7 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
       return;
     }
     _focusNode.unfocus(); // hands-free — no keyboard
-    setState(() => _holdRecording = true);
+    _setState(CaptureUiState.holdRecording);
     _speech.startListening(
       onResult: (transcript) {
         final cur = _controller.text;
@@ -133,26 +170,24 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
   }
 
   void _endHoldToTalk() {
-    if (!_holdRecording) return;
-    setState(() {
-      _holdRecording = false;
-      _pendingHoldCapture = true;
-    });
+    if (_state != CaptureUiState.holdRecording) return;
+    _setState(CaptureUiState.holdSettling);
     _speech.stopListening();
-    // onEnd (_onHoldSpeechEnd) fires once recognition has settled.
+    // onEnd (_onHoldSpeechEnd) fires once recognition has settled and
+    // pushes us either into saving (if we got text) or back to idle.
   }
 
   void _onHoldSpeechEnd() {
-    if (!_pendingHoldCapture) {
+    if (_state != CaptureUiState.holdSettling) {
+      // We're already past settling (e.g. another transition kicked in).
       if (mounted) setState(() {});
       return;
     }
-    _pendingHoldCapture = false;
     // Speech finished after release — capture immediately if we got text.
     if (_controller.text.trim().isNotEmpty) {
       _handleCapture();
-    } else if (mounted) {
-      setState(() {});
+    } else {
+      _setState(CaptureUiState.idle);
     }
   }
 
@@ -197,7 +232,7 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
 
   Future<void> _handleCapture() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _saving) return;
+    if (text.isEmpty || _state == CaptureUiState.saving) return;
 
     // Tags are appended as inline #hashtags — keeps the capture-flow
     // (CaptureProvider.capture) untouched; Scribe extracts them server-side.
@@ -212,7 +247,7 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
         ? _remindAt!.toUtc().toIso8601String()
         : null;
 
-    setState(() => _saving = true);
+    _setState(CaptureUiState.saving);
     final ok = await context
         .read<CaptureProvider>()
         .capture(fullText, remindAtIso: reminderIso);
@@ -223,17 +258,18 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
       _tagsController.clear();
       _focusNode.unfocus();
       setState(() {
-        _saving = false;
-        _justSaved = true;
         _isReminder = false;
         _remindAt = null;
       });
+      _setState(CaptureUiState.justSaved);
       _savedTimer?.cancel();
       _savedTimer = Timer(const Duration(milliseconds: 1400), () {
-        if (mounted) setState(() => _justSaved = false);
+        if (mounted && _state == CaptureUiState.justSaved) {
+          _setState(CaptureUiState.idle);
+        }
       });
     } else {
-      setState(() => _saving = false);
+      _setState(CaptureUiState.idle);
     }
   }
 
@@ -265,11 +301,11 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
               width: 1,
             ),
           ),
-          child: _holdRecording
-              ? _listeningView()
-              : _justSaved
-                  ? _savedView()
-                  : _captureView(hasText),
+          child: switch (_state) {
+            CaptureUiState.holdRecording => _listeningView(),
+            CaptureUiState.justSaved => _savedView(),
+            _ => _captureView(hasText),
+          },
         ),
       ),
     );
@@ -363,10 +399,10 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
         Row(
           children: [
             _IconChip(
-              icon: _speech.isListening
+              icon: _isRecording
                   ? Icons.mic_rounded
                   : Icons.mic_none_rounded,
-              active: _speech.isListening,
+              active: _isRecording,
               // Tap = Diktat ins Feld. Halten = Hold-to-Talk: aufnehmen,
               // loslassen erfasst den Gedanken direkt.
               onTap: _toggleVoice,
@@ -393,7 +429,9 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
             const Spacer(),
             if (hasText)
               GestureDetector(
-                onTap: _saving ? null : _handleCapture,
+                onTap: _state == CaptureUiState.saving
+                    ? null
+                    : _handleCapture,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 18, vertical: 10),
@@ -401,7 +439,7 @@ class _CaptureSurfaceState extends State<CaptureSurface> {
                     gradient: BrainColors.captureGradient,
                     borderRadius: BrainSpacing.radiusFull,
                   ),
-                  child: _saving
+                  child: _state == CaptureUiState.saving
                       ? const SizedBox(
                           width: 16,
                           height: 16,
