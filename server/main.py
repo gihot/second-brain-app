@@ -12,8 +12,9 @@ from slowapi.errors import RateLimitExceeded
 
 from config import get_settings
 from rate_limit import limiter
-from routers import agent, auth, capture, discovery, inbox, search, vault
+from routers import agent, auth, capture, discovery, inbox, resurfacing, search, vault
 from services.paused_pairs_service import PausedPairsService
+from services.resurfacing_service import ResurfacingService
 from services.user_service import UserService
 
 
@@ -24,6 +25,7 @@ async def lifespan(app: FastAPI):
     data_root = Path(settings.data_root)
     UserService.init(data_root / "auth.db")
     PausedPairsService.init(data_root / "auth.db")
+    ResurfacingService.init(data_root / "auth.db")
 
     if (
         UserService.count() == 0
@@ -97,6 +99,7 @@ app.include_router(inbox.router, prefix="/inbox", tags=["inbox"])
 app.include_router(vault.router, prefix="/vault", tags=["vault"])
 app.include_router(agent.router, prefix="/agent", tags=["agent"])
 app.include_router(discovery.router, prefix="/discovery", tags=["discovery"])
+app.include_router(resurfacing.router, prefix="/resurfacing", tags=["resurfacing"])
 
 
 @app.get("/health")

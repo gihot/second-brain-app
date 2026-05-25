@@ -8,10 +8,16 @@ import 'glass_card_surface.dart';
 import 'semantic_label.dart';
 
 /// Ambient retrieval: the app surfaces things itself instead of asking
-/// the user to search. One calm, contextual dashboard element.
+/// the user to search. Calm, contextual dashboard cards.
 ///
-/// Priority: a discovered connection (server) outranks a resurfaced old
-/// thought (local, time-based). When neither applies it renders nothing.
+/// Wave 3: `resurfacedNotes` ist jetzt eine Liste — kommt vom Server-
+/// Score (`/resurfacing/today`). `fallbackResurfaced` bleibt als
+/// lokaler Eingang erhalten, damit ein Offline-Dashboard nicht „tot"
+/// wirkt (Resurfacing-Spec).
+///
+/// Layout-Regel: Connection-Card hat Priorität. Wenn sie da ist, zeigen
+/// wir zusätzlich maximal **eine** Resurface-Karte darunter — sonst
+/// bis zu zwei. Mehr wäre Feed-Mechanik, die wir explizit nicht wollen.
 class AmbientRetrieval extends StatelessWidget {
   /// Server connection map: keys note_a_title, note_b_title, note_a_id,
   /// note_b_id, explanation, connection_type.
@@ -21,23 +27,47 @@ class AmbientRetrieval extends StatelessWidget {
   /// gets paused for 14 days on the server.
   final VoidCallback? onDismissConnection;
 
-  /// A local note that comes back into view because it's a few weeks old.
-  final Note? resurfacedNote;
-  final VoidCallback? onResurfacedTap;
+  /// Liste der vom Server gewählten Resurfacing-Notizen (Wave 3).
+  /// Leer = Server hat nichts geliefert / Index nicht initialisiert.
+  final List<Note> resurfacedNotes;
+
+  /// Tap-Handler je Resurfacing-Notiz. Bekommt die Notiz, damit
+  /// `markEngaged` server-seitig den richtigen Eintrag pausiert.
+  final ValueChanged<Note>? onResurfacedTap;
+
+  /// Fallback für Offline / Server-down: lokal gepickte Notiz, wenn
+  /// `resurfacedNotes` leer ist. Folge der Spec „Dashboard niemals tot".
+  final Note? fallbackResurfaced;
 
   const AmbientRetrieval({
     super.key,
     this.connection,
     this.onDismissConnection,
-    this.resurfacedNote,
+    this.resurfacedNotes = const [],
     this.onResurfacedTap,
+    this.fallbackResurfaced,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (connection != null) return _connectionView();
-    if (resurfacedNote != null) return _resurfacedView();
-    return const SizedBox.shrink();
+    final hasConnection = connection != null;
+    final source = resurfacedNotes.isNotEmpty
+        ? resurfacedNotes
+        : (fallbackResurfaced != null ? [fallbackResurfaced!] : const <Note>[]);
+    final maxResurface = hasConnection ? 1 : 2;
+    final resurface = source.take(maxResurface).toList(growable: false);
+
+    if (!hasConnection && resurface.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (hasConnection) _connectionView(),
+        for (final n in resurface) _resurfacedView(n),
+      ],
+    );
   }
 
   Widget _shell({
@@ -170,8 +200,7 @@ class AmbientRetrieval extends StatelessWidget {
     );
   }
 
-  Widget _resurfacedView() {
-    final note = resurfacedNote!;
+  Widget _resurfacedView(Note note) {
     final days = DateTime.now().difference(note.created).inDays;
     final ago = days < 14
         ? 'Vor $days Tagen'
@@ -182,7 +211,7 @@ class AmbientRetrieval extends StatelessWidget {
       accent: BrainColors.tertiary,
       label: 'TAUCHT WIEDER AUF',
       tone: SemanticTone.amber,
-      onTap: onResurfacedTap,
+      onTap: onResurfacedTap == null ? null : () => onResurfacedTap!(note),
       body: Text(
         '$ago dachtest du über «${note.title}» nach.',
         style: BrainTypography.bodyMd.copyWith(color: BrainColors.onSurface),

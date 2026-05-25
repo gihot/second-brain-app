@@ -5,6 +5,7 @@ import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 import '../providers/discovery_provider.dart';
+import '../providers/resurfacing_provider.dart';
 import '../widgets/brain_card.dart';
 import '../widgets/tag_cloud.dart';
 import '../widgets/hall_badge.dart';
@@ -115,6 +116,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Tap auf eine Resurface-Karte: erst Engaged-Signal (Provider entfernt
+  /// die Karte optimistisch + pausiert 30 Tage server-seitig), dann
+  /// Navigation. Reihenfolge irrelevant — Navigator wartet nicht auf den
+  /// Server.
+  void _openResurfaced(Note note) {
+    context.read<ResurfacingProvider>().markEngaged(note.id);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NoteDetailScreen(noteId: note.id),
+      ),
+    );
+  }
+
   String get _greeting {
     final h = DateTime.now().hour;
     if (h < 6) return 'Gute Nacht';
@@ -127,11 +142,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final vault = context.watch<VaultProvider>();
     final discovery = context.watch<DiscoveryProvider>();
+    final resurfacing = context.watch<ResurfacingProvider>();
     final statusLine = signals.statusLine(
       dueReminders: vault.dueReminders.length,
       inboxCount: vault.status.inboxCount,
     );
-    final resurfaced = signals.resurfacedNote(vault.notes);
+    // Wave 3: Server liefert IDs, wir resolven gegen den lokalen Cache.
+    // Wenn der Server nichts geliefert hat (Offline / Index aus), bleibt
+    // der lokale Pseudo-Zufall als Fallback — Spec: Dashboard nie tot.
+    final localById = {for (final n in vault.notes) n.id: n};
+    final serverResurfaced = resurfacing.noteIds
+        .map((id) => localById[id])
+        .whereType<Note>()
+        .toList(growable: false);
+    final fallbackResurfaced = serverResurfaced.isEmpty
+        ? signals.resurfacedNote(vault.notes)
+        : null;
 
     return CustomScrollView(
       slivers: [
@@ -160,17 +186,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             connection: discovery.hasConnection ? discovery.connection : null,
             onDismissConnection: () =>
                 context.read<DiscoveryProvider>().dismiss(),
-            resurfacedNote: resurfaced,
-            onResurfacedTap: resurfaced == null
-                ? null
-                : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => NoteDetailScreen(
-                          noteId: resurfaced.id,
-                        ),
-                      ),
-                    ),
+            resurfacedNotes: serverResurfaced,
+            fallbackResurfaced: fallbackResurfaced,
+            onResurfacedTap: _openResurfaced,
           ),
         ),
 

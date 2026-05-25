@@ -204,6 +204,31 @@ class ApiService {
     return body != null;
   }
 
+  // ── Resurfacing (Wave 3) ──────────────────────────────────────────────────
+
+  /// Liefert bis zu [limit] Notiz-IDs für „taucht wieder auf". Server
+  /// markiert sie sofort als gezeigt — wir senden also keinen separaten
+  /// „shown"-Call. Null = transport failure (Client kann lokalen Fallback
+  /// zeigen); leere Liste = wirklich nichts da.
+  Future<List<String>?> getResurfacingToday({int limit = 3}) async {
+    final body = await _get('/resurfacing/today?limit=$limit');
+    if (body == null) return null;
+    final list = body['notes'] as List?;
+    if (list == null) return const [];
+    return list
+        .cast<Map<String, dynamic>>()
+        .map((n) => n['id']?.toString())
+        .whereType<String>()
+        .toList(growable: false);
+  }
+
+  /// Resurfacing-Karte wurde geöffnet → 30-Tage-Pause server-seitig.
+  /// Fire-and-forget aus Sicht des Clients — Fehler verschluckt, weil
+  /// Tracking nie den Open-Flow blockieren darf.
+  Future<void> markResurfacingEngaged(String noteId) async {
+    await _post('/resurfacing/${Uri.encodeComponent(noteId)}/engaged', const {});
+  }
+
   // ── Related Notes (embedding-based) ───────────────────────────────────────
 
   /// Returns up to [limit] notes most similar to [noteId] per the embedding

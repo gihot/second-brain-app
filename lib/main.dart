@@ -8,6 +8,7 @@ import 'providers/capture_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/discovery_provider.dart';
+import 'providers/resurfacing_provider.dart';
 import 'providers/background_provider.dart';
 import 'providers/glass_settings_provider.dart';
 import 'services/notification_service.dart';
@@ -48,6 +49,10 @@ class SecondBrainApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => DiscoveryProvider()..init(),
         ),
+        // Resurfacing wird vom AuthGate beim ersten Login getriggert
+        // (kein init() hier — wir hätten sonst beim App-Start ohne
+        // Token einen 401 im Log).
+        ChangeNotifierProvider(create: (_) => ResurfacingProvider()),
         ChangeNotifierProvider(
           create: (_) => BackgroundProvider()..init(),
         ),

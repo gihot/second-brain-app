@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/background_provider.dart';
 import '../providers/glass_settings_provider.dart';
+import '../providers/resurfacing_provider.dart';
 import '../providers/vault_provider.dart';
 import '../theme/brain_colors.dart';
 import 'app_shell.dart';
@@ -39,6 +40,17 @@ class _AuthGateState extends State<AuthGate> {
           context.read<BackgroundProvider>().init();
           context.read<GlassSettingsProvider>().init();
           context.read<VaultProvider>().refresh();
+          // Wave 3: Resurfacing erst nach Login holen — vorher kein
+          // Token, gäbe nur 401. init() ist idempotent (1h-Throttle).
+          context.read<ResurfacingProvider>().init();
+        });
+      }
+      if (status == AuthStatus.loggedOut) {
+        // Resurface-Liste der Vor-Session räumen, damit der nächste
+        // Login sie nicht erbt.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          context.read<ResurfacingProvider>().clear();
         });
       }
     }
