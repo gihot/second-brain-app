@@ -21,11 +21,9 @@ class SettingsSection extends StatelessWidget {
         const SizedBox(height: BrainSpacing.sm),
         Container(
           decoration: BoxDecoration(
-            color: BrainColors.surfaceLow,
-            borderRadius: BrainSpacing.radiusMd,
-            border: Border.all(
-                color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                width: 0.5),
+            color: BrainColors.solidSurface,
+            borderRadius: BrainSpacing.radiusLg,
+            border: Border.all(color: BrainColors.solidBorder, width: 0.5),
           ),
           child: Column(
             children: List.generate(items.length, (i) {
@@ -33,11 +31,7 @@ class SettingsSection extends StatelessWidget {
                 children: [
                   items[i],
                   if (i < items.length - 1)
-                    Divider(
-                      height: 1,
-                      indent: 48,
-                      color: BrainColors.outlineVariant.withValues(alpha: 0.10),
-                    ),
+                    Divider(height: 1, indent: 54, color: BrainColors.divider),
                 ],
               );
             }),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../models/note_model.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import 'glass_card_surface.dart';
 
-/// Ambient retrieval — the app surfaces things itself instead of asking
+/// Ambient retrieval: the app surfaces things itself instead of asking
 /// the user to search. One calm, contextual dashboard element.
 ///
 /// Priority: a discovered connection (server) outranks a resurfaced old
@@ -52,63 +54,56 @@ class AmbientRetrieval extends StatelessWidget {
         BrainSpacing.screenPadding,
         BrainSpacing.sm,
       ),
-      child: GestureDetector(
+      child: GlassCardSurface(
+        padding: BrainSpacing.paddingCard,
+        borderRadius: BrainSpacing.radiusLg,
+        tintColor: accent,
+        tintOpacityMultiplier: 0.7,
         onTap: onTap,
-        child: Container(
-          width: double.infinity,
-          padding: BrainSpacing.paddingCard,
-          decoration: BoxDecoration(
-            color: BrainColors.surfaceLow,
-            borderRadius: BrainSpacing.radiusMd,
-            // Bewusst dünn — die Karte soll Beifang sein, nie Stargast.
-            border: Border.all(
-              color: accent.withValues(alpha: 0.10),
-              width: 0.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, size: 12, color: accent.withValues(alpha: 0.85)),
-                  const SizedBox(width: 5),
-                  Text(
-                    label,
-                    style: BrainTypography.labelSm.copyWith(
-                      color: accent.withValues(alpha: 0.85),
-                      letterSpacing: 1.1,
-                      fontSize: 10,
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 12, color: accent.withValues(alpha: 0.85)),
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: BrainTypography.labelSm.copyWith(
+                    color: accent.withValues(alpha: 0.85),
+                    letterSpacing: 1.1,
+                    fontSize: 10,
                   ),
-                  if (onDismiss != null) ...[
-                    const Spacer(),
-                    // Dezent — fast unsichtbar bis hover/tap. Bewusst klein,
-                    // damit das Element nie zu einer Action-Bar wird.
-                    InkResponse(
-                      onTap: onDismiss,
-                      radius: 14,
-                      child: Padding(
-                        padding: const EdgeInsets.all(2),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color:
-                              BrainColors.onSurfaceVariant.withValues(alpha: 0.45),
+                ),
+                if (onDismiss != null) ...[
+                  const Spacer(),
+                  InkResponse(
+                    onTap: onDismiss,
+                    radius: 14,
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: BrainColors.onSurfaceVariant.withValues(
+                          alpha: 0.45,
                         ),
                       ),
                     ),
-                  ] else if (onTap != null) ...[
-                    const Spacer(),
-                    Icon(Icons.arrow_forward_ios_rounded,
-                        size: 11, color: BrainColors.onSurfaceVariant),
-                  ],
+                  ),
+                ] else if (onTap != null) ...[
+                  const Spacer(),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 11,
+                    color: BrainColors.onSurfaceVariant,
+                  ),
                 ],
-              ),
-              const SizedBox(height: BrainSpacing.sm),
-              body,
-            ],
-          ),
+              ],
+            ),
+            const SizedBox(height: BrainSpacing.sm),
+            body,
+          ],
         ),
       ),
     );
@@ -130,35 +125,47 @@ class AmbientRetrieval extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text('«$a»',
-                    style: BrainTypography.bodyMd.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: BrainColors.onSurface),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '«$a»',
+                  style: BrainTypography.bodyMd.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: BrainColors.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: BrainSpacing.sm),
-                child: Icon(Icons.swap_horiz_rounded,
-                    size: 16, color: BrainColors.secondary),
+                  horizontal: BrainSpacing.sm,
+                ),
+                child: Icon(
+                  Icons.swap_horiz_rounded,
+                  size: 16,
+                  color: BrainColors.secondary,
+                ),
               ),
               Expanded(
-                child: Text('«$b»',
-                    style: BrainTypography.bodyMd.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: BrainColors.onSurface),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '«$b»',
+                  style: BrainTypography.bodyMd.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: BrainColors.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
           if (explanation.isNotEmpty) ...[
             const SizedBox(height: BrainSpacing.xs),
-            Text(explanation,
-                style: BrainTypography.bodySm,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis),
+            Text(
+              explanation,
+              style: BrainTypography.bodySm,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ],
       ),

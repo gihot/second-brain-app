@@ -50,7 +50,7 @@ class _BrainCardState extends State<BrainCard> {
       );
     }
 
-    final bgColor = widget.color ?? BrainColors.surfaceLow;
+    final bgColor = widget.color ?? BrainColors.solidSurface;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -65,20 +65,20 @@ class _BrainCardState extends State<BrainCard> {
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: _hovered && widget.onTap != null
-                ? BrainColors.surfaceHigh
+                ? BrainColors.solidSurfaceHigh
                 : bgColor,
-            borderRadius: BrainSpacing.radiusMd,
+            borderRadius: BrainSpacing.radiusLg,
             border: widget.showBorder
                 ? Border.all(
                     color: _hovered
                         ? BrainColors.primary.withValues(alpha: 0.30)
-                        : BrainColors.outlineVariant.withValues(alpha: 0.15),
+                        : BrainColors.solidBorder,
                     width: 1,
                   )
                 : null,
           ),
           child: ClipRRect(
-            borderRadius: BrainSpacing.radiusMd,
+            borderRadius: BrainSpacing.radiusLg,
             child: Stack(
               children: [
                 if (widget.leftBorderColor != null)
@@ -86,10 +86,7 @@ class _BrainCardState extends State<BrainCard> {
                     left: 0,
                     top: 0,
                     bottom: 0,
-                    child: Container(
-                      width: 3,
-                      color: widget.leftBorderColor,
-                    ),
+                    child: Container(width: 3, color: widget.leftBorderColor),
                   ),
                 Padding(padding: widget.padding, child: widget.child),
               ],

@@ -16,8 +16,8 @@ class BrainSpacing {
 
   // ── Border Radius ──
   static const BorderRadius radiusSm = BorderRadius.all(Radius.circular(8));
-  static const BorderRadius radiusMd = BorderRadius.all(Radius.circular(12));
-  static const BorderRadius radiusLg = BorderRadius.all(Radius.circular(16));
+  static const BorderRadius radiusMd = BorderRadius.all(Radius.circular(14));
+  static const BorderRadius radiusLg = BorderRadius.all(Radius.circular(18));
   static const BorderRadius radiusXl = BorderRadius.all(Radius.circular(20));
   static const BorderRadius radiusFull = BorderRadius.all(Radius.circular(100));
 
@@ -38,7 +38,9 @@ class BrainSpacing {
   static const double cardGap = 12;
 
   // ── Convenience EdgeInsets ──
-  static const EdgeInsets paddingScreen = EdgeInsets.symmetric(horizontal: screenPadding);
+  static const EdgeInsets paddingScreen = EdgeInsets.symmetric(
+    horizontal: screenPadding,
+  );
   static const EdgeInsets paddingCard = EdgeInsets.all(cardPadding);
   static const EdgeInsets paddingSection = EdgeInsets.symmetric(vertical: lg);
 }

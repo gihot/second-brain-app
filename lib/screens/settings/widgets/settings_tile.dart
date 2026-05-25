@@ -43,15 +43,25 @@ class _SettingsTileState extends State<SettingsTile> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(
             horizontal: BrainSpacing.md,
-            vertical: BrainSpacing.cardGap,
+            vertical: BrainSpacing.md,
           ),
           color: _hovered && widget.onTap != null
-              ? BrainColors.surfaceHigh.withValues(alpha: 0.5)
+              ? BrainColors.innerSurface
               : Colors.transparent,
           child: Row(
             children: [
-              Icon(widget.icon, size: 18, color: BrainColors.outline),
-              const SizedBox(width: BrainSpacing.cardGap),
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: Center(
+                  child: Icon(
+                    widget.icon,
+                    size: 16,
+                    color: BrainColors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Text(widget.label, style: BrainTypography.bodyMd),
               ),
@@ -64,7 +74,11 @@ class _SettingsTileState extends State<SettingsTile> {
                 ),
               if (widget.onTap != null) ...[
                 const SizedBox(width: BrainSpacing.xs),
-                Icon(Icons.chevron_right_rounded, size: 16, color: BrainColors.outline),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: BrainColors.outline.withValues(alpha: 0.8),
+                ),
               ],
             ],
           ),

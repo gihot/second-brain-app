@@ -19,14 +19,18 @@ import '../theme/brain_spacing.dart';
 class GlassCardSurface extends StatelessWidget {
   final Widget child;
   final Color? tintColor;
+  final double tintOpacityMultiplier;
   final VoidCallback? onTap;
+  final EdgeInsetsGeometry? padding;
   final BorderRadius borderRadius;
 
   const GlassCardSurface({
     super.key,
     required this.child,
     this.tintColor,
+    this.tintOpacityMultiplier = 1,
     this.onTap,
+    this.padding,
     this.borderRadius = BrainSpacing.radiusSm,
   });
 
@@ -34,13 +38,21 @@ class GlassCardSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final settings = context.watch<GlassSettingsProvider>();
 
-    final baseFill =
-        const Color(0xFF000000).withValues(alpha: settings.fillOpacity);
+    // Settings slider still controls darkness, but the hue follows the v2
+    // handoff glass token (#0A0C14) instead of neutral black.
+    final baseFill = const Color(
+      0xFF0A0C14,
+    ).withValues(alpha: settings.fillOpacity);
     final tint = tintColor;
     final fill = tint == null || settings.tintOpacity == 0
         ? baseFill
         : Color.alphaBlend(
-            tint.withValues(alpha: settings.tintOpacity),
+            tint.withValues(
+              alpha: (settings.tintOpacity * tintOpacityMultiplier).clamp(
+                0.0,
+                1.0,
+              ),
+            ),
             baseFill,
           );
 
@@ -55,12 +67,11 @@ class GlassCardSurface extends StatelessWidget {
           decoration: BoxDecoration(
             color: fill,
             borderRadius: borderRadius,
-            border: Border.all(
-              color: BrainColors.glassCardBorder,
-              width: 1,
-            ),
+            border: Border.all(color: BrainColors.glassCardBorder, width: 1),
           ),
-          child: child,
+          child: padding == null
+              ? child
+              : Padding(padding: padding!, child: child),
         ),
       ),
     );
@@ -70,11 +81,7 @@ class GlassCardSurface extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       borderRadius: borderRadius,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: borderRadius,
-        child: surface,
-      ),
+      child: InkWell(onTap: onTap, borderRadius: borderRadius, child: surface),
     );
   }
 }

@@ -12,7 +12,7 @@ class GlassSettingsProvider with ChangeNotifier {
   static const _tintKey = 'glass_tint_opacity_v1';
 
   // Calmer defaults — content over atmosphere. Sliders let users raise it.
-  static const double defaultFillOpacity = 0.22;
+  static const double defaultFillOpacity = 0.42;
   static const double defaultTintOpacity = 0.10;
 
   static const double minFillOpacity = 0.10;

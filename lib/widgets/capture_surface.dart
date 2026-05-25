@@ -203,8 +203,7 @@ class _CaptureSurfaceState extends State<CaptureSurface>
     _speech.startListening(
       onResult: (transcript) {
         final cur = _controller.text;
-        _controller.text =
-            cur.isEmpty ? transcript : '$cur $transcript';
+        _controller.text = cur.isEmpty ? transcript : '$cur $transcript';
       },
       onEnd: _onHoldSpeechEnd,
       lang: 'de-DE',
@@ -237,14 +236,14 @@ class _CaptureSurfaceState extends State<CaptureSurface>
     final now = DateTime.now();
     final initial = _remindAt ?? now.add(const Duration(hours: 1));
     Widget theme(BuildContext ctx, Widget? child) => Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: BrainColors.primary,
-              surface: BrainColors.surfaceHigh,
-            ),
-          ),
-          child: child!,
-        );
+      data: Theme.of(ctx).copyWith(
+        colorScheme: const ColorScheme.dark(
+          primary: BrainColors.primary,
+          surface: BrainColors.surfaceHigh,
+        ),
+      ),
+      child: child!,
+    );
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -261,8 +260,13 @@ class _CaptureSurfaceState extends State<CaptureSurface>
     if (time == null) return;
     setState(() {
       _isReminder = true;
-      _remindAt =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _remindAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -290,9 +294,10 @@ class _CaptureSurfaceState extends State<CaptureSurface>
         : null;
 
     _setState(CaptureUiState.saving);
-    final ok = await context
-        .read<CaptureProvider>()
-        .capture(fullText, remindAtIso: reminderIso);
+    final ok = await context.read<CaptureProvider>().capture(
+      fullText,
+      remindAtIso: reminderIso,
+    );
     if (!mounted) return;
 
     if (ok) {
@@ -342,8 +347,7 @@ class _CaptureSurfaceState extends State<CaptureSurface>
             } else if (pulseAlpha > 0) {
               borderColor = BrainColors.primary.withValues(alpha: pulseAlpha);
             } else {
-              borderColor =
-                  BrainColors.outlineVariant.withValues(alpha: 0.12);
+              borderColor = BrainColors.outlineVariant.withValues(alpha: 0.12);
             }
             return Container(
               width: double.infinity,
@@ -351,7 +355,7 @@ class _CaptureSurfaceState extends State<CaptureSurface>
               decoration: BoxDecoration(
                 // Etwas heller als der Rest des Dashboards — hebt Capture
                 // visuell raus, ohne ein hard-edge zu sein.
-                color: BrainColors.surface,
+                color: BrainColors.solidSurfaceHigh,
                 borderRadius: BrainSpacing.radiusLg,
                 border: Border.all(
                   color: borderColor,
@@ -390,8 +394,9 @@ class _CaptureSurfaceState extends State<CaptureSurface>
             _controller.text.trim().isEmpty
                 ? 'Ich höre zu… loslassen zum Speichern'
                 : _controller.text,
-            style: BrainTypography.bodyMd
-                .copyWith(color: BrainColors.onSurface),
+            style: BrainTypography.bodyMd.copyWith(
+              color: BrainColors.onSurface,
+            ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
@@ -403,12 +408,16 @@ class _CaptureSurfaceState extends State<CaptureSurface>
   Widget _savedView() {
     return Row(
       children: [
-        Icon(Icons.check_circle_rounded,
-            size: 22, color: BrainColors.secondary),
+        Icon(
+          Icons.check_circle_rounded,
+          size: 22,
+          color: BrainColors.secondary,
+        ),
         const SizedBox(width: BrainSpacing.sm),
-        Text('Gedanke gespeichert',
-            style: BrainTypography.bodyMd
-                .copyWith(color: BrainColors.onSurface)),
+        Text(
+          'Gedanke gespeichert',
+          style: BrainTypography.bodyMd.copyWith(color: BrainColors.onSurface),
+        ),
       ],
     );
   }
@@ -456,10 +465,15 @@ class _CaptureSurfaceState extends State<CaptureSurface>
               hintStyle: BrainTypography.bodySm.copyWith(
                 color: BrainColors.outlineVariant.withValues(alpha: 0.7),
               ),
-              prefixIcon: Icon(Icons.tag_rounded,
-                  size: 16, color: BrainColors.outline),
-              prefixIconConstraints:
-                  const BoxConstraints(minWidth: 0, minHeight: 0),
+              prefixIcon: Icon(
+                Icons.tag_rounded,
+                size: 16,
+                color: BrainColors.outline,
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 0,
+                minHeight: 0,
+              ),
               isCollapsed: true,
               contentPadding: const EdgeInsets.only(left: 6),
               border: InputBorder.none,
@@ -473,9 +487,7 @@ class _CaptureSurfaceState extends State<CaptureSurface>
         Row(
           children: [
             _IconChip(
-              icon: _isRecording
-                  ? Icons.mic_rounded
-                  : Icons.mic_none_rounded,
+              icon: _isRecording ? Icons.mic_rounded : Icons.mic_none_rounded,
               active: _isRecording,
               // Tap = Diktat ins Feld. Halten = Hold-to-Talk: aufnehmen,
               // loslassen erfasst den Gedanken direkt.
@@ -503,12 +515,12 @@ class _CaptureSurfaceState extends State<CaptureSurface>
             const Spacer(),
             if (hasText)
               GestureDetector(
-                onTap: _state == CaptureUiState.saving
-                    ? null
-                    : _handleCapture,
+                onTap: _state == CaptureUiState.saving ? null : _handleCapture,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 18, vertical: 10),
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     gradient: BrainColors.captureGradient,
                     borderRadius: BrainSpacing.radiusFull,
@@ -518,17 +530,25 @@ class _CaptureSurfaceState extends State<CaptureSurface>
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('Erfassen',
-                                style: BrainTypography.button
-                                    .copyWith(color: Colors.white)),
+                            Text(
+                              'Erfassen',
+                              style: BrainTypography.button.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
                             const SizedBox(width: 6),
-                            const Icon(Icons.north_rounded,
-                                size: 16, color: Colors.white),
+                            const Icon(
+                              Icons.north_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                           ],
                         ),
                 ),
@@ -559,17 +579,17 @@ class _IconChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPressStart:
-          onLongPressStart == null ? null : (_) => onLongPressStart!(),
-      onLongPressEnd:
-          onLongPressEnd == null ? null : (_) => onLongPressEnd!(),
+      onLongPressStart: onLongPressStart == null
+          ? null
+          : (_) => onLongPressStart!(),
+      onLongPressEnd: onLongPressEnd == null ? null : (_) => onLongPressEnd!(),
       child: Container(
         width: 44,
         height: 44,
         decoration: BoxDecoration(
           color: active
               ? BrainColors.error.withValues(alpha: 0.18)
-              : BrainColors.surfaceHigh,
+              : BrainColors.innerSurface,
           shape: BoxShape.circle,
           boxShadow: active
               ? [
@@ -581,11 +601,11 @@ class _IconChip extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Icon(icon,
-            size: 20,
-            color: active
-                ? BrainColors.error
-                : BrainColors.onSurfaceVariant),
+        child: Icon(
+          icon,
+          size: 20,
+          color: active ? BrainColors.error : BrainColors.onSurfaceVariant,
+        ),
       ),
     );
   }
@@ -612,17 +632,19 @@ class _ReminderChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: active
               ? BrainColors.tertiary.withValues(alpha: 0.15)
-              : BrainColors.surfaceHigh,
+              : BrainColors.innerSurface,
           borderRadius: BrainSpacing.radiusFull,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(active ? Icons.alarm_rounded : Icons.alarm_add_outlined,
-                size: 15, color: color),
+            Icon(
+              active ? Icons.alarm_rounded : Icons.alarm_add_outlined,
+              size: 15,
+              color: color,
+            ),
             const SizedBox(width: 5),
-            Text(label,
-                style: BrainTypography.labelSm.copyWith(color: color)),
+            Text(label, style: BrainTypography.labelSm.copyWith(color: color)),
           ],
         ),
       ),

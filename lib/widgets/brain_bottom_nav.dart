@@ -27,17 +27,21 @@ class BrainBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
-            color: BrainColors.base.withValues(alpha: 0.60),
+            color: const Color(0xFF0A0C12).withValues(alpha: 0.55),
             border: Border(
-              top: BorderSide(
-                color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                width: 0.5,
-              ),
+              top: BorderSide(color: BrainColors.glassBorder, width: 0.5),
             ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 24,
+                offset: Offset(0, -8),
+              ),
+            ],
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SafeArea(
             top: false,
@@ -112,8 +116,8 @@ class _NavItemState extends State<_NavItem> {
     final color = widget.isActive
         ? BrainColors.primary
         : _hovered
-            ? BrainColors.onSurfaceVariant
-            : BrainColors.onSurfaceVariant.withValues(alpha: 0.6);
+        ? BrainColors.onSurfaceVariant
+        : BrainColors.onSurfaceVariant.withValues(alpha: 0.6);
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -130,7 +134,7 @@ class _NavItemState extends State<_NavItem> {
             color: widget.isActive
                 ? BrainColors.primary.withValues(alpha: 0.10)
                 : Colors.transparent,
-            borderRadius: BrainSpacing.radiusMd,
+            borderRadius: BrainSpacing.radiusFull,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -145,13 +149,17 @@ class _NavItemState extends State<_NavItem> {
                       top: -4,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 1),
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: BrainColors.secondary,
                           borderRadius: BrainSpacing.radiusFull,
                         ),
-                        constraints:
-                            const BoxConstraints(minWidth: 14, minHeight: 14),
+                        constraints: const BoxConstraints(
+                          minWidth: 14,
+                          minHeight: 14,
+                        ),
                         child: Text(
                           widget.badgeCount > 99
                               ? '99+'
@@ -222,12 +230,16 @@ class _CaptureNavItemState extends State<_CaptureNavItem> {
                   // aktiv. Aktiv = noch heller, etwas mehr Glow.
                   gradient: BrainColors.captureGradient,
                   shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    width: 1,
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: BrainColors.captureGlow.withValues(
-                        alpha: widget.isActive ? 0.85 : 0.55,
+                        alpha: widget.isActive ? 0.75 : 0.45,
                       ),
-                      blurRadius: widget.isActive ? 22 : 16,
+                      blurRadius: widget.isActive ? 22 : 18,
                       offset: const Offset(0, 6),
                     ),
                   ],
