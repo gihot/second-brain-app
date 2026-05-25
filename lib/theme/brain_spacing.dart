@@ -24,7 +24,7 @@ class BrainSpacing {
   // ── Layout ──
   static const double screenPadding = 24;
   static const double maxContentWidth = 640;
-  static const double bottomNavHeight = 64;
+  static const double bottomNavHeight = 84;
 
   // ── Touch Targets ──
   static const double minTouchTarget = 44;

@@ -5,6 +5,7 @@ import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 import 'glass_card_surface.dart';
+import 'semantic_label.dart';
 
 /// Ambient retrieval: the app surfaces things itself instead of asking
 /// the user to search. One calm, contextual dashboard element.
@@ -43,6 +44,7 @@ class AmbientRetrieval extends StatelessWidget {
     required IconData icon,
     required Color accent,
     required String label,
+    required SemanticTone tone,
     required Widget body,
     VoidCallback? onTap,
     VoidCallback? onDismiss,
@@ -65,18 +67,13 @@ class AmbientRetrieval extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 12, color: accent.withValues(alpha: 0.85)),
-                const SizedBox(width: 5),
-                Text(
-                  label,
-                  style: BrainTypography.labelSm.copyWith(
-                    color: accent.withValues(alpha: 0.85),
-                    letterSpacing: 1.1,
-                    fontSize: 10,
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SystemKicker(icon: icon, label: label, tone: tone),
                   ),
                 ),
                 if (onDismiss != null) ...[
-                  const Spacer(),
                   InkResponse(
                     onTap: onDismiss,
                     radius: 14,
@@ -118,6 +115,7 @@ class AmbientRetrieval extends StatelessWidget {
       icon: Icons.hub_outlined,
       accent: BrainColors.secondary,
       label: 'DEIN GEHIRN SIEHT EINEN ZUSAMMENHANG',
+      tone: SemanticTone.mint,
       onDismiss: onDismissConnection,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,8 +179,9 @@ class AmbientRetrieval extends StatelessWidget {
 
     return _shell(
       icon: Icons.history_rounded,
-      accent: BrainColors.primary,
+      accent: BrainColors.tertiary,
       label: 'TAUCHT WIEDER AUF',
+      tone: SemanticTone.amber,
       onTap: onResurfacedTap,
       body: Text(
         '$ago dachtest du über «${note.title}» nach.',

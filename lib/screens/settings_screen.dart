@@ -61,7 +61,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                  'Benachrichtigungen wurden vom Browser blockiert. Bitte in den Browser-Einstellungen freigeben.'),
+                'Benachrichtigungen wurden vom Browser blockiert. Bitte in den Browser-Einstellungen freigeben.',
+              ),
               duration: Duration(seconds: 3),
             ),
           );
@@ -100,8 +101,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _identitySaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Identität gespeichert'),
-            duration: Duration(seconds: 1)),
+          content: Text('Identität gespeichert'),
+          duration: Duration(seconds: 1),
+        ),
       );
     }
   }
@@ -109,7 +111,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _checkServer() async {
     setState(() => _checking = true);
     final ok = await ApiService.instance.ping();
-    if (mounted) setState(() { _serverReachable = ok; _checking = false; });
+    if (mounted) {
+      setState(() {
+        _serverReachable = ok;
+        _checking = false;
+      });
+    }
   }
 
   @override
@@ -165,9 +172,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _checking
                         ? 'Prüfe...'
                         : _serverReachable
-                            ? 'Verbunden'
-                            : 'Nicht erreichbar',
+                        ? 'Verbunden'
+                        : 'Nicht erreichbar',
                     valueColor: _serverReachable
+                        ? BrainColors.secondary
+                        : BrainColors.tertiary,
+                    statusDotColor: _serverReachable
                         ? BrainColors.secondary
                         : BrainColors.tertiary,
                     // URL ist hardcoded — kein Edit-Dialog. Tap nur Re-Check.
@@ -177,6 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.sync_outlined,
                     label: 'Letzter Sync',
                     value: vault.status.lastSyncText,
+                    statusDotColor: BrainColors.secondary,
                     onTap: () async {
                       await vault.refresh();
                       await _checkServer();
@@ -191,8 +202,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SettingsTile(
                     icon: Icons.cloud_upload_outlined,
                     label: 'Pending Writes',
-                    value:
-                        '${CacheService.instance.getPendingWrites().length}',
+                    value: '${CacheService.instance.getPendingWrites().length}',
+                    statusDotColor:
+                        CacheService.instance.getPendingWrites().isEmpty
+                        ? BrainColors.secondary
+                        : BrainColors.tertiary,
                     onTap: () => _showPendingWritesSheet(context),
                   ),
                 ],
@@ -209,8 +223,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     permission: _notificationPermission,
                     onToggle: _handleNotificationToggle,
                     onRequestPermission: () async {
-                      final granted =
-                          await NotificationService.instance.requestPermission();
+                      final granted = await NotificationService.instance
+                          .requestPermission();
                       if (mounted) {
                         setState(() {
                           _notificationPermission =
@@ -228,10 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // ── Darstellung ─────────────────────────────────────────
               SettingsSection(
                 title: 'DARSTELLUNG',
-                items: const [
-                  BackgroundImageTile(),
-                  GlassSettingsTile(),
-                ],
+                items: const [BackgroundImageTile(), GlassSettingsTile()],
               ),
 
               const SizedBox(height: BrainSpacing.lg),
@@ -274,6 +285,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'Offline-Captures',
                     value:
                         '${CacheService.instance.getPendingCaptures().length}',
+                    statusDotColor:
+                        CacheService.instance.getPendingCaptures().isEmpty
+                        ? BrainColors.secondary
+                        : BrainColors.tertiary,
                     onTap: () => _showOfflineQueueSheet(context),
                   ),
                 ],
@@ -289,8 +304,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: BrainColors.surfaceLow,
                   borderRadius: BrainSpacing.radiusMd,
                   border: Border.all(
-                      color: BrainColors.outlineVariant.withValues(alpha: 0.15),
-                      width: 0.5),
+                    color: BrainColors.outlineVariant.withValues(alpha: 0.15),
+                    width: 0.5,
+                  ),
                 ),
                 padding: const EdgeInsets.all(BrainSpacing.md),
                 child: Column(
@@ -320,15 +336,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: _identitySaving ? null : _saveIdentity,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: BrainColors.primary.withValues(alpha: 0.15),
                             borderRadius: BrainSpacing.radiusFull,
                           ),
                           child: Text(
-                            _identitySaving ? 'Speichert...' : 'Identität speichern',
-                            style: BrainTypography.button
-                                .copyWith(color: BrainColors.primary),
+                            _identitySaving
+                                ? 'Speichert...'
+                                : 'Identität speichern',
+                            style: BrainTypography.button.copyWith(
+                              color: BrainColors.primary,
+                            ),
                           ),
                         ),
                       ),
@@ -361,7 +382,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
 
         const SliverToBoxAdapter(
-          child: SizedBox(height: BrainSpacing.bottomNavHeight + BrainSpacing.xl),
+          child: SizedBox(
+            height: BrainSpacing.bottomNavHeight + BrainSpacing.xl,
+          ),
         ),
       ],
     );
@@ -383,15 +406,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Abbrechen',
-                style: BrainTypography.button
-                    .copyWith(color: BrainColors.outline)),
+            child: Text(
+              'Abbrechen',
+              style: BrainTypography.button.copyWith(
+                color: BrainColors.outline,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Abmelden',
-                style: BrainTypography.button
-                    .copyWith(color: BrainColors.error)),
+            child: Text(
+              'Abmelden',
+              style: BrainTypography.button.copyWith(color: BrainColors.error),
+            ),
           ),
         ],
       ),
@@ -410,7 +437,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           width: 28,
           height: 28,
           child: CircularProgressIndicator(
-              strokeWidth: 2, color: BrainColors.primary),
+            strokeWidth: 2,
+            color: BrainColors.primary,
+          ),
         ),
       ),
     );
@@ -421,23 +450,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: BrainColors.surfaceLow,
-        title: Text(result.ok ? 'Server erreichbar' : 'Server nicht erreichbar',
-            style: BrainTypography.titleMd),
+        title: Text(
+          result.ok ? 'Server erreichbar' : 'Server nicht erreichbar',
+          style: BrainTypography.titleMd,
+        ),
         content: Text(
           result.ok
               ? 'Antwort in ${result.latencyMs} ms.'
               : 'Fehler: ${result.error ?? "unbekannt"}'
-                  '${result.latencyMs != null ? "\n(Latenz vor Fehler: ${result.latencyMs} ms)" : ""}',
+                    '${result.latencyMs != null ? "\n(Latenz vor Fehler: ${result.latencyMs} ms)" : ""}',
           style: BrainTypography.bodyMd,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK',
-                style: BrainTypography.button.copyWith(
-                    color: result.ok
-                        ? BrainColors.secondary
-                        : BrainColors.tertiary)),
+            child: Text(
+              'OK',
+              style: BrainTypography.button.copyWith(
+                color: result.ok ? BrainColors.secondary : BrainColors.tertiary,
+              ),
+            ),
           ),
         ],
       ),
@@ -458,9 +490,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (sheetCtx.mounted) {
             ScaffoldMessenger.of(sheetCtx).showSnackBar(
               SnackBar(
-                content: Text(r.serverReachable
-                    ? '${r.drained} synchronisiert, ${r.remaining} offen'
-                    : 'Server nicht erreichbar'),
+                content: Text(
+                  r.serverReachable
+                      ? '${r.drained} synchronisiert, ${r.remaining} offen'
+                      : 'Server nicht erreichbar',
+                ),
                 duration: const Duration(seconds: 3),
               ),
             );
@@ -576,7 +610,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final msg = report.failed.isEmpty
         ? '${report.written} Gedanken importiert'
         : '${report.written} importiert, ${report.failed.length} '
-            'übersprungen (kein gültiges Frontmatter)';
+              'übersprungen (kein gültiges Frontmatter)';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
     );
@@ -594,9 +628,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onAdopt: (capture) async {
           // Treat the queued raw text like a fresh capture: create an inbox
           // note locally without server round-trip.
-          await context
-              .read<CaptureProvider>()
-              .saveCaptureLocallyAsNote(capture);
+          await context.read<CaptureProvider>().saveCaptureLocallyAsNote(
+            capture,
+          );
           await CacheService.instance.markCaptureSynced(capture.id);
           await CacheService.instance.clearSyncedCaptures();
         },
@@ -617,8 +651,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context: context,
         builder: (_) => AlertDialog(
           backgroundColor: BrainColors.surfaceLow,
-          title: Text('Cache enthält ungesyncte Daten',
-              style: BrainTypography.titleMd),
+          title: Text(
+            'Cache enthält ungesyncte Daten',
+            style: BrainTypography.titleMd,
+          ),
           content: Text(
             'Es liegen $unsynced Eintrag/-träge in der Sync-Queue, die '
             'noch nicht beim Server angekommen sind. Cache-Leeren ist '
@@ -630,9 +666,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Verstanden',
-                  style: BrainTypography.button
-                      .copyWith(color: BrainColors.primary)),
+              child: Text(
+                'Verstanden',
+                style: BrainTypography.button.copyWith(
+                  color: BrainColors.primary,
+                ),
+              ),
             ),
           ],
         ),
@@ -658,9 +697,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(backupName != null
-                    ? 'Cache geleert. Backup: $backupName'
-                    : 'Cache geleert (Backup fehlgeschlagen)'),
+                content: Text(
+                  backupName != null
+                      ? 'Cache geleert. Backup: $backupName'
+                      : 'Cache geleert (Backup fehlgeschlagen)',
+                ),
                 duration: const Duration(seconds: 4),
               ),
             );
