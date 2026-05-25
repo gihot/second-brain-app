@@ -66,7 +66,8 @@ async def daily_discovery(payload: dict = Depends(verify_token)):
         try:
             agent = AgentService()
             response = await agent.run(
-                "connector", message, context=context, user_id=user_id
+                "connector", message, context=context,
+                user_id=user_id, endpoint="discovery/daily",
             )
             metadata = response.get("metadata", {})
             connections = metadata.get("connections", [])

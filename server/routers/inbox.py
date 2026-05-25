@@ -60,6 +60,7 @@ async def _triage_notes(user_id: str, notes: list[dict]) -> None:
                     "file_path": note.get("file_path", ""),
                 },
                 user_id=user_id,
+                endpoint="inbox/triage",
             )
             meta = result.get("metadata", {})
             para = meta.get("para") or "03-Resources"

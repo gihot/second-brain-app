@@ -40,6 +40,7 @@ class IndexService:
 
     def __init__(self, user_id: str):
         self._settings = get_settings()
+        self._user_id = user_id
         user_root = Path(self._settings.data_root) / "users" / user_id
         self._vault = user_root / "vault"
         self._index_path = user_root / "embedding_index.json"
@@ -82,11 +83,17 @@ class IndexService:
             self._client = OpenAI(api_key=self._settings.openai_api_key)
         return self._client
 
-    def _embed(self, texts: list[str]) -> list[list[float]]:
-        """Embed texts via OpenAI. Returns [] on any failure (never raises)."""
+    def _embed(self, texts: list[str], source: str = "unknown") -> list[list[float]]:
+        """Embed texts via OpenAI. Returns [] on any failure (never raises).
+
+        `source` (z.B. "index_note", "search", "related", "reconcile") fließt
+        ins Token-Usage-Tracking ein, damit das Admin-Dashboard zeigt
+        welcher Flow wie viele Embedding-Tokens verbrennt.
+        """
         if not self.enabled or not texts:
             return []
         try:
+            from services.token_usage_service import TokenUsageService
             client = self._get_client()
             out: list[list[float]] = []
             for i in range(0, len(texts), 100):
@@ -95,6 +102,18 @@ class IndexService:
                     model=self._settings.embedding_model, input=batch
                 )
                 out.extend(d.embedding for d in resp.data)
+                try:
+                    TokenUsageService.record(
+                        provider="openai",
+                        model=resp.model,
+                        input_tokens=resp.usage.total_tokens,
+                        output_tokens=0,
+                        user_id=self._user_id,
+                        agent="embedding",
+                        endpoint=source,
+                    )
+                except Exception as e:
+                    print(f"token usage record skipped (openai): {e}")
             return out
         except Exception as e:
             print(f"Embedding API failed: {e}")
@@ -131,7 +150,7 @@ class IndexService:
                 self._persist()
             return
 
-        vectors = self._embed([f"{title}\n{content}"])
+        vectors = self._embed([f"{title}\n{content}"], source="index_note")
         if not vectors:
             return
         self._index["notes"][note_id] = {
@@ -182,7 +201,7 @@ class IndexService:
 
         if pending:
             texts = [f"{m.get('title', '')}\n{m.get('content', '')}" for _, m, _ in pending]
-            vectors = self._embed(texts)
+            vectors = self._embed(texts, source="reconcile")
             if vectors and len(vectors) == len(pending):
                 for (note_id, meta, h), vec in zip(pending, vectors):
                     self._index["notes"][note_id] = {
@@ -204,7 +223,7 @@ class IndexService:
         """Return up to `limit` file_paths ranked by cosine similarity."""
         if not self.enabled or not self._index["notes"]:
             return []
-        qvecs = self._embed([query])
+        qvecs = self._embed([query], source="search")
         if not qvecs:
             return []
         ids = list(self._index["notes"].keys())

@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<!--
+  Standalone Token-Usage-Dashboard für den Second-Brain-Server.
+
+  Öffne diese Datei einfach im Browser (Doppelklick). Beim ersten Start
+  fragt sie nach der Server-URL und einem Bearer-Token; beides wird in
+  localStorage gespeichert.
+
+  Datenquelle: GET /admin/usage?days=N. Single-File, vanilla JS, eine
+  externe CDN-Dependency (Chart.js).
+
+  XSS-Surface: Alle vom Server kommenden String-Felder (agent,
+  endpoint, model, user_id) laufen durch h() bevor sie in HTML
+  eingesetzt werden. Token + URL aus localStorage werden nur in
+  input.value gesetzt (via Attribut-Escape), nie in innerHTML
+  konkateniert.
+-->
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Second Brain — Token Usage</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0a0c14;
+      --surface: #121521;
+      --surface-2: #1a1e2e;
+      --border: #2a2f42;
+      --text: #e6e8ee;
+      --text-dim: #8a92a8;
+      --primary: #6366f1;
+      --secondary: #14b8a6;
+      --tertiary: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+      flex: 1;
+    }
+    header .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    input, select, button {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    input { min-width: 220px; }
+    button {
+      cursor: pointer;
+      background: var(--primary);
+      border-color: var(--primary);
+      font-weight: 500;
+    }
+    button:hover { filter: brightness(1.1); }
+    button.ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-dim);
+    }
+    main {
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .totals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+    .stat .label {
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .stat .value {
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .stat .sub {
+      color: var(--text-dim);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .card h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin: 0 0 16px 0;
+    }
+    .chart-wrap {
+      position: relative;
+      height: 280px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      color: var(--text-dim);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .empty {
+      color: var(--text-dim);
+      text-align: center;
+      padding: 32px;
+      font-style: italic;
+    }
+    .error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--danger);
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .setup {
+      max-width: 480px;
+      margin: 80px auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+    }
+    .setup h2 { margin-top: 0; }
+    .setup .field { margin-bottom: 16px; }
+    .setup label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .setup input { width: 100%; }
+  </style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+'use strict';
+
+const LS_BASE_URL = 'sb_usage_base_url';
+const LS_TOKEN = 'sb_usage_token';
+
+const app = document.getElementById('app');
+
+// XSS-safe: escapes any string before HTML-interpolation.
+function h(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function getCfg() {
+  return {
+    baseUrl: localStorage.getItem(LS_BASE_URL) || '',
+    token: localStorage.getItem(LS_TOKEN) || '',
+  };
+}
+
+function setText(el, txt) { el.textContent = txt; }
+
+function renderSetup(error) {
+  const { baseUrl, token } = getCfg();
+  // Setup-Form bewusst per DOM-API zusammengebaut: User-Inputs
+  // (URL, Token) gehören als textContent / .value, niemals roh
+  // in innerHTML konkateniert.
+  app.innerHTML = '';
+  const root = document.createElement('div');
+  root.className = 'setup';
+
+  const title = document.createElement('h2');
+  title.textContent = 'Verbindung';
+  root.appendChild(title);
+
+  const hint = document.createElement('p');
+  hint.style.color = 'var(--text-dim)';
+  hint.textContent =
+    'Server-URL und Bearer-Token. Wird im localStorage gespeichert ' +
+    '(nicht über Netz gesendet außer als Authorization-Header).';
+  root.appendChild(hint);
+
+  if (error) {
+    const err = document.createElement('div');
+    err.className = 'error';
+    err.textContent = error;
+    root.appendChild(err);
+  }
+
+  const form = document.createElement('form');
+  form.id = 'setup-form';
+  form.appendChild(buildField('Server-URL', 'f-base', 'text',
+    'https://your-server.fly.dev', baseUrl));
+  form.appendChild(buildField('Bearer Token', 'f-token', 'password',
+    'JWT vom Login', token));
+
+  const submit = document.createElement('button');
+  submit.type = 'submit';
+  submit.textContent = 'Verbinden';
+  form.appendChild(submit);
+
+  root.appendChild(form);
+  app.appendChild(root);
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const base = document.getElementById('f-base').value.trim().replace(/\/+$/, '');
+    const tok = document.getElementById('f-token').value.trim();
+    if (!base || !tok) return;
+    localStorage.setItem(LS_BASE_URL, base);
+    localStorage.setItem(LS_TOKEN, tok);
+    load(30);
+  });
+}
+
+function buildField(labelText, id, type, placeholder, value) {
+  const field = document.createElement('div');
+  field.className = 'field';
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  field.appendChild(label);
+  const input = document.createElement('input');
+  input.id = id;
+  input.type = type;
+  input.placeholder = placeholder;
+  input.value = value;  // .value-Property, kein HTML-Interpolation
+  field.appendChild(input);
+  return field;
+}
+
+// Sicheres Template: alle dynamischen Stellen über `h()`.
+const DASHBOARD_TPL = (days) => `
+  <header>
+    <h1>Second Brain — Token Usage
+      <span style="color: var(--text-dim); font-weight: 400;">
+        letzte ${h(days)} Tage
+      </span>
+    </h1>
+    <div class="controls">
+      <select id="days-select">
+        ${[7, 14, 30, 60, 90, 180, 365].map(d =>
+          `<option value="${d}" ${d===days?'selected':''}>${d}d</option>`
+        ).join('')}
+      </select>
+      <button id="refresh-btn">Refresh</button>
+      <button class="ghost" id="reset-btn">Verbindung neu</button>
+    </div>
+  </header>
+  <main>
+    <div class="totals" id="totals"></div>
+    <div class="grid">
+      <div class="card">
+        <h2>Verlauf — Kosten pro Tag (USD)</h2>
+        <div class="chart-wrap"><canvas id="chart-cost"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Verteilung pro Modell</h2>
+        <div class="chart-wrap"><canvas id="chart-model"></canvas></div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>Verlauf — Tokens pro Tag</h2>
+        <div class="chart-wrap"><canvas id="chart-tokens"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Pro Agent</h2>
+        <div id="tbl-agent"></div>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <h2>Pro Endpoint</h2>
+        <div id="tbl-endpoint"></div>
+      </div>
+      <div class="card">
+        <h2>Pro User</h2>
+        <div id="tbl-user"></div>
+      </div>
+    </div>
+  </main>
+`;
+
+function renderDashboard(data, days) {
+  app.innerHTML = DASHBOARD_TPL(days);
+
+  renderTotals(data.totals);
+  document.getElementById('tbl-agent').innerHTML = renderTable(data.by_agent, 'agent');
+  document.getElementById('tbl-endpoint').innerHTML = renderTable(data.by_endpoint, 'endpoint');
+  document.getElementById('tbl-user').innerHTML = renderTable(data.by_user, 'user_id');
+
+  renderCostChart(data.by_day);
+  renderTokensChart(data.by_day);
+  renderModelChart(data.by_model);
+
+  document.getElementById('days-select').addEventListener('change', (e) => {
+    load(parseInt(e.target.value, 10));
+  });
+  document.getElementById('refresh-btn').addEventListener('click', () => load(days));
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    localStorage.removeItem(LS_BASE_URL);
+    localStorage.removeItem(LS_TOKEN);
+    renderSetup();
+  });
+}
+
+function fmtNum(n) {
+  return new Intl.NumberFormat('de-DE').format(Math.round(n || 0));
+}
+function fmtUsd(n) {
+  return '$' + (n || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2, maximumFractionDigits: 4
+  });
+}
+
+function renderTotals(t) {
+  const el = document.getElementById('totals');
+  // Alle Werte sind Zahlen → über fmtNum/fmtUsd, keine roh-Strings.
+  el.innerHTML = `
+    <div class="stat">
+      <div class="label">Kosten gesamt</div>
+      <div class="value">${h(fmtUsd(t.cost_usd))}</div>
+      <div class="sub">${h(fmtNum(t.calls))} API-Calls</div>
+    </div>
+    <div class="stat">
+      <div class="label">Input-Tokens</div>
+      <div class="value">${h(fmtNum(t.input_tokens))}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Output-Tokens</div>
+      <div class="value">${h(fmtNum(t.output_tokens))}</div>
+    </div>
+    <div class="stat">
+      <div class="label">Ø pro Call</div>
+      <div class="value">${h(fmtUsd(t.calls > 0 ? t.cost_usd / t.calls : 0))}</div>
+    </div>
+  `;
+}
+
+function renderTable(rows, keyCol) {
+  if (!rows || rows.length === 0) {
+    return `<div class="empty">Keine Daten</div>`;
+  }
+  // keyCol-Werte kommen vom Server (agent/endpoint/user_id) und sind
+  // potenziell beliebige Strings → h() ist Pflicht.
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>${h(keyCol)}</th>
+          <th class="num">Calls</th>
+          <th class="num">Input</th>
+          <th class="num">Output</th>
+          <th class="num">Kosten</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td>${h(r[keyCol] || '—')}</td>
+            <td class="num">${h(fmtNum(r.calls))}</td>
+            <td class="num">${h(fmtNum(r.input_tokens))}</td>
+            <td class="num">${h(fmtNum(r.output_tokens))}</td>
+            <td class="num">${h(fmtUsd(r.cost_usd))}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+let charts = {};
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+const chartCommon = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#8a92a8', font: { size: 11 } } },
+  },
+  scales: {
+    x: { ticks: { color: '#8a92a8' }, grid: { color: '#2a2f42' } },
+    y: { ticks: { color: '#8a92a8' }, grid: { color: '#2a2f42' } },
+  },
+};
+
+function renderCostChart(byDay) {
+  destroyChart('cost');
+  const ctx = document.getElementById('chart-cost');
+  charts.cost = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: byDay.map(d => d.day),
+      datasets: [{
+        label: 'USD',
+        data: byDay.map(d => d.cost_usd),
+        backgroundColor: '#6366f1',
+      }],
+    },
+    options: chartCommon,
+  });
+}
+
+function renderTokensChart(byDay) {
+  destroyChart('tokens');
+  const ctx = document.getElementById('chart-tokens');
+  charts.tokens = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: byDay.map(d => d.day),
+      datasets: [
+        { label: 'Input', data: byDay.map(d => d.input_tokens), backgroundColor: '#14b8a6' },
+        { label: 'Output', data: byDay.map(d => d.output_tokens), backgroundColor: '#f59e0b' },
+      ],
+    },
+    options: { ...chartCommon, scales: {
+      ...chartCommon.scales,
+      x: { ...chartCommon.scales.x, stacked: true },
+      y: { ...chartCommon.scales.y, stacked: true },
+    }},
+  });
+}
+
+function renderModelChart(byModel) {
+  destroyChart('model');
+  const ctx = document.getElementById('chart-model');
+  const palette = ['#6366f1', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#10b981'];
+  charts.model = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: byModel.map(r => r.model),
+      datasets: [{
+        data: byModel.map(r => r.cost_usd),
+        backgroundColor: byModel.map((_, i) => palette[i % palette.length]),
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#8a92a8', font: { size: 11 } } },
+      },
+    },
+  });
+}
+
+async function load(days) {
+  const { baseUrl, token } = getCfg();
+  if (!baseUrl || !token) { renderSetup(); return; }
+  try {
+    const resp = await fetch(`${baseUrl}/admin/usage?days=${days}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (resp.status === 401) {
+      renderSetup('Token ungültig oder abgelaufen.');
+      return;
+    }
+    if (!resp.ok) {
+      renderSetup(`Server antwortete mit HTTP ${resp.status}.`);
+      return;
+    }
+    const data = await resp.json();
+    renderDashboard(data, days);
+  } catch (e) {
+    renderSetup(`Verbindung fehlgeschlagen: ${e.message}`);
+  }
+}
+
+// Boot
+const cfg = getCfg();
+if (cfg.baseUrl && cfg.token) {
+  load(30);
+} else {
+  renderSetup();
+}
+</script>
+
+</body>
+</html>

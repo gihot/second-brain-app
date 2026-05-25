@@ -9,6 +9,7 @@ from typing import Any
 import anthropic
 
 from config import get_settings
+from services.token_usage_service import TokenUsageService
 
 AGENTS_DIR = Path(__file__).parent.parent / "agents"
 
@@ -31,6 +32,7 @@ class AgentService:
         user_message: str,
         context: dict | None = None,
         user_id: str | None = None,
+        endpoint: str | None = None,
     ) -> dict:
         """Run an agent and return its response + any tool calls made.
 
@@ -64,6 +66,20 @@ class AgentService:
             system=system_prompt,
             messages=messages,
         )
+
+        # Token-Tracking — niemals den eigentlichen Aufruf brechen.
+        try:
+            TokenUsageService.record(
+                provider="anthropic",
+                model=response.model,
+                input_tokens=response.usage.input_tokens,
+                output_tokens=response.usage.output_tokens,
+                user_id=user_id,
+                agent=agent_name,
+                endpoint=endpoint,
+            )
+        except Exception as e:
+            print(f"token usage record skipped (anthropic): {e}")
 
         result = {"agent": agent_name, "content": "", "metadata": {}}
 

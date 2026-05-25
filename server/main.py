@@ -12,9 +12,10 @@ from slowapi.errors import RateLimitExceeded
 
 from config import get_settings
 from rate_limit import limiter
-from routers import agent, auth, capture, discovery, inbox, resurfacing, search, vault
+from routers import admin, agent, auth, capture, discovery, inbox, resurfacing, search, vault
 from services.paused_pairs_service import PausedPairsService
 from services.resurfacing_service import ResurfacingService
+from services.token_usage_service import TokenUsageService
 from services.user_service import UserService
 
 
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
     UserService.init(data_root / "auth.db")
     PausedPairsService.init(data_root / "auth.db")
     ResurfacingService.init(data_root / "auth.db")
+    TokenUsageService.init(data_root / "auth.db")
 
     if (
         UserService.count() == 0
@@ -79,6 +81,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://gihot.github.io",  # GitHub Pages deploy
+        "null",  # file:// origin — z.B. das lokale Usage-Dashboard.
+                 # Alle privilegierten Endpoints brauchen Bearer-Token,
+                 # daher CSRF-frei trotz `null`-Origin.
     ],
     allow_origin_regex=r"^http://localhost(:\d+)?$",  # local `flutter run`
     allow_credentials=False,
@@ -100,6 +105,7 @@ app.include_router(vault.router, prefix="/vault", tags=["vault"])
 app.include_router(agent.router, prefix="/agent", tags=["agent"])
 app.include_router(discovery.router, prefix="/discovery", tags=["discovery"])
 app.include_router(resurfacing.router, prefix="/resurfacing", tags=["resurfacing"])
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
 
 @app.get("/health")

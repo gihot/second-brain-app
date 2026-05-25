@@ -56,7 +56,10 @@ async def run_agent(
 
     agent = AgentService()
     try:
-        result = await agent.run(name, req.message, merged or None, user_id=user_id)
+        result = await agent.run(
+            name, req.message, merged or None,
+            user_id=user_id, endpoint=f"agent/{name}",
+        )
         return result
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not configured")

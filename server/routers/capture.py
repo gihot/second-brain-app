@@ -72,6 +72,7 @@ async def capture(
             "now_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%S"),
         },
         user_id=user_id,
+        endpoint="capture",
     )
 
     meta = result.get("metadata", {})
