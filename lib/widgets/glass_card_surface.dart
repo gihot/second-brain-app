@@ -15,10 +15,14 @@ import '../theme/brain_spacing.dart';
 ///
 /// - [tintColor] is blended over the dark fill at the configured tint opacity.
 ///   Pass `hallColor(note.hall)` to give each card a recognisable hue.
+/// - [leftStripeColor] adds a 3px solid stripe along the left edge — used in
+///   search results (Plan 2.3) where the soft hall-tint alone wasn't
+///   distinct enough to scan a list quickly.
 /// - [onTap] gets ink-well ripple behaviour. Pass null for a static surface.
 class GlassCardSurface extends StatelessWidget {
   final Widget child;
   final Color? tintColor;
+  final Color? leftStripeColor;
   final double tintOpacityMultiplier;
   final VoidCallback? onTap;
   final EdgeInsetsGeometry? padding;
@@ -28,6 +32,7 @@ class GlassCardSurface extends StatelessWidget {
     super.key,
     required this.child,
     this.tintColor,
+    this.leftStripeColor,
     this.tintOpacityMultiplier = 1,
     this.onTap,
     this.padding,
@@ -56,6 +61,21 @@ class GlassCardSurface extends StatelessWidget {
             baseFill,
           );
 
+    final paddedChild = padding == null ? child : Padding(padding: padding!, child: child);
+    final inner = leftStripeColor == null
+        ? paddedChild
+        : Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: 3, color: leftStripeColor),
+              ),
+              paddedChild,
+            ],
+          );
+
     final surface = ClipRRect(
       borderRadius: borderRadius,
       child: BackdropFilter(
@@ -69,9 +89,7 @@ class GlassCardSurface extends StatelessWidget {
             borderRadius: borderRadius,
             border: Border.all(color: BrainColors.glassCardBorder, width: 1),
           ),
-          child: padding == null
-              ? child
-              : Padding(padding: padding!, child: child),
+          child: inner,
         ),
       ),
     );

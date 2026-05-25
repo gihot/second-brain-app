@@ -253,7 +253,12 @@ class IndexService:
         Falls back to keyword_results[:limit] when the index is disabled.
         """
         if not self.enabled:
-            return keyword_results[:limit]
+            # Plan 2.3: auch im Keyword-Only-Modus einen Score liefern,
+            # damit der Client-Relevance-Indicator konsistent rendert.
+            # Position-basiert, linear absteigend.
+            kw = keyword_results[:limit]
+            n = max(len(kw), 1)
+            return [{**r, "score": 1.0 - i / n} for i, r in enumerate(kw)]
 
         sem_paths = self.semantic_search(query, limit)
         kw_by_path = {r.get("file_path"): r for r in keyword_results}
@@ -266,12 +271,18 @@ class IndexService:
             scores[path] = scores.get(path, 0.0) + 0.5
 
         ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:limit]
+        # Plan 2.3: Score auf [0,1] max-normalisieren und ans Result-Dict
+        # hängen. Client zeigt das als 3-Punkt-Relevance-Skala. Max statt
+        # absolute Schwelle, weil der Score je nach Top-K stark variiert
+        # — die *relative* Reihenfolge ist die Aussage, nicht der Betrag.
+        max_score = ranked[0][1] if ranked else 1.0
         results: list[dict] = []
-        for path, _score in ranked:
+        for path, score in ranked:
+            normalized = score / max_score if max_score > 0 else 0.0
             if path in kw_by_path:
-                results.append(kw_by_path[path])
+                results.append({**kw_by_path[path], "score": normalized})
             else:
                 note = parse_frontmatter(self._vault / path, self._vault)
                 if note:
-                    results.append(note)
+                    results.append({**note, "score": normalized})
         return results

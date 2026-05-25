@@ -14,6 +14,10 @@ class SearchProvider extends ChangeNotifier {
   bool _isSearching = false;
   String? _wingFilter;
   MemoryHall? _hallFilter;
+  // Plan 2.3: serverseitig normalisierter Hybrid-Score je Notiz-ID
+  // ([0,1], 1 = top-Treffer). Leer für rein lokale Ergebnisse — UI
+  // verzichtet dann auf den Relevance-Indicator.
+  Map<String, double> _scores = const {};
 
   String get query => _query;
   List<Note> get results => _results;
@@ -23,6 +27,7 @@ class SearchProvider extends ChangeNotifier {
   bool get isSearching => _isSearching;
   String? get wingFilter => _wingFilter;
   MemoryHall? get hallFilter => _hallFilter;
+  double? scoreFor(String noteId) => _scores[noteId];
 
   void setWingFilter(String? wing) {
     _wingFilter = wing;
@@ -44,6 +49,10 @@ class SearchProvider extends ChangeNotifier {
   /// Instant local search on every keystroke.
   void search(String query) {
     _query = query;
+    // Stale Scores beim neuen Query verwerfen — sie gehören zum
+    // vorherigen submitSearch(). Erst wenn der Server für die neue
+    // Query antwortet, wird _scores neu gefüllt.
+    _scores = const {};
     if (query.trim().isEmpty) {
       _results = [];
       notifyListeners();
@@ -76,11 +85,17 @@ class SearchProvider extends ChangeNotifier {
       hall: _hallFilter?.name,
     );
     if (serverResults != null && serverResults.isNotEmpty) {
-      // Merge: server provides AI-ranked file paths, we pull from local cache
-      final serverIds = serverResults
-          .map((r) => r['id']?.toString())
-          .whereType<String>()
-          .toSet();
+      // Merge: server provides AI-ranked file paths, we pull from local cache.
+      // Score-Map parallel mitführen für den Relevance-Indicator (Plan 2.3).
+      final serverIds = <String>{};
+      final scores = <String, double>{};
+      for (final r in serverResults) {
+        final id = r['id']?.toString();
+        if (id == null) continue;
+        serverIds.add(id);
+        final s = r['score'];
+        if (s is num) scores[id] = s.toDouble();
+      }
       final localById = {for (final n in _cache.getAllNotes()) n.id: n};
 
       final merged = <Note>[];
@@ -92,6 +107,7 @@ class SearchProvider extends ChangeNotifier {
         if (!serverIds.contains(n.id)) merged.add(n);
       }
       _results = merged;
+      _scores = scores;
       notifyListeners();
     }
   }
@@ -99,6 +115,7 @@ class SearchProvider extends ChangeNotifier {
   void clear() {
     _query = '';
     _results = [];
+    _scores = const {};
     notifyListeners();
   }
 }

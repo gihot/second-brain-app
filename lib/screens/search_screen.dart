@@ -214,7 +214,13 @@ class _SearchScreenState extends State<SearchScreen> {
           // Recent searches or results
           Expanded(
             child: search.hasQuery
-                ? _ResultsList(results: search.results, query: search.query)
+                ? _ResultsList(
+                    results: search.results,
+                    query: search.query,
+                    scoreFor: search.scoreFor,
+                    onWingChipTap: (w) =>
+                        context.read<SearchProvider>().setWingFilter(w),
+                  )
                 : _RecentSearches(
                     searches: search.recentSearches,
                     onTap: (q) {
@@ -320,8 +326,18 @@ class _RecentSearches extends StatelessWidget {
 class _ResultsList extends StatelessWidget {
   final List results;
   final String query;
+  // Plan 2.3: optional Score je Notiz → Relevance-Dots. Null wenn der
+  // Server keinen geliefert hat (offline / lokal-only).
+  final double? Function(String noteId) scoreFor;
+  // Tap auf Wing-Chip → setzt den Wing-Filter im SearchProvider.
+  final ValueChanged<String> onWingChipTap;
 
-  const _ResultsList({required this.results, required this.query});
+  const _ResultsList({
+    required this.results,
+    required this.query,
+    required this.scoreFor,
+    required this.onWingChipTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -335,15 +351,30 @@ class _ResultsList extends StatelessWidget {
         ),
       );
     }
+    // Such-Tokens für das Excerpt-Highlight: Whitespace + Satzzeichen
+    // splitten, Tokens < 2 Zeichen rauswerfen (verhindert dass "in"
+    // oder "a" das halbe Excerpt einfärben).
+    final tokens = query
+        .toLowerCase()
+        .split(RegExp(r'[^\wäöüß]+'))
+        .where((t) => t.length >= 2)
+        .toSet()
+        .toList(growable: false);
+
     return ListView.separated(
       padding: BrainSpacing.paddingScreen,
       itemCount: results.length,
       separatorBuilder: (_, _x) => const SizedBox(height: BrainSpacing.cardGap),
       itemBuilder: (_, i) {
         final note = results[i];
+        final wing = note.wing as String?;
+        final score = scoreFor(note.id as String);
         return BrainCard(
           glass: true,
           tintColor: hallColor(note.hall),
+          // Plan 2.3: 3px Hall-Stripe links — beschleunigt das Scannen
+          // einer Liste deutlich, der weiche Tint allein reichte nicht.
+          leftBorderColor: hallColor(note.hall),
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -353,23 +384,29 @@ class _ResultsList extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                note.title,
-                style: BrainTypography.bodyMd.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: BrainColors.onSurface,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      note.title,
+                      style: BrainTypography.bodyMd.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: BrainColors.onSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (wing != null && wing.isNotEmpty) ...[
+                    const SizedBox(width: BrainSpacing.sm),
+                    _WingChip(wing: wing, onTap: () => onWingChipTap(wing)),
+                  ],
+                ],
               ),
               if (note.excerpt.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(
-                  note.excerpt,
-                  style: BrainTypography.bodySm,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                _HighlightedExcerpt(text: note.excerpt, tokens: tokens),
               ],
               const SizedBox(height: BrainSpacing.sm),
               Row(
@@ -395,6 +432,10 @@ class _ResultsList extends StatelessWidget {
                         ),
                       ),
                   const Spacer(),
+                  if (score != null) ...[
+                    _RelevanceDots(score: score),
+                    const SizedBox(width: 8),
+                  ],
                   Text(note.relativeTime, style: BrainTypography.labelSm),
                 ],
               ),
@@ -402,6 +443,121 @@ class _ResultsList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Plan 2.3: Excerpt mit hervorgehobenen Such-Tokens. Case-insensitive
+/// match auf Wort-Ebene, Whitespace bleibt erhalten. Tokens werden vor
+/// dem regex-escape geprüft, damit "(", ")" usw. in der Query nicht
+/// die Match-Logik sprengen.
+class _HighlightedExcerpt extends StatelessWidget {
+  final String text;
+  final List<String> tokens;
+
+  const _HighlightedExcerpt({required this.text, required this.tokens});
+
+  @override
+  Widget build(BuildContext context) {
+    final base = BrainTypography.bodySm;
+    if (tokens.isEmpty) {
+      return Text(text,
+          style: base, maxLines: 2, overflow: TextOverflow.ellipsis);
+    }
+    final escaped = tokens.map(RegExp.escape).join('|');
+    final pattern = RegExp(escaped, caseSensitive: false);
+    final spans = <TextSpan>[];
+    var cursor = 0;
+    for (final m in pattern.allMatches(text)) {
+      if (m.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, m.start), style: base));
+      }
+      spans.add(TextSpan(
+        text: text.substring(m.start, m.end),
+        style: base.copyWith(
+          color: BrainColors.primary,
+          fontWeight: FontWeight.w600,
+        ),
+      ));
+      cursor = m.end;
+    }
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor), style: base));
+    }
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+}
+
+/// Plan 2.3: 3-Punkt-Relevance-Skala. Score ∈ [0,1] (server-normalisiert).
+/// Schwellen 0.66 / 0.33 — entspricht „starker / mittlerer / schwacher"
+/// Treffer relativ zum besten Result der aktuellen Query.
+class _RelevanceDots extends StatelessWidget {
+  final double score;
+
+  const _RelevanceDots({required this.score});
+
+  @override
+  Widget build(BuildContext context) {
+    final active = score >= 0.66 ? 3 : (score >= 0.33 ? 2 : 1);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (i) {
+        final lit = i < active;
+        return Padding(
+          padding: EdgeInsets.only(left: i == 0 ? 0 : 2),
+          child: Container(
+            width: 5,
+            height: 5,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: lit
+                  ? BrainColors.primary.withValues(alpha: 0.85)
+                  : BrainColors.onSurfaceVariant.withValues(alpha: 0.25),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+/// Plan 2.3: kompakter Wing-Chip rechts oben in der Karte. Tap →
+/// Filter im SearchProvider (Drill-In ohne Filter-Menü). Wing-Slug
+/// (kebab-case) wird für die Anzeige in Title-Case umgewandelt.
+class _WingChip extends StatelessWidget {
+  final String wing;
+  final VoidCallback onTap;
+
+  const _WingChip({required this.wing, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final display = wing
+        .split('-')
+        .where((p) => p.isNotEmpty)
+        .map((p) => p[0].toUpperCase() + p.substring(1))
+        .join(' ');
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: BrainColors.primary.withValues(alpha: 0.10),
+          borderRadius: BrainSpacing.radiusFull,
+        ),
+        child: Text(
+          display,
+          style: BrainTypography.labelSm.copyWith(
+            color: BrainColors.primary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 }

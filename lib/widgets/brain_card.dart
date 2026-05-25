@@ -9,8 +9,9 @@ import 'glass_card_surface.dart';
 ///   • Default opaque (surfaceLow fill, ghost border, optional left-stripe).
 ///   • Frosted glass when [glass] is true — delegates to [GlassCardSurface].
 ///     In glass mode, [tintColor] becomes the hall hue blended into the
-///     dark frost. [leftBorderColor] is **ignored** in glass mode because
-///     the tint already conveys the same information without a hard edge.
+///     dark frost. [leftBorderColor] is forwarded to the glass surface as
+///     an explicit 3px stripe — used in search results where scan-speed
+///     wins over the softer tint-only look (Plan 2.3).
 class BrainCard extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
@@ -45,6 +46,7 @@ class _BrainCardState extends State<BrainCard> {
     if (widget.glass) {
       return GlassCardSurface(
         tintColor: widget.tintColor ?? widget.leftBorderColor,
+        leftStripeColor: widget.leftBorderColor,
         onTap: widget.onTap,
         child: Padding(padding: widget.padding, child: widget.child),
       );
