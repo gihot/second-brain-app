@@ -37,19 +37,41 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
+  /// Combines `?title=`, `?text=`, `?url=` from the URL into a single
+  /// capture string. Used both by the legacy `?text=` shortcut and by
+  /// the PWA-Share-Target (manifest.json) which sends the system share
+  /// payload as the same three params.
+  ///
+  /// Examples:
+  /// - Share a quote from a browser: title="Article Title", text=quote,
+  ///   url="https://..." → all three lines glued together.
+  /// - Share just a URL: only url is set → that's the capture.
+  /// - Legacy `?text=foo` → just "foo".
+  static String? _captureTextFromQuery() {
+    if (!kIsWeb) return null;
+    try {
+      final params = Uri.base.queryParameters;
+      final title = (params['title'] ?? '').trim();
+      final text = (params['text'] ?? '').trim();
+      final url = (params['url'] ?? '').trim();
+      final parts = [
+        if (title.isNotEmpty) title,
+        if (text.isNotEmpty) text,
+        if (url.isNotEmpty) url,
+      ];
+      if (parts.isEmpty) return null;
+      return parts.join('\n\n');
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    String? initialCaptureText;
-    if (kIsWeb) {
-      try {
-        final params = Uri.base.queryParameters;
-        final text = params['text'];
-        if (text != null && text.isNotEmpty) {
-          initialCaptureText = Uri.decodeComponent(text);
-          _currentIndex = 4; // jump to Capture tab (new rightmost position)
-        }
-      } catch (_) {}
+    final initialCaptureText = _captureTextFromQuery();
+    if (initialCaptureText != null) {
+      _currentIndex = 4; // jump to Capture tab (new rightmost position)
     }
     _screens = [
       const DashboardScreen(),

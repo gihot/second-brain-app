@@ -1,13 +1,23 @@
 {
-    "name": "second_brain",
-    "short_name": "second_brain",
+    "name": "Second Brain",
+    "short_name": "Second Brain",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#111319",
+    "theme_color": "#111319",
+    "description": "Persönliches zweites Gehirn — reibungslos erfassen, semantisch wiederfinden.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "share_target": {
+        "action": ".",
+        "method": "GET",
+        "enctype": "application/x-www-form-urlencoded",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url"
+        }
+    },
     "icons": [
         {
             "src": "icons/Icon-192.png",
