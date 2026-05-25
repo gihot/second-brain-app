@@ -1,22 +1,19 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/capture_provider.dart';
 import '../services/speech_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import '../widgets/glass_card_surface.dart';
 
-/// Full capture screen. Headline + minimal textarea + capture CTA.
-/// Opened via the MIC nav tab (rightmost).
-///
-/// `voiceTrigger`: incrementing this ValueNotifier (e.g. on MIC tab tap)
-/// starts a voice-capture session immediately. The screen stays alive
-/// inside the IndexedStack, so we can't recreate it with a flag — we
-/// listen to a notifier instead.
+/// Full capture screen opened by the MIC tab.
 class CaptureScreen extends StatefulWidget {
   final String? initialText;
   final ValueListenable<int>? voiceTrigger;
+
   const CaptureScreen({super.key, this.initialText, this.voiceTrigger});
 
   @override
@@ -40,12 +37,8 @@ class _CaptureScreenState extends State<CaptureScreen> {
   }
 
   void _onVoiceTrigger() {
-    // Schedule for post-frame so the tap-induced rebuild settles before
-    // we kick off the speech-recognition machinery (touches ScaffoldMessenger
-    // for the unsupported-snackbar path).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (_speech.isListening) return; // already recording — no-op
+      if (!mounted || _speech.isListening) return;
       _toggleVoice();
     });
   }
@@ -63,8 +56,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     if (!SpeechService.isSupported) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-              'Spracheingabe benötigt Chrome oder Edge.'),
+          content: const Text('Spracheingabe benötigt Chrome oder Edge.'),
           duration: const Duration(seconds: 3),
           backgroundColor: BrainColors.surfaceHigh,
         ),
@@ -99,11 +91,13 @@ class _CaptureScreenState extends State<CaptureScreen> {
   Future<void> _handleCapture() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    final reminderIso =
-        _isReminder && _remindAt != null ? _remindAt!.toUtc().toIso8601String() : null;
-    final ok = await context
-        .read<CaptureProvider>()
-        .capture(text, remindAtIso: reminderIso);
+    final reminderIso = _isReminder && _remindAt != null
+        ? _remindAt!.toUtc().toIso8601String()
+        : null;
+    final ok = await context.read<CaptureProvider>().capture(
+      text,
+      remindAtIso: reminderIso,
+    );
     if (ok && mounted) {
       _controller.clear();
       setState(() {
@@ -148,8 +142,14 @@ class _CaptureScreenState extends State<CaptureScreen> {
     );
     if (time == null) return;
     setState(() {
+      _isReminder = true;
       _remindAt = DateTime(
-          date.year, date.month, date.day, time.hour, time.minute);
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -169,7 +169,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     return GestureDetector(
       onTap: () => _focusNode.requestFocus(),
       child: Container(
-        color: BrainColors.base,
+        color: BrainColors.base.withValues(alpha: 0.92),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -181,227 +181,231 @@ class _CaptureScreenState extends State<CaptureScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // System label
-                Text(
-                  'NEUER GEDANKE',
-                  style: BrainTypography.labelSm,
-                ),
+                Text('NEUER GEDANKE', style: BrainTypography.labelSm),
                 const SizedBox(height: BrainSpacing.sm),
-
-                // Headline
                 Text(
                   'Was denkst\ndu gerade?',
                   style: BrainTypography.displayMd,
                 ),
                 const SizedBox(height: BrainSpacing.lg),
-
-                // Minimal textarea
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    style: BrainTypography.bodyLg.copyWith(
-                      color: BrainColors.onSurfaceVariant,
+                  child: GlassCardSurface(
+                    borderRadius: BrainSpacing.radiusLg,
+                    padding: const EdgeInsets.all(BrainSpacing.md),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            maxLines: null,
+                            expands: true,
+                            textAlignVertical: TextAlignVertical.top,
+                            style: BrainTypography.bodyLg.copyWith(
+                              color: BrainColors.onSurfaceVariant,
+                            ),
+                            cursorColor: BrainColors.primary,
+                            cursorWidth: 2,
+                            decoration: InputDecoration(
+                              hintText: 'Dein Gedankenstrom...',
+                              hintStyle: BrainTypography.bodyLg.copyWith(
+                                color: BrainColors.outlineVariant.withValues(
+                                  alpha: 0.50,
+                                ),
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                              filled: false,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Wrap(
+                            spacing: BrainSpacing.sm,
+                            runSpacing: BrainSpacing.sm,
+                            children: [
+                              _ReminderChip(
+                                active: _isReminder,
+                                label: _isReminder && _remindAt != null
+                                    ? _formatRemindAt(_remindAt!)
+                                    : 'Erinnerung',
+                                onTap: () {
+                                  if (_isReminder) {
+                                    setState(() {
+                                      _isReminder = false;
+                                      _remindAt = null;
+                                    });
+                                  } else {
+                                    _pickRemindAt();
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(
+                          height: BrainSpacing.lg,
+                          color: BrainColors.divider,
+                        ),
+                        Row(
+                          children: [
+                            _MicButton(
+                              listening: _speech.isListening,
+                              onTap: _toggleVoice,
+                            ),
+                            const Spacer(),
+                            _CaptureButton(
+                              enabled: hasText && !isCapturing,
+                              loading: isCapturing,
+                              success: didSucceed,
+                              onTap: _handleCapture,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    cursorColor: BrainColors.primary,
-                    cursorWidth: 2,
-                    decoration: InputDecoration(
-                      hintText: 'Dein Gedankenstrom...',
-                      hintStyle: BrainTypography.bodyLg.copyWith(
-                        color: BrainColors.outlineVariant
-                            .withValues(alpha: 0.50),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                      filled: false,
-                    ),
-                    onChanged: (_) => setState(() {}),
                   ),
                 ),
-
-                const SizedBox(height: BrainSpacing.md),
-
-                // Reminder toggle + picker
-                Wrap(
-                  spacing: BrainSpacing.sm,
-                  runSpacing: BrainSpacing.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isReminder = !_isReminder;
-                          if (!_isReminder) _remindAt = null;
-                        });
-                        if (_isReminder && _remindAt == null) {
-                          _pickRemindAt();
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _isReminder
-                              ? BrainColors.tertiary.withValues(alpha: 0.18)
-                              : BrainColors.surfaceHigh,
-                          borderRadius: BrainSpacing.radiusFull,
-                          border: _isReminder
-                              ? Border.all(
-                                  color: BrainColors.tertiary
-                                      .withValues(alpha: 0.30),
-                                  width: 0.5)
-                              : null,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isReminder
-                                  ? Icons.alarm_rounded
-                                  : Icons.alarm_outlined,
-                              size: 16,
-                              color: _isReminder
-                                  ? BrainColors.tertiary
-                                  : BrainColors.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Erinnerung',
-                              style: BrainTypography.labelSm.copyWith(
-                                color: _isReminder
-                                    ? BrainColors.tertiary
-                                    : BrainColors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_isReminder)
-                      GestureDetector(
-                        onTap: _pickRemindAt,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: BrainColors.surfaceHigh,
-                            borderRadius: BrainSpacing.radiusFull,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.edit_calendar_outlined,
-                                  size: 14, color: BrainColors.primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                _remindAt != null
-                                    ? _formatRemindAt(_remindAt!)
-                                    : 'Datum & Uhrzeit',
-                                style: BrainTypography.labelSm.copyWith(
-                                    color: BrainColors.onSurface),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: BrainSpacing.md),
-
-                // Controls row
-                Row(
-                  children: [
-                    // Voice mic
-                    _MicButton(
-                      listening: _speech.isListening,
-                      onTap: _toggleVoice,
-                    ),
-                    const Spacer(),
-
-                    // Capture CTA — indigo gradient, rounded-full
-                    GestureDetector(
-                      onTap: hasText && !isCapturing ? _handleCapture : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOutCubic,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 14),
-                        decoration: BoxDecoration(
-                          gradient: didSucceed
-                              ? null
-                              : hasText
-                                  ? BrainColors.captureGradient
-                                  : null,
-                          color: didSucceed
-                              ? BrainColors.secondary
-                              : hasText
-                                  ? null
-                                  : BrainColors.surfaceHigh,
-                          borderRadius: BrainSpacing.radiusFull,
-                          boxShadow: hasText && !didSucceed
-                              ? [
-                                  BoxShadow(
-                                    color: BrainColors.captureGlow,
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ]
-                              : null,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isCapturing)
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            else if (didSucceed) ...[
-                              const Icon(Icons.check_rounded,
-                                  size: 18, color: Colors.white),
-                              const SizedBox(width: 6),
-                              Text('Erfasst',
-                                  style: BrainTypography.button
-                                      .copyWith(color: Colors.white)),
-                            ] else ...[
-                              Text(
-                                'Erfassen',
-                                style: BrainTypography.button.copyWith(
-                                  color: hasText
-                                      ? Colors.white
-                                      : BrainColors.onSurfaceVariant
-                                          .withValues(alpha: 0.4),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Icon(
-                                Icons.north_rounded,
-                                size: 18,
-                                color: hasText
-                                    ? Colors.white
-                                    : BrainColors.onSurfaceVariant
-                                        .withValues(alpha: 0.4),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
                 const SizedBox(height: BrainSpacing.sm),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReminderChip extends StatelessWidget {
+  final bool active;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ReminderChip({
+    required this.active,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? BrainColors.tertiary : BrainColors.onSurfaceVariant;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active
+              ? BrainColors.tertiary.withValues(alpha: 0.18)
+              : BrainColors.innerSurface,
+          borderRadius: BrainSpacing.radiusFull,
+          border: active
+              ? Border.all(
+                  color: BrainColors.tertiary.withValues(alpha: 0.30),
+                  width: 0.5,
+                )
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              active ? Icons.alarm_rounded : Icons.alarm_outlined,
+              size: 16,
+              color: color,
+            ),
+            const SizedBox(width: 6),
+            Text(label, style: BrainTypography.labelSm.copyWith(color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CaptureButton extends StatelessWidget {
+  final bool enabled;
+  final bool loading;
+  final bool success;
+  final VoidCallback onTap;
+
+  const _CaptureButton({
+    required this.enabled,
+    required this.loading,
+    required this.success,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: success
+              ? null
+              : enabled
+              ? BrainColors.captureGradient
+              : null,
+          color: success
+              ? BrainColors.secondary
+              : enabled
+              ? null
+              : BrainColors.innerSurface,
+          borderRadius: BrainSpacing.radiusFull,
+          boxShadow: enabled && !success
+              ? [
+                  BoxShadow(
+                    color: BrainColors.captureGlow,
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            else if (success) ...[
+              const Icon(Icons.check_rounded, size: 18, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(
+                'Erfasst',
+                style: BrainTypography.button.copyWith(color: Colors.white),
+              ),
+            ] else ...[
+              Text(
+                'Erfassen',
+                style: BrainTypography.button.copyWith(
+                  color: enabled
+                      ? Colors.white
+                      : BrainColors.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.north_rounded,
+                size: 18,
+                color: enabled
+                    ? Colors.white
+                    : BrainColors.onSurfaceVariant.withValues(alpha: 0.4),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -431,9 +435,10 @@ class _MicButtonState extends State<_MicButton>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
-    _scale = Tween<double>(begin: 1.0, end: 1.4).animate(
-      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 1.4,
+    ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut));
   }
 
   @override
@@ -483,8 +488,8 @@ class _MicButtonState extends State<_MicButton>
                 color: widget.listening
                     ? BrainColors.error.withValues(alpha: 0.15)
                     : _hovered
-                        ? BrainColors.surfaceHigh
-                        : BrainColors.surfaceLow,
+                    ? BrainColors.surfaceHigh
+                    : BrainColors.innerSurface,
                 shape: BoxShape.circle,
               ),
               child: Icon(

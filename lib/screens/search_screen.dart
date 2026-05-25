@@ -53,10 +53,19 @@ class _SearchScreenState extends State<SearchScreen> {
 
     final body = Padding(
       padding: EdgeInsets.only(
-          top: isPushedRoute ? BrainSpacing.sm : BrainSpacing.xxl),
+        top: isPushedRoute ? BrainSpacing.sm : BrainSpacing.xxl,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (!isPushedRoute) ...[
+            Padding(
+              padding: BrainSpacing.paddingScreen,
+              child: Text('Suche', style: BrainTypography.displayMd),
+            ),
+            const SizedBox(height: BrainSpacing.md),
+          ],
+
           // Search input
           Padding(
             padding: BrainSpacing.paddingScreen,
@@ -85,21 +94,26 @@ class _SearchScreenState extends State<SearchScreen> {
                     onSelected: context.read<SearchProvider>().setHallFilter,
                     itemBuilder: (ctx) => [
                       PopupMenuItem(
-                          value: null,
-                          onTap: () => ctx.read<SearchProvider>().setHallFilter(null),
-                          child: const Text('Alle Kategorien')),
-                      ...MemoryHall.values.map((h) => PopupMenuItem(
-                            value: h,
-                            child: Text(hallLabel(h)),
-                          )),
+                        value: null,
+                        onTap: () =>
+                            ctx.read<SearchProvider>().setHallFilter(null),
+                        child: const Text('Alle Kategorien'),
+                      ),
+                      ...MemoryHall.values.map(
+                        (h) =>
+                            PopupMenuItem(value: h, child: Text(hallLabel(h))),
+                      ),
                     ],
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: search.hallFilter != null
-                            ? hallColor(search.hallFilter!)
-                                .withValues(alpha: 0.15)
+                            ? hallColor(
+                                search.hallFilter!,
+                              ).withValues(alpha: 0.15)
                             : BrainColors.surfaceHigh,
                         borderRadius: BrainSpacing.radiusFull,
                       ),
@@ -117,11 +131,13 @@ class _SearchScreenState extends State<SearchScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Icon(Icons.arrow_drop_down_rounded,
-                              size: 16,
-                              color: search.hallFilter != null
-                                  ? hallColor(search.hallFilter!)
-                                  : BrainColors.outline),
+                          Icon(
+                            Icons.arrow_drop_down_rounded,
+                            size: 16,
+                            color: search.hallFilter != null
+                                ? hallColor(search.hallFilter!)
+                                : BrainColors.outline,
+                          ),
                         ],
                       ),
                     ),
@@ -131,19 +147,24 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (wings.isNotEmpty)
                     PopupMenuButton<String?>(
                       color: BrainColors.surfaceHigh,
-                      onSelected:
-                          context.read<SearchProvider>().setWingFilter,
+                      onSelected: context.read<SearchProvider>().setWingFilter,
                       itemBuilder: (_) => [
                         const PopupMenuItem(
-                            value: null, child: Text('Alle Sammlungen')),
-                        ...wings.map((w) => PopupMenuItem(
-                              value: w['wing'] as String,
-                              child: Text(w['display'] as String),
-                            )),
+                          value: null,
+                          child: Text('Alle Sammlungen'),
+                        ),
+                        ...wings.map(
+                          (w) => PopupMenuItem(
+                            value: w['wing'] as String,
+                            child: Text(w['display'] as String),
+                          ),
+                        ),
                       ],
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: search.wingFilter != null
                               ? BrainColors.primary.withValues(alpha: 0.12)
@@ -156,12 +177,14 @@ class _SearchScreenState extends State<SearchScreen> {
                             Text(
                               search.wingFilter != null
                                   ? search.wingFilter!
-                                      .split('-')
-                                      .map((w) => w.isEmpty
-                                          ? w
-                                          : w[0].toUpperCase() +
-                                              w.substring(1))
-                                      .join(' ')
+                                        .split('-')
+                                        .map(
+                                          (w) => w.isEmpty
+                                              ? w
+                                              : w[0].toUpperCase() +
+                                                    w.substring(1),
+                                        )
+                                        .join(' ')
                                   : 'Sammlung',
                               style: BrainTypography.labelSm.copyWith(
                                 color: search.wingFilter != null
@@ -170,11 +193,13 @@ class _SearchScreenState extends State<SearchScreen> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            Icon(Icons.arrow_drop_down_rounded,
-                                size: 16,
-                                color: search.wingFilter != null
-                                    ? BrainColors.primary
-                                    : BrainColors.outline),
+                            Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 16,
+                              color: search.wingFilter != null
+                                  ? BrainColors.primary
+                                  : BrainColors.outline,
+                            ),
                           ],
                         ),
                       ),
@@ -217,8 +242,7 @@ class _SearchScreenState extends State<SearchScreen> {
           widget.initialQuery != null && widget.initialQuery!.isNotEmpty
               ? '#${widget.initialQuery!.replaceFirst(RegExp(r'^#'), '')}'
               : 'Suche',
-          style: BrainTypography.bodyMd
-              .copyWith(color: BrainColors.onSurface),
+          style: BrainTypography.bodyMd.copyWith(color: BrainColors.onSurface),
         ),
       ),
       body: body,
@@ -239,13 +263,17 @@ class _RecentSearches extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off_rounded,
-                size: 48, color: BrainColors.outline),
+            Icon(
+              Icons.search_off_rounded,
+              size: 48,
+              color: BrainColors.outline,
+            ),
             const SizedBox(height: BrainSpacing.md),
             Text(
               'Suche in allen deinen Gedanken',
-              style: BrainTypography.bodyMd
-                  .copyWith(color: BrainColors.onSurfaceVariant),
+              style: BrainTypography.bodyMd.copyWith(
+                color: BrainColors.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -265,18 +293,22 @@ class _RecentSearches extends StatelessWidget {
             spacing: BrainSpacing.sm,
             runSpacing: BrainSpacing.sm,
             children: searches
-                .map((q) => GestureDetector(
-                      onTap: () => onTap(q),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: BrainColors.surfaceHigh,
-                          borderRadius: BrainSpacing.radiusSm,
-                        ),
-                        child: Text(q, style: BrainTypography.bodySm),
+                .map(
+                  (q) => GestureDetector(
+                    onTap: () => onTap(q),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
                       ),
-                    ))
+                      decoration: BoxDecoration(
+                        color: BrainColors.surfaceHigh,
+                        borderRadius: BrainSpacing.radiusSm,
+                      ),
+                      child: Text(q, style: BrainTypography.bodySm),
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -297,15 +329,16 @@ class _ResultsList extends StatelessWidget {
       return Center(
         child: Text(
           'Keine Gedanken gefunden für "$query"',
-          style: BrainTypography.bodyMd.copyWith(color: BrainColors.onSurfaceVariant),
+          style: BrainTypography.bodyMd.copyWith(
+            color: BrainColors.onSurfaceVariant,
+          ),
         ),
       );
     }
     return ListView.separated(
       padding: BrainSpacing.paddingScreen,
       itemCount: results.length,
-      separatorBuilder: (_, _x) =>
-          const SizedBox(height: BrainSpacing.cardGap),
+      separatorBuilder: (_, _x) => const SizedBox(height: BrainSpacing.cardGap),
       itemBuilder: (_, i) {
         final note = results[i];
         return BrainCard(
@@ -323,8 +356,9 @@ class _ResultsList extends StatelessWidget {
               Text(
                 note.title,
                 style: BrainTypography.bodyMd.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: BrainColors.onSurface),
+                  fontWeight: FontWeight.w600,
+                  color: BrainColors.onSurface,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -340,19 +374,26 @@ class _ResultsList extends StatelessWidget {
               const SizedBox(height: BrainSpacing.sm),
               Row(
                 children: [
-                  ...note.tags.take(3).map((t) => Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: BrainColors.primary.withValues(alpha: 0.10),
-                            borderRadius: BrainSpacing.radiusFull,
+                  ...note.tags
+                      .take(3)
+                      .map(
+                        (t) => Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: BrainColors.primary.withValues(
+                                alpha: 0.10,
+                              ),
+                              borderRadius: BrainSpacing.radiusFull,
+                            ),
+                            child: Text('#$t', style: BrainTypography.tag),
                           ),
-                          child: Text('#$t',
-                              style: BrainTypography.tag),
                         ),
-                      )),
+                      ),
                   const Spacer(),
                   Text(note.relativeTime, style: BrainTypography.labelSm),
                 ],

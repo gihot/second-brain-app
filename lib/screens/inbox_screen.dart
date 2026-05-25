@@ -42,8 +42,9 @@ class _InboxScreenState extends State<InboxScreen> {
         SnackBar(
           content: Text(
             '$count Gedanke${count == 1 ? '' : 'n'} sortiert',
-            style: BrainTypography.bodyMd
-                .copyWith(color: BrainColors.onSurface),
+            style: BrainTypography.bodyMd.copyWith(
+              color: BrainColors.onSurface,
+            ),
           ),
           backgroundColor: BrainColors.surfaceHigh,
           behavior: SnackBarBehavior.floating,
@@ -86,7 +87,9 @@ class _InboxScreenState extends State<InboxScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: BrainButton(
-                  label: _triaging ? 'Sortiert...' : 'Alle sortieren — KI ordnet alles',
+                  label: _triaging
+                      ? 'Sortiert...'
+                      : 'Alle sortieren — KI ordnet alles',
                   icon: Icons.auto_fix_high_rounded,
                   variant: BrainButtonVariant.secondary,
                   loading: _triaging,
@@ -106,8 +109,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     itemCount: inbox.length,
                     separatorBuilder: (_, _x) =>
                         const SizedBox(height: BrainSpacing.sm),
-                    itemBuilder: (_, i) =>
-                        _InboxCard(note: inbox[i]),
+                    itemBuilder: (_, i) => _InboxCard(note: inbox[i]),
                   ),
                 ),
 
@@ -133,12 +135,15 @@ class _EmptyInbox extends StatelessWidget {
           const SizedBox(height: BrainSpacing.md),
           Text(
             'Alles erledigt',
-            style: BrainTypography.headlineSm
-                .copyWith(color: BrainColors.onSurfaceVariant),
+            style: BrainTypography.headlineSm.copyWith(
+              color: BrainColors.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: BrainSpacing.xs),
-          Text('Alle Gedanken wurden verarbeitet',
-              style: BrainTypography.bodySm),
+          Text(
+            'Alle Gedanken wurden verarbeitet',
+            style: BrainTypography.bodySm,
+          ),
         ],
       ),
     );
@@ -179,40 +184,43 @@ class _InboxCard extends StatelessWidget {
         tintColor: hallColor(note.hall),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => NoteDetailScreen(noteId: note.id),
-          ),
+          MaterialPageRoute(builder: (_) => NoteDetailScreen(noteId: note.id)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                note.title,
-                style: BrainTypography.bodySm.copyWith(
+        child: SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  note.title,
+                  style: BrainTypography.bodyMd.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: BrainColors.onSurface),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (note.excerpt.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(note.excerpt,
-                    style: BrainTypography.bodySm,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis),
-              ],
-              const SizedBox(height: BrainSpacing.xs),
-              Text(
-                'Erfasst ${note.relativeTime}',
-                style: BrainTypography.bodySm.copyWith(
-                  fontSize: 11,
-                  color: BrainColors.onSurfaceVariant
-                      .withValues(alpha: 0.50),
+                    color: BrainColors.onSurface,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+                if (note.excerpt.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    note.excerpt,
+                    style: BrainTypography.bodySm,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: BrainSpacing.xs),
+                Text(
+                  'Erfasst ${note.relativeTime}',
+                  style: BrainTypography.bodySm.copyWith(
+                    fontSize: 11,
+                    color: BrainColors.onSurfaceVariant.withValues(alpha: 0.50),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -226,27 +234,33 @@ class _SwipeBg extends StatelessWidget {
   final String label;
   final Alignment alignment;
 
-  const _SwipeBg(
-      {required this.color,
-      required this.icon,
-      required this.label,
-      required this.alignment});
+  const _SwipeBg({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.alignment,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: BrainSpacing.lg),
       decoration: BoxDecoration(
-          color: color, borderRadius: BrainSpacing.radiusMd),
+        color: color,
+        borderRadius: BrainSpacing.radiusMd,
+      ),
       alignment: alignment,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: BrainColors.onSurface),
           const SizedBox(width: 6),
-          Text(label,
-              style: BrainTypography.labelSm
-                  .copyWith(color: BrainColors.onSurface)),
+          Text(
+            label,
+            style: BrainTypography.labelSm.copyWith(
+              color: BrainColors.onSurface,
+            ),
+          ),
         ],
       ),
     );
