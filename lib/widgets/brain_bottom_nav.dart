@@ -14,11 +14,17 @@ class BrainBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
   final int inboxCount;
 
+  /// Long-press auf den MIC-Endcap. Plan 1.1: Escape-Hatch für Tipper —
+  /// öffnet den Capture-Tab ohne Voice-Session zu starten. Wenn null,
+  /// verhält sich Long-Press wie Tap.
+  final VoidCallback? onCaptureLongPress;
+
   const BrainBottomNav({
     super.key,
     required this.currentIndex,
     required this.onTap,
     this.inboxCount = 0,
+    this.onCaptureLongPress,
   });
 
   @override
@@ -72,6 +78,7 @@ class BrainBottomNav extends StatelessWidget {
                   _CaptureNavItem(
                     isActive: currentIndex == 4,
                     onTap: () => onTap(4),
+                    onLongPress: onCaptureLongPress,
                   ),
                 ],
               ),
@@ -264,8 +271,13 @@ class _NavItemState extends State<_NavItem> {
 class _CaptureNavItem extends StatefulWidget {
   final bool isActive;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
-  const _CaptureNavItem({required this.isActive, required this.onTap});
+  const _CaptureNavItem({
+    required this.isActive,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   @override
   State<_CaptureNavItem> createState() => _CaptureNavItemState();
@@ -285,6 +297,12 @@ class _CaptureNavItemState extends State<_CaptureNavItem> {
           widget.onTap();
         },
         onTapCancel: () => setState(() => _pressed = false),
+        onLongPress: widget.onLongPress == null
+            ? null
+            : () {
+                setState(() => _pressed = false);
+                widget.onLongPress!();
+              },
         child: AnimatedScale(
           scale: _pressed ? 0.94 : 1,
           duration: const Duration(milliseconds: 100),

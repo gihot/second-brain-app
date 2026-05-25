@@ -66,11 +66,34 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  /// Plan 1.4b: erkennt `?voice=immediate` (oder jeden truthy-Wert) in
+  /// der Start-URL. Trigger für Quick-Capture-Voice aus iOS-Shortcuts,
+  /// Android-Quick-Tiles oder einfach einem Bookmark — überall wo der
+  /// User mit einer Geste vom Homescreen direkt sprechen will, ohne
+  /// erst die App zu öffnen und MIC zu drücken.
+  ///
+  /// Query-Param statt eigener Route, weil Flutter-Web hier ohne Router
+  /// läuft und der bestehende Share-Target-Pfad ebenfalls Query-basiert
+  /// ist (Konsistenz, keine neue Routing-Schicht für eine Boolean-Geste).
+  static bool _voiceImmediateFromQuery() {
+    if (!kIsWeb) return false;
+    try {
+      final raw = (Uri.base.queryParameters['voice'] ?? '').trim().toLowerCase();
+      return raw == 'immediate' || raw == '1' || raw == 'true' || raw == 'yes';
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     final initialCaptureText = _captureTextFromQuery();
-    if (initialCaptureText != null) {
+    final voiceImmediate = _voiceImmediateFromQuery();
+    // Beide Pfade landen auf dem Capture-Tab. Wenn Text geteilt wurde
+    // (Share-Target), gewinnt Text — der User hat Inhalt mitgebracht,
+    // wir starten keine Voice-Session „über" den Text drüber.
+    if (initialCaptureText != null || voiceImmediate) {
       _currentIndex = 4; // jump to Capture tab (new rightmost position)
     }
     _screens = [
@@ -83,6 +106,15 @@ class _AppShellState extends State<AppShell> {
         voiceTrigger: _voiceTrigger,
       ),
     ];
+    // Voice-Trigger erst nach dem ersten Frame bumpen — CaptureScreen
+    // muss seinen Listener registriert haben, sonst läuft das Event
+    // ins Leere. addPostFrameCallback garantiert das.
+    if (voiceImmediate && initialCaptureText == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _voiceTrigger.value++;
+      });
+    }
   }
 
   @override
@@ -139,6 +171,12 @@ class _AppShellState extends State<AppShell> {
           // Tap auf MIC startet immer eine neue Voice-Session — auch wenn
           // wir schon auf dem Capture-Tab waren (User-Intent „jetzt sprechen").
           if (i == _captureTabIndex) _voiceTrigger.value++;
+        },
+        // Plan 1.1: Long-Press auf MIC = Escape-Hatch für Tipper.
+        // Öffnet Capture-Tab ohne Voice-Trigger → User landet im Text-
+        // Eingabefeld statt im sofortigen Sprach-Modus.
+        onCaptureLongPress: () {
+          setState(() => _currentIndex = _captureTabIndex);
         },
         inboxCount: context.watch<VaultProvider>().status.inboxCount,
       ),
