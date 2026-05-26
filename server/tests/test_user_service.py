@@ -73,6 +73,39 @@ def test_count(user_db):
     assert UserService.count() == 2
 
 
+def test_change_password_happy_path(user_db):
+    uid = UserService.create("frank@example.com", "old-pw1!")
+    ok, err = UserService.change_password(uid, "old-pw1!", "new-pw2!")
+    assert ok is True
+    assert err is None
+    # old password fails, new password works
+    assert UserService.verify("frank@example.com", "old-pw1!") is None
+    assert UserService.verify("frank@example.com", "new-pw2!") is not None
+
+
+def test_change_password_wrong_current(user_db):
+    uid = UserService.create("grace@example.com", "real-pw1")
+    ok, err = UserService.change_password(uid, "wrong-pw", "new-pw1!")
+    assert ok is False
+    assert err is not None
+    # original password still works
+    assert UserService.verify("grace@example.com", "real-pw1") is not None
+
+
+def test_change_password_too_short(user_db):
+    uid = UserService.create("heidi@example.com", "long-enough!")
+    ok, err = UserService.change_password(uid, "long-enough!", "short")
+    assert ok is False
+    assert err is not None
+
+
+def test_change_password_same_as_old(user_db):
+    uid = UserService.create("ivan@example.com", "long-enough!")
+    ok, err = UserService.change_password(uid, "long-enough!", "long-enough!")
+    assert ok is False
+    assert err is not None
+
+
 def test_verify_with_empty_password_dummy_check(user_db):
     """Empty inputs hit the dummy bcrypt path. Should return None without
     raising — and *should* take roughly bcrypt time (we don't assert

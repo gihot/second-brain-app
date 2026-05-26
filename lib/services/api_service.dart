@@ -79,6 +79,41 @@ class ApiService {
     }
   }
 
+  /// Plan 4.1: Passwort ändern. Returns null bei Erfolg, oder einen
+  /// Fehlerstring (Server-Detail: „Aktuelles Passwort falsch.",
+  /// „Neues Passwort braucht mindestens 8 Zeichen.", etc.).
+  /// Transport-Fehler → generischer Fallback-Text.
+  Future<String?> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final url = Uri.parse('$baseUrl/auth/password');
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (_token != null) 'Authorization': 'Bearer $_token',
+            },
+            body: jsonEncode({
+              'current_password': currentPassword,
+              'new_password': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) return null;
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return body['detail']?.toString() ?? 'Fehler ${response.statusCode}.';
+      } catch (_) {
+        return 'Fehler ${response.statusCode}.';
+      }
+    } catch (_) {
+      return 'Server nicht erreichbar.';
+    }
+  }
+
   /// Returns the current user from the server. `null` on any failure
   /// (incl. 401 — caller should treat that as "log out").
   Future<Map<String, dynamic>?> getMe() async {

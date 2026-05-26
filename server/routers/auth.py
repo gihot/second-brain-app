@@ -91,6 +91,36 @@ async def signup(request: Request, background: BackgroundTasks, creds: _Creds):
     return {"token": token, "user": {"id": user_id, "email": str(creds.email)}}
 
 
+class _PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/password")
+@limiter.limit("3/hour")
+async def change_password(
+    request: Request,
+    req: _PasswordChange,
+    payload: dict = Depends(verify_token),
+):
+    """Plan 4.1: Passwort ändern. Re-Auth via aktuelles Passwort
+    obligatorisch — schützt gegen Token-Hijack. Rate-Limit 3/hour,
+    weil Brute-Force gegen das aktuelle Passwort theoretisch denkbar
+    ist (wenn jemand schon ein Token hat — dann ist's eh zu spät, aber
+    defense in depth)."""
+    ok, error = await asyncio.to_thread(
+        UserService.change_password,
+        payload["sub"],
+        req.current_password,
+        req.new_password,
+    )
+    if not ok:
+        # 400 statt 401: das Token ist gültig, nur die Re-Auth oder
+        # die Validierung des neuen Passworts ist gescheitert.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
+    return {"ok": True}
+
+
 @router.get("/me")
 async def me(payload: dict = Depends(verify_token)):
     user = await asyncio.to_thread(UserService.get, payload["sub"])

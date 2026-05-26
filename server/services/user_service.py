@@ -114,6 +114,41 @@ class UserService:
         return {"id": row["id"], "email": row["email"], "created_at": row["created_at"]}
 
     @classmethod
+    def change_password(
+        cls, user_id: str, current_password: str, new_password: str
+    ) -> tuple[bool, Optional[str]]:
+        """Verifiziert das aktuelle Passwort und setzt das neue.
+        Returns (success, error_message). error_message ist die einzige
+        an den Client durchgereichte Fehlerquelle — bewusst klein
+        gehalten, kein User-Enumeration via Antwortzeiten.
+        """
+        if not new_password or len(new_password) < 8:
+            return False, "Neues Passwort braucht mindestens 8 Zeichen."
+        if new_password == current_password:
+            return False, "Neues Passwort darf nicht gleich dem alten sein."
+        with cls._conn() as conn:
+            row = conn.execute(
+                "SELECT password_hash FROM users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return False, "Unbekannter Account."
+        if not bcrypt.checkpw(
+            current_password.encode("utf-8"),
+            row["password_hash"].encode("utf-8"),
+        ):
+            return False, "Aktuelles Passwort falsch."
+        new_hash = bcrypt.hashpw(
+            new_password.encode("utf-8"), bcrypt.gensalt()
+        ).decode("utf-8")
+        with cls._conn() as conn:
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (new_hash, user_id),
+            )
+        return True, None
+
+    @classmethod
     def get(cls, user_id: str) -> Optional[dict]:
         with cls._conn() as conn:
             row = conn.execute(

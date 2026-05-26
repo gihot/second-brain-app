@@ -12,6 +12,7 @@ import '../services/vault_import_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import 'settings/dialogs/change_password_dialog.dart';
 import 'settings/dialogs/clear_cache_dialog.dart';
 import 'settings/sheets/offline_queue_sheet.dart';
 import 'settings/sheets/pending_writes_sheet.dart';
@@ -149,6 +150,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.account_circle_outlined,
                     label: 'Angemeldet als',
                     value: context.watch<AuthProvider>().email,
+                  ),
+                  SettingsTile(
+                    icon: Icons.lock_outline_rounded,
+                    label: 'Passwort ändern',
+                    value: '',
+                    onTap: () => _changePassword(context),
                   ),
                   SettingsTile(
                     icon: Icons.logout_rounded,
@@ -391,6 +398,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ── Dialogs ──────────────────────────────────────────────────────────────
+
+  Future<void> _changePassword(BuildContext context) async {
+    final changed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const ChangePasswordDialog(),
+    );
+    if (!context.mounted || changed != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Passwort geändert.'),
+        backgroundColor: BrainColors.surfaceHigh,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   Future<void> _confirmLogout(BuildContext context) async {
     final ok = await showDialog<bool>(
