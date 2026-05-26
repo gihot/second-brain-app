@@ -79,6 +79,86 @@ class ApiService {
     }
   }
 
+  /// Plan 4.3: Signup mit Einladungs-Code. Returns dieselbe shape wie
+  /// login() — (user, error). Token wird bei Erfolg automatisch gesetzt.
+  Future<({Map<String, dynamic>? user, String? error})> signup({
+    required String email,
+    required String password,
+    required String inviteCode,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/signup'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email,
+              'password': password,
+              'invite_code': inviteCode,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        await setToken(body['token'] as String);
+        return (user: body['user'] as Map<String, dynamic>, error: null);
+      }
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          user: null,
+          error: body['detail']?.toString() ??
+              'Registrierung fehlgeschlagen (HTTP ${response.statusCode}).',
+        );
+      } catch (_) {
+        return (
+          user: null,
+          error: 'Registrierung fehlgeschlagen (HTTP ${response.statusCode}).',
+        );
+      }
+    } catch (_) {
+      return (user: null, error: 'Server nicht erreichbar.');
+    }
+  }
+
+  /// Plan 4.3: Neue Einladung erzeugen. Returns (code, error).
+  Future<({String? code, String? error})> createInvite() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/invite'),
+            headers: {
+              'Content-Type': 'application/json',
+              if (_token != null) 'Authorization': 'Bearer $_token',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return (code: body['code']?.toString(), error: null);
+      }
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          code: null,
+          error: body['detail']?.toString() ?? 'Fehler ${response.statusCode}.',
+        );
+      } catch (_) {
+        return (code: null, error: 'Fehler ${response.statusCode}.');
+      }
+    } catch (_) {
+      return (code: null, error: 'Server nicht erreichbar.');
+    }
+  }
+
+  /// Liste aller Einladungs-Codes des Aufrufers (offen + eingelöst +
+  /// abgelaufen, sortiert offen zuerst). Null bei transport failure.
+  Future<List<Map<String, dynamic>>?> listInvites() async {
+    final body = await _get('/auth/invites');
+    if (body == null) return null;
+    return List<Map<String, dynamic>>.from(body['codes'] as List? ?? const []);
+  }
+
   /// Plan 4.1: Passwort ändern. Returns null bei Erfolg, oder einen
   /// Fehlerstring (Server-Detail: „Aktuelles Passwort falsch.",
   /// „Neues Passwort braucht mindestens 8 Zeichen.", etc.).

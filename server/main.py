@@ -15,6 +15,7 @@ from config import get_settings
 from rate_limit import limiter
 from routers import admin, agent, auth, capture, discovery, inbox, resurfacing, search, vault
 from services.index_service import IndexService
+from services.invite_service import InviteService
 from services.paused_pairs_service import PausedPairsService
 from services.resurfacing_service import ResurfacingService
 from services.token_usage_service import TokenUsageService
@@ -37,6 +38,7 @@ def purge_due_user_data(data_root: Path) -> int:
             lambda: PausedPairsService.delete_user_data(uid),
             lambda: ResurfacingService.delete_user_data(uid),
             lambda: TokenUsageService.delete_user_data(uid),
+            lambda: InviteService.delete_user_data(uid),
         ):
             try:
                 fn()
@@ -71,6 +73,7 @@ async def lifespan(app: FastAPI):
     PausedPairsService.init(data_root / "auth.db")
     ResurfacingService.init(data_root / "auth.db")
     TokenUsageService.init(data_root / "auth.db")
+    InviteService.init(data_root / "auth.db")
 
     # Wave 4.2: Einmal beim Server-Start fällige Hard-Deletes abräumen.
     # Lazy-Variante in /auth/login behandelt den „nie wieder Server-

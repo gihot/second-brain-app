@@ -13,6 +13,7 @@ from pydantic import BaseModel, EmailStr
 from auth import create_token, verify_token
 from config import get_settings
 from rate_limit import limiter
+from services.invite_service import InviteService
 from services.user_service import UserService
 from services.vault_service import VaultService
 
@@ -57,6 +58,14 @@ class _Creds(BaseModel):
     password: str
 
 
+class _SignupCreds(BaseModel):
+    email: EmailStr
+    password: str
+    # Plan 4.3: Signup nur mit gültigem Einladungs-Code möglich,
+    # solange settings.signup_enabled nicht generell offen ist.
+    invite_code: str | None = None
+
+
 class _AuthResponse(BaseModel):
     token: str
     user: dict
@@ -91,23 +100,83 @@ async def login(request: Request, background: BackgroundTasks, creds: _Creds):
 
 @router.post("/signup", response_model=_AuthResponse)
 @limiter.limit("3/hour")
-async def signup(request: Request, background: BackgroundTasks, creds: _Creds):
+async def signup(request: Request, background: BackgroundTasks, creds: _SignupCreds):
     settings = get_settings()
+    # Plan 4.3: zwei Pfade. settings.signup_enabled = generelle Öffnung
+    # (z.B. bei Beta-Rollout). Ohne den Schalter braucht's einen
+    # gültigen Invite-Code.
+    invite_consumed_for: str | None = None
     if not settings.signup_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Signup is currently disabled",
-        )
+        if not creds.invite_code:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Einladungs-Code erforderlich.",
+            )
+        # Der Code wird HIER NOCH NICHT eingelöst — erst nach
+        # erfolgreichem Create. Sonst verlieren wir bei einem
+        # IntegrityError (Duplicate-Email) den Code unwiederbringlich.
+        # Stattdessen: Pre-Validierung via list+filter wäre teuer →
+        # wir konsumieren atomar nach dem create-Erfolg unten.
+        invite_consumed_for = creds.invite_code
     try:
         user_id = await asyncio.to_thread(
             UserService.create, str(creds.email), creds.password
         )
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # Code jetzt einlösen. Wenn er ungültig ist, müssen wir den frisch
+    # angelegten User wieder zurückrollen — sonst hätten wir einen
+    # Account ohne Einladung. Atomar-`consume` filtert auch abgelaufene
+    # / schon verbrauchte Codes raus.
+    if invite_consumed_for is not None:
+        consumed = await asyncio.to_thread(
+            InviteService.consume, invite_consumed_for, user_id
+        )
+        if not consumed:
+            await asyncio.to_thread(UserService.hard_delete, user_id)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Einladungs-Code ungültig oder bereits eingelöst.",
+            )
+
     token = create_token(user_id, str(creds.email))
     await _first_touch_setup(user_id)
     background.add_task(_background_reconcile, user_id)
     return {"token": token, "user": {"id": user_id, "email": str(creds.email)}}
+
+
+class _InviteListResponse(BaseModel):
+    codes: list[dict]
+
+
+@router.post("/invite")
+@limiter.limit("10/hour")
+async def create_invite(
+    request: Request,
+    payload: dict = Depends(verify_token),
+):
+    """Plan 4.3: erzeugt einen neuen Einladungs-Code für den Aufrufer.
+    Max 10 offene pro User (siehe InviteService). Code ist 14 Tage
+    gültig und einmal einlösbar."""
+    code, error = await asyncio.to_thread(
+        InviteService.create, payload["sub"]
+    )
+    if error is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=error
+        )
+    return {"code": code}
+
+
+@router.get("/invites")
+async def list_invites(payload: dict = Depends(verify_token)):
+    """Alle Codes des Users (offen, eingelöst, abgelaufen).
+    Für die „Freund einladen"-Tile in den Settings."""
+    codes = await asyncio.to_thread(
+        InviteService.list_for_user, payload["sub"]
+    )
+    return {"codes": codes}
 
 
 class _PasswordChange(BaseModel):

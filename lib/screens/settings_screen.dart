@@ -15,6 +15,7 @@ import '../theme/brain_typography.dart';
 import 'settings/dialogs/change_password_dialog.dart';
 import 'settings/dialogs/clear_cache_dialog.dart';
 import 'settings/dialogs/delete_account_dialog.dart';
+import 'settings/sheets/invites_sheet.dart';
 import 'settings/sheets/offline_queue_sheet.dart';
 import 'settings/sheets/pending_writes_sheet.dart';
 import 'settings/widgets/background_image_tile.dart';
@@ -157,6 +158,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'Passwort ändern',
                     value: '',
                     onTap: () => _changePassword(context),
+                  ),
+                  SettingsTile(
+                    icon: Icons.person_add_alt_rounded,
+                    label: 'Freund einladen',
+                    value: '',
+                    onTap: () => _openInvites(context),
                   ),
                   SettingsTile(
                     icon: Icons.logout_rounded,
@@ -420,6 +427,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: BrainColors.surfaceHigh,
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  Future<void> _openInvites(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: BrainColors.surfaceLow,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const InvitesSheet(),
     );
   }
 

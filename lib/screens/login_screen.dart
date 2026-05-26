@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -180,11 +181,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: BrainSpacing.lg),
-                  Text(
-                    'Konten werden nur durch den Administrator angelegt.',
-                    textAlign: TextAlign.center,
-                    style: BrainTypography.labelSm
-                        .copyWith(color: BrainColors.outline),
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SignupScreen(),
+                      ),
+                    ),
+                    child: Text(
+                      'Du hast einen Einladungs-Code? Registrieren',
+                      textAlign: TextAlign.center,
+                      style: BrainTypography.labelSm.copyWith(
+                        color: BrainColors.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
               ),
