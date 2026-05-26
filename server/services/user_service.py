@@ -30,20 +30,34 @@ class UserService:
 
     @classmethod
     def init(cls, db_path: Path) -> None:
-        """Create the table if needed. Called once from the FastAPI lifespan."""
+        """Create the table if needed. Called once from the FastAPI lifespan.
+
+        Wave 4.2 fügt pending_deletion_at als nullable Spalte hinzu —
+        idempotent via try/except, weil ALTER TABLE ADD COLUMN keinen
+        IF NOT EXISTS-Modifier hat in SQLite.
+        """
         cls._db_path = db_path
         db_path.parent.mkdir(parents=True, exist_ok=True)
         with cls._conn() as conn:
             conn.execute(
                 """
                 CREATE TABLE IF NOT EXISTS users (
-                    id            TEXT PRIMARY KEY,
-                    email         TEXT UNIQUE NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    created_at    TEXT NOT NULL
+                    id                  TEXT PRIMARY KEY,
+                    email               TEXT UNIQUE NOT NULL,
+                    password_hash       TEXT NOT NULL,
+                    created_at          TEXT NOT NULL,
+                    pending_deletion_at TEXT
                 )
                 """
             )
+            # Idempotente Migration für Bestands-DBs: ADD COLUMN wirft
+            # OperationalError wenn die Spalte schon da ist — wegwerfen.
+            try:
+                conn.execute(
+                    "ALTER TABLE users ADD COLUMN pending_deletion_at TEXT"
+                )
+            except sqlite3.OperationalError:
+                pass
 
     @classmethod
     def _conn(cls) -> sqlite3.Connection:
@@ -152,9 +166,85 @@ class UserService:
     def get(cls, user_id: str) -> Optional[dict]:
         with cls._conn() as conn:
             row = conn.execute(
-                "SELECT id, email, created_at FROM users WHERE id = ?",
+                "SELECT id, email, created_at, pending_deletion_at "
+                "FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
         if row is None:
             return None
-        return {"id": row["id"], "email": row["email"], "created_at": row["created_at"]}
+        return {
+            "id": row["id"],
+            "email": row["email"],
+            "created_at": row["created_at"],
+            "pending_deletion_at": row["pending_deletion_at"],
+        }
+
+    # ── Soft-Delete (Wave 4.2) ───────────────────────────────────────────────
+
+    @classmethod
+    def request_deletion(
+        cls, user_id: str, current_password: str, grace_days: int = 30
+    ) -> tuple[bool, Optional[str], Optional[str]]:
+        """Setzt pending_deletion_at = now + grace_days nach Re-Auth.
+        Returns (ok, error_message, deletion_at_iso).
+        Re-Auth schützt gegen Token-Hijack: ein gestohlenes Token
+        kann den Account in Pending-Deletion versetzen, aber die Daten
+        nicht sofort vernichten — der echte User hat 30 Tage Zeit.
+        """
+        from datetime import timedelta
+        with cls._conn() as conn:
+            row = conn.execute(
+                "SELECT password_hash FROM users WHERE id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return False, "Unbekannter Account.", None
+        if not bcrypt.checkpw(
+            current_password.encode("utf-8"),
+            row["password_hash"].encode("utf-8"),
+        ):
+            return False, "Aktuelles Passwort falsch.", None
+        deletion_at = (
+            datetime.now(timezone.utc) + timedelta(days=grace_days)
+        ).isoformat()
+        with cls._conn() as conn:
+            conn.execute(
+                "UPDATE users SET pending_deletion_at = ? WHERE id = ?",
+                (deletion_at, user_id),
+            )
+        return True, None, deletion_at
+
+    @classmethod
+    def cancel_deletion(cls, user_id: str) -> bool:
+        """Hebt die Löschung wieder auf. Kein Re-Auth nötig — wenn der
+        User noch einloggen kann, ist das gewollt."""
+        with cls._conn() as conn:
+            cur = conn.execute(
+                "UPDATE users SET pending_deletion_at = NULL "
+                "WHERE id = ? AND pending_deletion_at IS NOT NULL",
+                (user_id,),
+            )
+            return cur.rowcount > 0
+
+    @classmethod
+    def get_due_deletions(cls) -> list[str]:
+        """User-IDs deren pending_deletion_at <= now ist → bereit für
+        den eigentlichen Hard-Delete."""
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with cls._conn() as conn:
+            rows = conn.execute(
+                "SELECT id FROM users WHERE pending_deletion_at IS NOT NULL "
+                "AND pending_deletion_at <= ?",
+                (now_iso,),
+            ).fetchall()
+        return [r["id"] for r in rows]
+
+    @classmethod
+    def hard_delete(cls, user_id: str) -> bool:
+        """Löscht die User-Row final. Aufrufer ist verantwortlich für
+        Vault-Verzeichnis, Embedding-Index und alle abhängigen Tabellen
+        (resurfacings, paused_pairs, token_usage etc.) — siehe
+        purge_due_user_data in main.py."""
+        with cls._conn() as conn:
+            cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            return cur.rowcount > 0

@@ -5,6 +5,7 @@
 - `/me`     requires a valid bearer token (mounted with verify_token).
 """
 import asyncio
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
@@ -14,6 +15,19 @@ from config import get_settings
 from rate_limit import limiter
 from services.user_service import UserService
 from services.vault_service import VaultService
+
+
+def _purge_due() -> None:
+    """Wave 4.2: läuft auf jedem Login, räumt abgelaufene Pending-
+    Deletions ab bevor der eigentliche Login-Check kommt. Importiert
+    main.purge_due_user_data lazy — main.py importiert dieses Modul,
+    Zirkularität auf top-level vermeiden."""
+    from main import purge_due_user_data
+    settings = get_settings()
+    try:
+        purge_due_user_data(Path(settings.data_root))
+    except Exception as e:
+        print(f"login-time purge failed: {e}")
 
 router = APIRouter()
 
@@ -51,6 +65,11 @@ class _AuthResponse(BaseModel):
 @router.post("/login", response_model=_AuthResponse)
 @limiter.limit("5/minute;30/hour")
 async def login(request: Request, background: BackgroundTasks, creds: _Creds):
+    # Wave 4.2: vor dem Login fällige Hard-Deletes abräumen — wenn ein
+    # User seine 30 Tage Frist erreicht hat, wird sein Account hier
+    # finalisiert, und der Login schlägt korrekt mit 401 fehl.
+    await asyncio.to_thread(_purge_due)
+
     user = await asyncio.to_thread(
         UserService.verify, str(creds.email), creds.password
     )
@@ -129,4 +148,40 @@ async def me(payload: dict = Depends(verify_token)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unknown user"
         )
+    # /me liefert jetzt pending_deletion_at mit — der Client zeigt
+    # daraus den roten „dein Account wird gelöscht"-Banner.
     return {"user": user}
+
+
+class _DeletionRequest(BaseModel):
+    current_password: str
+
+
+@router.post("/request-deletion")
+@limiter.limit("2/hour")
+async def request_deletion(
+    request: Request,
+    req: _DeletionRequest,
+    payload: dict = Depends(verify_token),
+):
+    """Wave 4.2: Account-Soft-Delete starten. Setzt pending_deletion_at
+    auf now + 30d. Re-Auth via aktuelles Passwort — schützt gegen
+    Token-Hijack-Vandalismus. Bis zum Frist-Ablauf jederzeit per
+    /auth/cancel-deletion aufhebbar."""
+    ok, error, deletion_at = await asyncio.to_thread(
+        UserService.request_deletion, payload["sub"], req.current_password
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=error
+        )
+    return {"ok": True, "pending_deletion_at": deletion_at}
+
+
+@router.post("/cancel-deletion")
+async def cancel_deletion(payload: dict = Depends(verify_token)):
+    """Wave 4.2: laufende Soft-Deletion abbrechen — pending_deletion_at
+    wird auf NULL gesetzt. Kein Re-Auth: wer den Token besitzt und den
+    Cancel-Button drückt, ist genau der den wir schützen wollen."""
+    ok = await asyncio.to_thread(UserService.cancel_deletion, payload["sub"])
+    return {"ok": ok}

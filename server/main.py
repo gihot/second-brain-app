@@ -2,6 +2,7 @@
 Second Brain Cloud Bridge
 FastAPI server that connects the Flutter app to the Git vault and Claude AI agents.
 """
+import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -13,10 +14,52 @@ from slowapi.errors import RateLimitExceeded
 from config import get_settings
 from rate_limit import limiter
 from routers import admin, agent, auth, capture, discovery, inbox, resurfacing, search, vault
+from services.index_service import IndexService
 from services.paused_pairs_service import PausedPairsService
 from services.resurfacing_service import ResurfacingService
 from services.token_usage_service import TokenUsageService
 from services.user_service import UserService
+
+
+def purge_due_user_data(data_root: Path) -> int:
+    """Wave 4.2: läuft beim Server-Start UND auf jedem Login. Findet
+    User mit abgelaufenem pending_deletion_at und entfernt **alles**:
+    - paused_pairs, resurfacings, token_usage (per service-method)
+    - embedding-Index + vault-Verzeichnis (Dateisystem)
+    - users-Row (zuletzt — damit die Auth ihn nicht mehr findet)
+
+    Idempotent + defensive: Fehler bei einem Teil dürfen die anderen
+    nicht blockieren. Returns die Anzahl gelöschter User.
+    """
+    due = UserService.get_due_deletions()
+    for uid in due:
+        for fn in (
+            lambda: PausedPairsService.delete_user_data(uid),
+            lambda: ResurfacingService.delete_user_data(uid),
+            lambda: TokenUsageService.delete_user_data(uid),
+        ):
+            try:
+                fn()
+            except Exception as e:
+                print(f"purge step failed for {uid}: {e}")
+        # Filesystem-Cleanup: data_root/users/<uid>/ enthält vault +
+        # embedding_index.json + ggf. identity.md.
+        user_dir = data_root / "users" / uid
+        try:
+            if user_dir.exists():
+                shutil.rmtree(user_dir, ignore_errors=True)
+        except Exception as e:
+            print(f"vault dir removal failed for {uid}: {e}")
+        try:
+            IndexService.forget_user(uid)
+        except Exception as e:
+            print(f"index cache eviction failed for {uid}: {e}")
+        try:
+            UserService.hard_delete(uid)
+            print(f"hard-deleted user {uid}")
+        except Exception as e:
+            print(f"hard delete failed for {uid}: {e}")
+    return len(due)
 
 
 @asynccontextmanager
@@ -28,6 +71,16 @@ async def lifespan(app: FastAPI):
     PausedPairsService.init(data_root / "auth.db")
     ResurfacingService.init(data_root / "auth.db")
     TokenUsageService.init(data_root / "auth.db")
+
+    # Wave 4.2: Einmal beim Server-Start fällige Hard-Deletes abräumen.
+    # Lazy-Variante in /auth/login behandelt den „nie wieder Server-
+    # Neustart"-Fall, dieser Hook fängt User die nie wieder einloggen.
+    try:
+        n = purge_due_user_data(data_root)
+        if n:
+            print(f"startup: hard-deleted {n} expired user(s)")
+    except Exception as e:
+        print(f"startup hard-delete sweep failed: {e}")
 
     if (
         UserService.count() == 0

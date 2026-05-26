@@ -84,6 +84,16 @@ class PausedPairsService:
         return row["expires_at"] > now_iso
 
     @classmethod
+    def delete_user_data(cls, user_id: str) -> int:
+        """Wave 4.2: alle paused_pairs eines Users löschen (Hard-Delete)."""
+        with cls._conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM paused_pairs WHERE user_id = ?",
+                (user_id,),
+            )
+            return cur.rowcount
+
+    @classmethod
     def purge_expired(cls) -> int:
         """Delete rows whose pause has ended. Returns the number deleted.
         Cheap maintenance, can be called occasionally — not on every read."""

@@ -119,6 +119,19 @@ class TokenUsageService:
             )
 
     @classmethod
+    def delete_user_data(cls, user_id: str) -> int:
+        """Wave 4.2: alle token_usage-Einträge eines Users löschen
+        (Hard-Delete-Schritt)."""
+        if cls._db_path is None:
+            return 0
+        with cls._conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM token_usage WHERE user_id = ?",
+                (user_id,),
+            )
+            return cur.rowcount
+
+    @classmethod
     def summary(cls, days: int = 30) -> dict:
         """Aggregierter Verbrauch der letzten `days` Tage in vier Schnitten:
         - by_day:      pro Tag (für Zeitreihen-Charts)

@@ -4,6 +4,7 @@ import '../providers/vault_provider.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import '../providers/auth_provider.dart';
 import '../providers/discovery_provider.dart';
 import '../providers/resurfacing_provider.dart';
 import '../widgets/brain_card.dart';
@@ -159,8 +160,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? signals.resurfacedNote(vault.notes)
         : null;
 
+    final auth = context.watch<AuthProvider>();
+
     return CustomScrollView(
       slivers: [
+        // 0. Pending-Deletion-Banner — nur sichtbar wenn Account in
+        //    Soft-Delete-Frist steht. Roter Banner, Tap stellt wieder her.
+        if (auth.isPendingDeletion)
+          SliverToBoxAdapter(
+            child: _PendingDeletionBanner(
+              deletionAtIso: auth.pendingDeletionAt!,
+              onRestore: () => auth.cancelPendingDeletion(),
+            ),
+          ),
         // 1. Hero — Identität + Begrüßung + konditionelle Status-Zeile
         SliverToBoxAdapter(
           child: DashboardHero(
@@ -469,3 +481,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+
+/// Plan 4.2: roter Banner ganz oben auf dem Dashboard, solange der
+/// Account in Soft-Delete-Frist ist. Tap auf „Wiederherstellen" ruft
+/// /auth/cancel-deletion — Banner verschwindet sofort.
+class _PendingDeletionBanner extends StatelessWidget {
+  final String deletionAtIso;
+  final Future<bool> Function() onRestore;
+
+  const _PendingDeletionBanner({
+    required this.deletionAtIso,
+    required this.onRestore,
+  });
+
+  String _formatDate(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return iso;
+    final l = dt.toLocal();
+    return '${l.day.toString().padLeft(2, '0')}.'
+        '${l.month.toString().padLeft(2, '0')}.${l.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        BrainSpacing.screenPadding,
+        BrainSpacing.sm,
+        BrainSpacing.screenPadding,
+        0,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(BrainSpacing.md),
+        decoration: BoxDecoration(
+          color: BrainColors.error.withValues(alpha: 0.10),
+          borderRadius: BrainSpacing.radiusMd,
+          border: Border.all(
+            color: BrainColors.error.withValues(alpha: 0.35),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded,
+                size: 20, color: BrainColors.error),
+            const SizedBox(width: BrainSpacing.sm),
+            Expanded(
+              child: Text(
+                'Dein Account wird am ${_formatDate(deletionAtIso)} '
+                'gelöscht.',
+                style: BrainTypography.bodyMd.copyWith(
+                  color: BrainColors.onSurface,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                final ok = await onRestore();
+                if (!ok || !context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Löschung aufgehoben.'),
+                    backgroundColor: BrainColors.surfaceHigh,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: Text(
+                'Wiederherstellen',
+                style: BrainTypography.button.copyWith(
+                  color: BrainColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

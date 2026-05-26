@@ -114,6 +114,53 @@ class ApiService {
     }
   }
 
+  /// Plan 4.2: Account-Soft-Delete starten. Setzt pending_deletion_at
+  /// server-seitig auf now + 30d. Returns (ok, error?, deletionAt?).
+  /// Re-Auth via aktuelles Passwort obligatorisch.
+  Future<({bool ok, String? error, String? deletionAt})> requestDeletion(
+      String currentPassword) async {
+    final url = Uri.parse('$baseUrl/auth/request-deletion');
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (_token != null) 'Authorization': 'Bearer $_token',
+            },
+            body: jsonEncode({'current_password': currentPassword}),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          ok: true,
+          error: null,
+          deletionAt: body['pending_deletion_at']?.toString(),
+        );
+      }
+      try {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          ok: false,
+          error: body['detail']?.toString() ?? 'Fehler ${response.statusCode}.',
+          deletionAt: null,
+        );
+      } catch (_) {
+        return (ok: false, error: 'Fehler ${response.statusCode}.', deletionAt: null);
+      }
+    } catch (_) {
+      return (ok: false, error: 'Server nicht erreichbar.', deletionAt: null);
+    }
+  }
+
+  /// Plan 4.2: laufende Soft-Deletion abbrechen. Aufgerufen vom roten
+  /// Dashboard-Banner. Returns true bei Erfolg.
+  Future<bool> cancelDeletion() async {
+    final body = await _post('/auth/cancel-deletion', const {});
+    return body?['ok'] == true;
+  }
+
   /// Returns the current user from the server. `null` on any failure
   /// (incl. 401 — caller should treat that as "log out").
   Future<Map<String, dynamic>?> getMe() async {

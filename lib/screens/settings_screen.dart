@@ -14,6 +14,7 @@ import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
 import 'settings/dialogs/change_password_dialog.dart';
 import 'settings/dialogs/clear_cache_dialog.dart';
+import 'settings/dialogs/delete_account_dialog.dart';
 import 'settings/sheets/offline_queue_sheet.dart';
 import 'settings/sheets/pending_writes_sheet.dart';
 import 'settings/widgets/background_image_tile.dart';
@@ -163,6 +164,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: '',
                     valueColor: BrainColors.error,
                     onTap: () => _confirmLogout(context),
+                  ),
+                  SettingsTile(
+                    icon: Icons.delete_forever_outlined,
+                    label: 'Account löschen',
+                    value: '',
+                    valueColor: BrainColors.error,
+                    onTap: () => _deleteAccount(context),
                   ),
                 ],
               ),
@@ -412,6 +420,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: BrainColors.surfaceHigh,
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const DeleteAccountDialog(),
     );
   }
 

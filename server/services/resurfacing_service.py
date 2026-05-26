@@ -173,6 +173,17 @@ class ResurfacingService:
             )
 
     @classmethod
+    def delete_user_data(cls, user_id: str) -> int:
+        """Wave 4.2: alle Resurfacing-Einträge eines Users löschen.
+        Aufgerufen während des Hard-Delete-Schritts nach 30 Tagen Pending."""
+        with cls._conn() as conn:
+            cur = conn.execute(
+                "DELETE FROM resurfacings WHERE user_id = ?",
+                (user_id,),
+            )
+            return cur.rowcount
+
+    @classmethod
     def purge_expired(cls) -> int:
         """Entfernt Zeilen, deren pause_until lange in der Vergangenheit
         liegt UND die seit >180 Tagen nicht mehr gezeigt wurden. Sparsam

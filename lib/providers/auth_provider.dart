@@ -23,6 +23,35 @@ class AuthProvider extends ChangeNotifier {
   String? get loginError => _loginError;
   bool get isLoggedIn => _status == AuthStatus.loggedIn;
 
+  /// Plan 4.2: ISO-Timestamp wenn der Account gerade in Pending-
+  /// Deletion ist, sonst null. Treibt den roten Dashboard-Banner.
+  String? get pendingDeletionAt =>
+      _user?['pending_deletion_at'] as String?;
+  bool get isPendingDeletion => pendingDeletionAt != null;
+
+  /// Aufgerufen vom Banner-„Wiederherstellen"-Tap. Erfolg → /auth/me
+  /// neu laden, damit der Banner sofort verschwindet.
+  Future<bool> cancelPendingDeletion() async {
+    final ok = await _api.cancelDeletion();
+    if (!ok) return false;
+    final me = await _api.getMe();
+    if (me != null) {
+      _user = me;
+      notifyListeners();
+    }
+    return true;
+  }
+
+  /// Nach erfolgreicher request-deletion: /me neu laden, damit
+  /// pendingDeletionAt im Provider sichtbar wird (Banner triggert).
+  Future<void> refreshUser() async {
+    final me = await _api.getMe();
+    if (me != null) {
+      _user = me;
+      notifyListeners();
+    }
+  }
+
   /// Boot-time: read stored token, verify via GET /auth/me. Any failure
   /// (no token, expired, unknown user) → logged out.
   ///

@@ -106,6 +106,67 @@ def test_change_password_same_as_old(user_db):
     assert err is not None
 
 
+def test_request_deletion_happy(user_db):
+    uid = UserService.create("jane@example.com", "pw-correct!")
+    ok, err, deletion_at = UserService.request_deletion(uid, "pw-correct!")
+    assert ok is True
+    assert err is None
+    assert deletion_at is not None
+    # get() reflects the new state
+    user = UserService.get(uid)
+    assert user["pending_deletion_at"] == deletion_at
+
+
+def test_request_deletion_wrong_password(user_db):
+    uid = UserService.create("kara@example.com", "real-pw")
+    ok, err, _ = UserService.request_deletion(uid, "wrong-pw")
+    assert ok is False
+    assert err is not None
+    user = UserService.get(uid)
+    assert user["pending_deletion_at"] is None
+
+
+def test_cancel_deletion(user_db):
+    uid = UserService.create("liam@example.com", "pw-correct!")
+    UserService.request_deletion(uid, "pw-correct!")
+    assert UserService.cancel_deletion(uid) is True
+    user = UserService.get(uid)
+    assert user["pending_deletion_at"] is None
+    # cancel again on a non-pending user → False, no error
+    assert UserService.cancel_deletion(uid) is False
+
+
+def test_get_due_deletions_only_returns_expired(user_db, monkeypatch):
+    """Past deletion_at → returned. Future deletion_at → not returned."""
+    from datetime import datetime, timedelta, timezone
+    uid_due = UserService.create("mona@example.com", "pw")
+    uid_future = UserService.create("nora@example.com", "pw")
+    # Manuell pending_deletion_at setzen — past vs. future.
+    past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    future = (datetime.now(timezone.utc) + timedelta(days=10)).isoformat()
+    import sqlite3
+    with UserService._conn() as conn:
+        conn.execute(
+            "UPDATE users SET pending_deletion_at = ? WHERE id = ?",
+            (past, uid_due),
+        )
+        conn.execute(
+            "UPDATE users SET pending_deletion_at = ? WHERE id = ?",
+            (future, uid_future),
+        )
+    due = UserService.get_due_deletions()
+    assert uid_due in due
+    assert uid_future not in due
+
+
+def test_hard_delete(user_db):
+    uid = UserService.create("oscar@example.com", "pw")
+    assert UserService.hard_delete(uid) is True
+    assert UserService.get(uid) is None
+    # Second call is a no-op
+    assert UserService.hard_delete(uid) is False
+
+
 def test_verify_with_empty_password_dummy_check(user_db):
     """Empty inputs hit the dummy bcrypt path. Should return None without
     raising — and *should* take roughly bcrypt time (we don't assert

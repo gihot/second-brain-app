@@ -49,6 +49,15 @@ class IndexService:
         self._index = self._load_index()
 
     @classmethod
+    def forget_user(cls, user_id: str) -> None:
+        """Wave 4.2: Instance-Cache eines Users entfernen — wird beim
+        Hard-Delete aufgerufen, nachdem das embedding_index.json schon
+        weg ist. Stellt sicher, dass eine neue Registrierung mit
+        derselben UID nicht versehentlich den alten gecachten Index
+        wiederbelebt."""
+        cls._instances.pop(user_id, None)
+
+    @classmethod
     def for_user(cls, user_id: str) -> "IndexService":
         inst = cls._instances.get(user_id)
         if inst is None:
