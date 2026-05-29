@@ -1,5 +1,5 @@
 """Tests for the shared YAML-frontmatter parser."""
-from services.frontmatter import parse_frontmatter
+from services.frontmatter import parse_frontmatter, serialize_frontmatter
 
 
 def _write(path, text):
@@ -82,3 +82,45 @@ body""")
     assert meta["status"] == "inbox"
     # The line without ':' is silently skipped.
     assert "this-line-has-no-colon" not in meta
+
+
+def test_serialize_roundtrip(tmp_path):
+    """J6: parse → serialize → parse bleibt stabil (Werte + Reihenfolge)."""
+    f = tmp_path / "note.md"
+    _write(f, """---
+id: abc
+title: Hello World
+tags: ["a", "b"]
+created: 2026-01-01T09:00:00+00:00
+status: inbox
+---
+
+Body text here.""")
+    meta = parse_frontmatter(f, tmp_path)
+    body = meta["content"]
+
+    serialized = serialize_frontmatter(meta, body)
+    f.write_text(serialized, encoding="utf-8")
+    meta2 = parse_frontmatter(f, tmp_path)
+
+    assert meta2["id"] == "abc"
+    assert meta2["title"] == "Hello World"
+    assert meta2["tags"] == '["a", "b"]'
+    assert meta2["created"] == "2026-01-01T09:00:00+00:00"
+    assert meta2["status"] == "inbox"
+    assert meta2["content"] == "Body text here."
+
+
+def test_serialize_skips_synthetic_keys(tmp_path):
+    """file_path + content dürfen NICHT als Frontmatter-Zeilen landen."""
+    meta = {
+        "file_path": "00-Inbox/x.md",
+        "content": "body",
+        "id": "x",
+        "title": "T",
+    }
+    out = serialize_frontmatter(meta, "body")
+    assert "file_path:" not in out
+    assert "content:" not in out
+    assert "id: x" in out
+    assert "title: T" in out

@@ -64,7 +64,7 @@ async def daily_discovery(payload: dict = Depends(verify_token)):
         }
 
         try:
-            agent = AgentService()
+            agent = AgentService.shared()
             response = await agent.run(
                 "connector", message, context=context,
                 user_id=user_id, endpoint="discovery/daily",

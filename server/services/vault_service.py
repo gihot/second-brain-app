@@ -12,7 +12,7 @@ from typing import Optional
 import git
 
 from config import get_settings
-from services.frontmatter import parse_frontmatter
+from services.frontmatter import parse_frontmatter, serialize_frontmatter
 from services.index_service import IndexService
 
 
@@ -149,58 +149,37 @@ class VaultService:
         if not src.exists():
             raise FileNotFoundError(f"Note not found: {file_path}")
 
-        existing = src.read_text(encoding="utf-8")
-        # Split frontmatter from body
-        if not existing.startswith("---"):
+        # J6 (Plan v2): geteilter Frontmatter-Parser statt eigenem inline.
+        # parse_frontmatter liefert ein insertion-ordered Dict (file_path
+        # + content + alle YAML-Paare in Original-Reihenfolge).
+        meta = parse_frontmatter(src, self._vault)
+        if meta is None:
             raise ValueError(f"Note has no frontmatter: {file_path}")
-        end = existing.index("---", 3)
-        fm_block = existing[3:end]
-        body = existing[end + 3:].lstrip("\n")
+        body = meta.get("content", "")
 
-        # Parse existing frontmatter into dict (order-preserving via list)
-        fm_lines: list[tuple[str, str]] = []
-        for line in fm_block.splitlines():
-            if ":" in line:
-                k, _, v = line.partition(":")
-                fm_lines.append((k.strip(), v.strip()))
-
-        # Apply updates
-        now = datetime.now(timezone.utc).isoformat()
-        updates: dict[str, str] = {"modified": now}
+        # Updates direkt im Dict — bestehende Keys behalten ihre Position,
+        # neue (z.B. erstmaliges wing) landen am Ende. Spiegelt das alte
+        # merge-Verhalten exakt.
+        meta["modified"] = datetime.now(timezone.utc).isoformat()
         if title is not None:
-            updates["title"] = title
+            meta["title"] = title
         if tags is not None:
-            updates["tags"] = "[" + ", ".join(f'"{t}"' for t in tags) + "]"
+            meta["tags"] = "[" + ", ".join(f'"{t}"' for t in tags) + "]"
         if status is not None:
-            updates["status"] = status
+            meta["status"] = status
         if para is not None:
-            updates["para"] = para
+            meta["para"] = para
         if hall is not None:
-            updates["hall"] = hall
+            meta["hall"] = hall
         if wing is not None:
-            # Normalize: lowercase kebab-case
-            updates["wing"] = re.sub(r"[^a-z0-9]+", "-", wing.lower()).strip("-")
+            meta["wing"] = re.sub(r"[^a-z0-9]+", "-", wing.lower()).strip("-")
         if thought_type is not None:
-            updates["thought_type"] = thought_type
+            meta["thought_type"] = thought_type
         if remind_at is not None:
-            updates["remind_at"] = remind_at
-
-        merged: list[tuple[str, str]] = []
-        seen: set[str] = set()
-        for k, v in fm_lines:
-            if k in updates:
-                merged.append((k, updates[k]))
-                seen.add(k)
-            else:
-                merged.append((k, v))
-        # Append any new keys that weren't present
-        for k, v in updates.items():
-            if k not in seen:
-                merged.append((k, v))
+            meta["remind_at"] = remind_at
 
         new_body = content if content is not None else body
-        new_fm = "---\n" + "\n".join(f"{k}: {v}" for k, v in merged) + "\n---\n\n"
-        new_text = new_fm + new_body
+        new_text = serialize_frontmatter(meta, new_body)
 
         # If para changed, move file to new folder.
         # J4 (Plan v2): git commit+push wird NICHT mehr hier gemacht —

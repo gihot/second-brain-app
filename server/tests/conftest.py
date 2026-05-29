@@ -61,12 +61,17 @@ def temp_vault(tmp_path, monkeypatch):
     # sonst auf alte vault-Pfade zeigen.
     VaultService._instances.clear()
     IndexService._instances.clear()
+    # J6: AgentService-Shared-Singleton verwerfen, damit ein neuer
+    # Mock-Client greift (mock_anthropic patcht die Klasse).
+    from services.agent_service import AgentService
+    AgentService.reset_shared()
 
     yield tmp_path
 
     get_settings.cache_clear()
     VaultService._instances.clear()
     IndexService._instances.clear()
+    AgentService.reset_shared()
 
 
 # ── mock_anthropic ────────────────────────────────────────────────────────────

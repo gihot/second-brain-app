@@ -54,7 +54,7 @@ async def run_agent(
     # Merge: vault data first, then client context (wing/hall scope) on top
     merged = {**vault_context, **(req.context or {})}
 
-    agent = AgentService()
+    agent = AgentService.shared()
     try:
         result = await agent.run(
             name, req.message, merged or None,

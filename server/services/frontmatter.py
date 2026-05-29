@@ -33,3 +33,26 @@ def parse_frontmatter(path: Path, vault_root: Path) -> Optional[dict]:
         return result
     except Exception:
         return None
+
+
+# Keys die parse_frontmatter zusätzlich erzeugt, aber NICHT Teil des
+# YAML-Blocks sind — beim Serialisieren übersprungen.
+_NON_FRONTMATTER_KEYS = {"file_path", "content"}
+
+
+def serialize_frontmatter(meta: dict, body: str) -> str:
+    """Inverse zu [parse_frontmatter]: baut den vollständigen Datei-Inhalt
+    (`---\\n<frontmatter>\\n---\\n\\n<body>`) aus einem meta-Dict + Body.
+
+    J6 (Plan v2): eine Round-trip-Quelle statt zweier Frontmatter-Parser
+    (vault_service.update_note hatte einen eigenen inline). Die
+    Schlüssel-Reihenfolge des Dicts bleibt erhalten (dict ist insertion-
+    ordered) — wichtig damit Updates die Frontmatter-Struktur nicht
+    umsortieren. `file_path`/`content` werden übersprungen.
+    """
+    lines = [
+        f"{k}: {v}"
+        for k, v in meta.items()
+        if k not in _NON_FRONTMATTER_KEYS
+    ]
+    return "---\n" + "\n".join(lines) + "\n---\n\n" + body

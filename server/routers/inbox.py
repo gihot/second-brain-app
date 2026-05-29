@@ -47,7 +47,7 @@ async def triage(
 
 async def _triage_notes(user_id: str, notes: list[dict]) -> None:
     vault = VaultService.for_user(user_id)
-    agent = AgentService()
+    agent = AgentService.shared()
 
     for note in notes:
         try:

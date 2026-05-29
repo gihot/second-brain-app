@@ -62,7 +62,7 @@ async def capture(
 
     # Run Scribe agent to generate title + tags
     now_utc = datetime.now(timezone.utc)
-    agent = AgentService()
+    agent = AgentService.shared()
     result = await agent.run(
         "scribe",
         req.text,

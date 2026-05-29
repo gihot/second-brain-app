@@ -15,9 +15,28 @@ AGENTS_DIR = Path(__file__).parent.parent / "agents"
 
 
 class AgentService:
+    # J6 (Plan v2): prozess-weiter Shared-Singleton. Vorher instanziierte
+    # jeder Request einen neuen anthropic.AsyncAnthropic-Client mit eigenem
+    # Connection-Pool — verschwenderisch. Router rufen jetzt
+    # AgentService.shared(). Constructor bleibt public für Tests.
+    _shared: "AgentService | None" = None
+
     def __init__(self):
         self._settings = get_settings()
         self._client = anthropic.AsyncAnthropic(api_key=self._settings.anthropic_api_key)
+
+    @classmethod
+    def shared(cls) -> "AgentService":
+        """Geteilte Instanz mit wiederverwendetem HTTP-Connection-Pool."""
+        if cls._shared is None:
+            cls._shared = cls()
+        return cls._shared
+
+    @classmethod
+    def reset_shared(cls) -> None:
+        """Test-Hook: verwirft die geteilte Instanz, damit ein neuer
+        Mock-Client beim nächsten shared()-Aufruf greift."""
+        cls._shared = None
 
     def _load_agent(self, name: str) -> str:
         """Load agent system prompt from agents/<name>.md"""
