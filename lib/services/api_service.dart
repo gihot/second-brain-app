@@ -19,8 +19,6 @@ class ApiService {
   static const _kServerBaseUrl =
       'https://second-brain-app-production-dcee.up.railway.app';
 
-  bool _initialized = false;
-
   /// Set by [AuthProvider] so the api layer can trigger logout on any 401.
   void Function()? onUnauthorized;
 
@@ -32,11 +30,10 @@ class ApiService {
 
   String get baseUrl => _kServerBaseUrl;
 
-  /// Persistenz-only init: keine in-memory Token-Quelle mehr. Reserviert
-  /// für künftige one-time-Setup-Schritte; aktuell no-op (idempotent).
-  Future<void> init() async {
-    _initialized = true;
-  }
+  /// J5 (Plan v2): no-op. ApiService hält keinen in-memory State mehr
+  /// (Token kommt via tokenProvider). Bleibt als idempotenter Hook für
+  /// AuthProvider.init() + bestehende Aufrufer.
+  Future<void> init() async {}
 
   String? get _token => tokenProvider?.call();
   bool get hasToken => (_token ?? '').isNotEmpty;
