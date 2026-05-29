@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <!--
-  Standalone Token-Usage-Dashboard für den Second-Brain-Server.
+  Token-Usage-Dashboard für den Second-Brain-Server.
 
-  Öffne diese Datei einfach im Browser (Doppelklick). Beim ersten Start
-  fragt sie nach der Server-URL und einem Bearer-Token; beides wird in
-  localStorage gespeichert.
+  J8: wird same-origin vom Server ausgeliefert. Öffne
+  `https://<server>/admin/dashboard` im Browser. Beim ersten Start
+  fragt es nur nach einem Bearer-Token (die Server-URL ist die eigene
+  Origin); Token wird in localStorage gespeichert.
 
-  Datenquelle: GET /admin/usage?days=N. Single-File, vanilla JS, eine
-  externe CDN-Dependency (Chart.js).
+  Datenquelle: GET /admin/usage?days=N (same-origin, kein CORS).
+  Single-File, vanilla JS, eine externe CDN-Dependency (Chart.js).
 
   XSS-Surface: Alle vom Server kommenden String-Felder (agent,
   endpoint, model, user_id) laufen durch h() bevor sie in HTML
@@ -218,7 +219,11 @@ function h(s) {
 
 function getCfg() {
   return {
-    baseUrl: localStorage.getItem(LS_BASE_URL) || '',
+    // J8: same-origin ausgeliefert (GET /admin/dashboard) → Server-URL
+    // ist die eigene Origin. Gespeicherter Wert hat Vorrang (falls man
+    // das Dashboard mal gegen einen anderen Server richtet), sonst die
+    // aktuelle Origin. Damit braucht der User im Normalfall nur den Token.
+    baseUrl: localStorage.getItem(LS_BASE_URL) || window.location.origin,
     token: localStorage.getItem(LS_TOKEN) || '',
   };
 }

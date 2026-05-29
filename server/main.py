@@ -137,9 +137,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://gihot.github.io",  # GitHub Pages deploy
-        "null",  # file:// origin — z.B. das lokale Usage-Dashboard.
-                 # Alle privilegierten Endpoints brauchen Bearer-Token,
-                 # daher CSRF-frei trotz `null`-Origin.
+        # J8: `null`-Origin (file://) wieder entfernt. Das Usage-Dashboard
+        # wird jetzt same-origin unter GET /admin/dashboard ausgeliefert.
     ],
     allow_origin_regex=r"^http://localhost(:\d+)?$",  # local `flutter run`
     allow_credentials=False,
