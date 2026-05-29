@@ -15,9 +15,10 @@ import 'semantic_label.dart';
 /// lokaler Eingang erhalten, damit ein Offline-Dashboard nicht „tot"
 /// wirkt (Resurfacing-Spec).
 ///
-/// Layout-Regel: Connection-Card hat Priorität. Wenn sie da ist, zeigen
-/// wir zusätzlich maximal **eine** Resurface-Karte darunter — sonst
-/// bis zu zwei. Mehr wäre Feed-Mechanik, die wir explizit nicht wollen.
+/// Layout-Regel (J7): genau **eine** Karte pro Tag. Connection hat
+/// Priorität (server-gewählter Zusammenhang > Zeit-Resurface), sonst
+/// die top-1 Resurfacing-Notiz. Keine Stapelung — „Dashboard bleibt
+/// ruhig" (Resurfacing-Spec) ist hier Architektur, nicht nur Mantra.
 class AmbientRetrieval extends StatelessWidget {
   /// Server connection map: keys note_a_title, note_b_title, note_a_id,
   /// note_b_id, explanation, connection_type.
@@ -54,20 +55,18 @@ class AmbientRetrieval extends StatelessWidget {
     final source = resurfacedNotes.isNotEmpty
         ? resurfacedNotes
         : (fallbackResurfaced != null ? [fallbackResurfaced!] : const <Note>[]);
-    final maxResurface = hasConnection ? 1 : 2;
-    final resurface = source.take(maxResurface).toList(growable: false);
 
-    if (!hasConnection && resurface.isEmpty) {
-      return const SizedBox.shrink();
+    // J7 (Plan v2): genau EINE Karte pro Tag — „Dashboard bleibt ruhig"
+    // wird Architektur, nicht nur Mantra. Connection hat Priorität
+    // (server-gewählter Zusammenhang ist wertvoller als ein Zeit-
+    // Resurface); sonst die top-1 Resurfacing-Notiz. Keine Stapelung.
+    if (hasConnection) {
+      return _connectionView();
     }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (hasConnection) _connectionView(),
-        for (final n in resurface) _resurfacedView(n),
-      ],
-    );
+    if (source.isNotEmpty) {
+      return _resurfacedView(source.first);
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _shell({
