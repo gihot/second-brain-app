@@ -52,6 +52,19 @@ class Settings:
     # JWT lifetime — 30 days, rolling (refresh = re-login for now).
     jwt_ttl_days: int = int(os.environ.get("JWT_TTL_DAYS", "30"))
 
+    # Web Push (Notifications-Phase). VAPID-Keypair via
+    # scripts/generate_vapid.py erzeugen und als ENV setzen.
+    # Privat = PEM (mehrzeilig, in der ENV mit \n oder als echte
+    # Zeilenumbrüche). Public = base64url uncompressed point fürs
+    # Client-applicationServerKey. Fehlen sie → Push ist no-op.
+    vapid_private_key: str = os.environ.get("VAPID_PRIVATE_KEY", "")
+    vapid_public_key: str = os.environ.get("VAPID_PUBLIC_KEY", "")
+    vapid_subject: str = os.environ.get("VAPID_SUBJECT", "mailto:admin@example.com")
+
+    # Shared-Secret das der GitHub-Actions-Cron im Header mitschickt,
+    # um /cron/* aufzurufen (Phase 2). Leer → Cron-Endpoints geschlossen.
+    cron_secret: str = os.environ.get("CRON_SECRET", "")
+
 
 @lru_cache
 def get_settings() -> Settings:

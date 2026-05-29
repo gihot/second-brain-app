@@ -37,6 +37,7 @@ def temp_vault(tmp_path, monkeypatch):
     from services.index_service import IndexService
     from services.invite_service import InviteService
     from services.paused_pairs_service import PausedPairsService
+    from services.push_service import PushService
     from services.resurfacing_service import ResurfacingService
     from services.token_usage_service import TokenUsageService
     from services.user_service import UserService
@@ -56,6 +57,7 @@ def temp_vault(tmp_path, monkeypatch):
     ResurfacingService.init(db)
     TokenUsageService.init(db)
     InviteService.init(db)
+    PushService.init(db)
 
     # Per-User-Instance-Caches resetten — alte Test-Instanzen würden
     # sonst auf alte vault-Pfade zeigen.
