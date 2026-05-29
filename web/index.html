@@ -47,9 +47,70 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
   <script>
-    // Register the Brain service worker (notification clicks) alongside Flutter's own SW.
+    // Register the Brain service worker (Web Push) alongside Flutter's own SW.
+    // WICHTIG: eigener Sub-Scope, damit es NICHT mit Flutters Root-Scope-SW
+    // (Offline-Cache + Cache-Buster unten) kollidiert. Push-Delivery hängt
+    // an der Registration, nicht am Scope.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('brain_sw.js');
+      navigator.serviceWorker
+        .register('brain_sw.js', { scope: './push/' })
+        .then(function (reg) { window.__sbPushReg = reg; })
+        .catch(function () {});
+
+      // ── Push-Helper, von Dart (notification_service_web) aufgerufen ──
+      window.sbPush = {
+        isSupported: function () {
+          return (
+            'serviceWorker' in navigator &&
+            'PushManager' in window &&
+            'Notification' in window
+          );
+        },
+        permission: function () {
+          try { return Notification.permission; } catch (e) { return 'denied'; }
+        },
+        requestPermission: function () {
+          return Notification.requestPermission();
+        },
+        _reg: function () {
+          // Auf unsere Sub-Scope-Registration warten (kann nach Boot
+          // kurz noch nicht da sein).
+          if (window.__sbPushReg) return Promise.resolve(window.__sbPushReg);
+          return navigator.serviceWorker.register('brain_sw.js', { scope: './push/' });
+        },
+        _urlB64ToUint8Array: function (base64) {
+          const padding = '='.repeat((4 - (base64.length % 4)) % 4);
+          const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const raw = atob(b64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        },
+        subscribe: function (vapidPublicKey) {
+          return window.sbPush._reg().then(function (reg) {
+            return reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: window.sbPush._urlB64ToUint8Array(vapidPublicKey),
+            });
+          }).then(function (sub) {
+            return JSON.stringify(sub);
+          });
+        },
+        getExisting: function () {
+          return window.sbPush._reg()
+            .then(function (reg) { return reg.pushManager.getSubscription(); })
+            .then(function (sub) { return sub ? JSON.stringify(sub) : null; });
+        },
+        unsubscribe: function () {
+          return window.sbPush._reg()
+            .then(function (reg) { return reg.pushManager.getSubscription(); })
+            .then(function (sub) {
+              if (!sub) return null;
+              const endpoint = sub.endpoint;
+              return sub.unsubscribe().then(function () { return endpoint; });
+            });
+        },
+      };
 
       // iOS PWA cache buster: when Flutter's SW finds an update (e.g. after
       // a GitHub-Pages redeploy), tell it to activate immediately and reload.

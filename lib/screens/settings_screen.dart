@@ -58,23 +58,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _handleNotificationToggle(bool value) async {
     final ns = NotificationService.instance;
-    if (value && !ns.isGranted) {
-      final granted = await ns.requestPermission();
-      if (!granted) {
+    final messenger = ScaffoldMessenger.of(context);
+    if (value) {
+      // Voller Web-Push-Flow: Permission → VAPID → Subscribe → Server.
+      final result = await ns.enablePush();
+      if (!result.ok) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Benachrichtigungen wurden vom Browser blockiert. Bitte in den Browser-Einstellungen freigeben.',
-              ),
-              duration: Duration(seconds: 3),
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(result.error ?? 'Aktivierung fehlgeschlagen.'),
+              duration: const Duration(seconds: 4),
             ),
           );
         }
         return;
       }
+    } else {
+      await ns.disablePush();
     }
-    ns.setEnabled(value);
     if (mounted) {
       setState(() {
         _notificationsEnabled = value;
@@ -257,6 +258,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                     },
                   ),
+                  // Phase 1: Test-Push zur Geräte-Validierung. Nur sichtbar
+                  // wenn Notifications aktiviert sind.
+                  if (_notificationsEnabled)
+                    SettingsTile(
+                      icon: Icons.notifications_active_outlined,
+                      label: 'Test-Notification senden',
+                      value: '',
+                      onTap: () => _sendTestNotification(context),
+                    ),
                 ],
               ),
 
@@ -706,6 +716,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           await CacheService.instance.markCaptureSynced(capture.id);
           await CacheService.instance.clearSyncedCaptures();
         },
+      ),
+    );
+  }
+
+  Future<void> _sendTestNotification(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final sent = await NotificationService.instance.sendTest();
+    if (!mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          sent > 0
+              ? 'Test-Push an $sent Gerät(e) gesendet — schau auf den Sperrbildschirm.'
+              : 'Kein Push gesendet (keine aktive Subscription / nicht konfiguriert).',
+        ),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

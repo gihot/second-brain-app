@@ -189,6 +189,37 @@ class ApiService {
     return List<Map<String, dynamic>>.from(body['codes'] as List? ?? const []);
   }
 
+  // ── Web Push (Notifications Phase 1) ───────────────────────────────────────
+
+  /// Holt den öffentlichen VAPID-Key fürs Client-applicationServerKey.
+  /// Null wenn Push server-seitig nicht konfiguriert ist (503) oder offline.
+  Future<String?> getVapidPublicKey() async {
+    final body = await _get('/push/vapid-public-key');
+    return body?['public_key'] as String?;
+  }
+
+  /// Speichert eine Browser-Push-Subscription server-seitig.
+  Future<bool> subscribePush(String endpoint, Map<String, dynamic> keys) async {
+    final body = await _post('/push/subscribe', {
+      'endpoint': endpoint,
+      'keys': keys,
+    });
+    return body?['ok'] == true;
+  }
+
+  /// Entfernt eine Subscription server-seitig.
+  Future<bool> unsubscribePush(String endpoint) async {
+    final body = await _post('/push/unsubscribe', {'endpoint': endpoint});
+    return body?['ok'] == true;
+  }
+
+  /// Löst einen Test-Push an alle eigenen Geräte aus. Returns Anzahl
+  /// gesendeter Pushes (0 = keine Subscription / nicht konfiguriert).
+  Future<int> testPush() async {
+    final body = await _post('/push/test', const {});
+    return (body?['sent'] as int?) ?? 0;
+  }
+
   /// Plan 4.1: Passwort ändern. Returns null bei Erfolg, oder einen
   /// Fehlerstring (Server-Detail: „Aktuelles Passwort falsch.",
   /// „Neues Passwort braucht mindestens 8 Zeichen.", etc.).

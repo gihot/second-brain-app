@@ -1,14 +1,37 @@
-// Second Brain — Service Worker for notification handling and local reminders.
+// Second Brain — Service Worker for Web Push notifications.
 // Registered alongside Flutter's own service worker.
 
-// Track reminders scheduled for local notifications
-const scheduledReminders = new Set();
+/**
+ * Push handler (Notifications Phase 1): zeigt eine Notification aus dem
+ * vom Server gepushten Payload {title, body, url}. Feuert auch bei
+ * geschlossener App — das ist der ganze Punkt gegenüber der alten
+ * client-seitigen web.Notification.
+ */
+self.addEventListener('push', function (event) {
+  let payload = { title: 'Second Brain', body: '', url: '/' };
+  try {
+    if (event.data) payload = Object.assign(payload, event.data.json());
+  } catch (e) {
+    if (event.data) payload.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: 'icons/Icon-192.png',
+      badge: 'icons/Icon-192.png',
+      data: { url: payload.url || '/' },
+    })
+  );
+});
 
 /**
- * Handle notification clicks: refocus the tab or open the app.
+ * Notification-Klick: bestehenden Tab fokussieren oder App an der vom
+ * Push mitgegebenen URL öffnen.
  */
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
+  const targetUrl =
+    (event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
@@ -16,33 +39,7 @@ self.addEventListener('notificationclick', function (event) {
         for (const client of clientList) {
           if ('focus' in client) return client.focus();
         }
-        if (clients.openWindow) return clients.openWindow('/');
+        if (clients.openWindow) return clients.openWindow(targetUrl);
       })
   );
-});
-
-/**
- * Handle notification close (optional cleanup).
- */
-self.addEventListener('notificationclose', function (event) {
-  // Could track dismissed notifications here if needed
-});
-
-/**
- * Periodic background task: check for due reminders and notify.
- * (Note: PWA background sync requires a registered sync event)
- */
-self.addEventListener('sync', function (event) {
-  if (event.tag === 'check-reminders') {
-    event.waitUntil(
-      (async () => {
-        try {
-          // Fetch reminder check from the app (would need a dedicated endpoint)
-          // For now, this is a placeholder for future server-side push support.
-        } catch (error) {
-          console.error('Background sync failed:', error);
-        }
-      })()
-    );
-  }
 });

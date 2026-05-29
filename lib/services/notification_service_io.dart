@@ -22,6 +22,12 @@ class NotificationService {
   bool get notificationsEnabled => false;
   void setEnabled(bool value) {}
 
+  // Web-Push-Interface — no-ops auf VM/IO.
+  Future<({bool ok, String? error})> enablePush() async =>
+      (ok: false, error: 'Nur im Browser verfügbar.');
+  Future<void> disablePush() async {}
+  Future<int> sendTest() async => 0;
+
   Future<void> checkAndNotify(List<Note> dueReminders) async {}
   void prunePrematureNotifications(List<Note> allNotes) {}
 }
