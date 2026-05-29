@@ -53,6 +53,12 @@ class FakeApiService implements ApiService {
   /// Antwort für `getMe()`. Null = 401 / transport failure.
   Map<String, dynamic>? meResponse;
 
+  /// Programmierbare login/signup-Antwort. Default: Erfolg mit
+  /// user={id:'u1'} + token='tok'.
+  Map<String, dynamic>? authUser = const {'id': 'u1', 'email': 'u1@test.de'};
+  String? authToken = 'tok';
+  String? authError;
+
   /// `ping()` Resultat.
   bool pingResponse = true;
 
@@ -73,13 +79,22 @@ class FakeApiService implements ApiService {
   Future<void> init() async {}
 
   @override
-  bool get hasToken => meResponse != null;
+  String? Function()? tokenProvider;
 
   @override
-  Future<void> setToken(String token) async {}
+  bool get hasToken => (tokenProvider?.call() ?? '').isNotEmpty;
+
+  /// In-memory Token-Storage für Tests (statt FlutterSecureStorage).
+  String? persistedToken;
 
   @override
-  Future<void> clearToken() async {}
+  Future<String?> readPersistedToken() async => persistedToken;
+
+  @override
+  Future<void> persistToken(String token) async => persistedToken = token;
+
+  @override
+  Future<void> clearPersistedToken() async => persistedToken = null;
 
   @override
   String get baseUrl => 'http://test.invalid';
@@ -106,6 +121,29 @@ class FakeApiService implements ApiService {
   @override
   Future<Map<String, dynamic>?> getMe() async {
     return meResponse;
+  }
+
+  @override
+  Future<({Map<String, dynamic>? user, String? token, String? error})> login(
+      String email, String password) async {
+    if (authError != null) {
+      return (user: null, token: null, error: authError);
+    }
+    if (authToken != null) await persistToken(authToken!);
+    return (user: authUser, token: authToken, error: null);
+  }
+
+  @override
+  Future<({Map<String, dynamic>? user, String? token, String? error})> signup({
+    required String email,
+    required String password,
+    required String inviteCode,
+  }) async {
+    if (authError != null) {
+      return (user: null, token: null, error: authError);
+    }
+    if (authToken != null) await persistToken(authToken!);
+    return (user: authUser, token: authToken, error: null);
   }
 
   @override

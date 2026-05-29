@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../models/auth_session.dart';
 import '../services/api_service.dart';
 import '../services/cache_service.dart';
 
@@ -8,8 +9,11 @@ enum AuthStatus { loading, loggedOut, loggedIn }
 
 /// Owns the auth lifecycle: boot-time token check, login, logout.
 ///
-/// Wired in [main.dart] as the first provider so the AppShell can gate
-/// every downstream provider (Vault, Capture, etc.) on `loggedIn`.
+/// J5 (Plan v2): besitzt genau eine [AuthSession] als Single Source of
+/// Truth. ApiService hält den Token nicht mehr selbst — es ruft den
+/// `tokenProvider`-Callback, den dieser Provider verdrahtet. Damit gibt
+/// es physisch nur eine Quelle für „bin ich eingeloggt + mit welchem
+/// Token".
 class AuthProvider extends ChangeNotifier {
   /// J1 (Plan v2): Constructor-Injection für Tests.
   AuthProvider({ApiService? api}) : _api = api ?? ApiService.instance;
@@ -17,19 +21,18 @@ class AuthProvider extends ChangeNotifier {
   final ApiService _api;
 
   AuthStatus _status = AuthStatus.loading;
-  Map<String, dynamic>? _user;
+  AuthSession? _session;
   String? _loginError;
 
   AuthStatus get status => _status;
-  Map<String, dynamic>? get user => _user;
-  String get email => (_user?['email'] as String?) ?? '';
+  AuthSession? get session => _session;
+  String get email => _session?.email ?? '';
   String? get loginError => _loginError;
   bool get isLoggedIn => _status == AuthStatus.loggedIn;
 
   /// Plan 4.2: ISO-Timestamp wenn der Account gerade in Pending-
   /// Deletion ist, sonst null. Treibt den roten Dashboard-Banner.
-  String? get pendingDeletionAt =>
-      _user?['pending_deletion_at'] as String?;
+  String? get pendingDeletionAt => _session?.pendingDeletionAt;
   bool get isPendingDeletion => pendingDeletionAt != null;
 
   /// Aufgerufen vom Banner-„Wiederherstellen"-Tap. Erfolg → /auth/me
@@ -37,47 +40,52 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> cancelPendingDeletion() async {
     final ok = await _api.cancelDeletion();
     if (!ok) return false;
-    final me = await _api.getMe();
-    if (me != null) {
-      _user = me;
-      notifyListeners();
-    }
+    await refreshUser();
     return true;
   }
 
-  /// Nach erfolgreicher request-deletion: /me neu laden, damit
-  /// pendingDeletionAt im Provider sichtbar wird (Banner triggert).
+  /// Nach request-/cancel-deletion: /me neu laden, Session aktualisieren.
   Future<void> refreshUser() async {
     final me = await _api.getMe();
-    if (me != null) {
-      _user = me;
+    final token = _session?.token;
+    if (me != null && token != null) {
+      _session = AuthSession.fromUserMap(me, token);
       notifyListeners();
     }
   }
 
-  /// Boot-time: read stored token, verify via GET /auth/me. Any failure
-  /// (no token, expired, unknown user) → logged out.
+  /// Boot-time: persistierten Token lesen, Session provisorisch setzen
+  /// (damit tokenProvider sofort liefert), via GET /auth/me verifizieren.
+  /// Jeder Fehler (kein Token, expired, unknown user) → logged out.
   ///
-  /// On success, opens the per-user Hive cache **before** flipping into
-  /// `loggedIn` so the AppShell never sees a stale (other-user) cache.
+  /// Öffnet bei Erfolg den per-User-Hive-Cache **vor** dem Flip auf
+  /// `loggedIn`, damit die AppShell nie einen stale (other-user) Cache
+  /// sieht.
   Future<void> init() async {
-    // Wire the 401-callback first so any in-flight request can trigger logout.
+    // tokenProvider + 401-callback zuerst verdrahten, damit jeder
+    // Request den aktuellen Session-Token liest.
+    _api.tokenProvider = () => _session?.token;
     _api.onUnauthorized = _onUnauthorized;
     await _api.init();
-    if (!_api.hasToken) {
+
+    final token = await _api.readPersistedToken();
+    if (token == null || token.isEmpty) {
       _setStatus(AuthStatus.loggedOut);
       return;
     }
+    // Provisorische Session — nur der Token zählt für die /me-Verifikation.
+    _session = AuthSession(id: '', email: '', token: token);
+
     final me = await _api.getMe();
     if (me == null) {
-      // Token invalid / server unreachable. Treat as logged-out.
-      await _api.clearToken();
-      _user = null;
+      // Token invalid / server unreachable → logged-out.
+      _session = null;
+      await _api.clearPersistedToken();
       _setStatus(AuthStatus.loggedOut);
       return;
     }
-    await CacheService.instance.init(me['id'] as String);
-    _user = me;
+    _session = AuthSession.fromUserMap(me, token);
+    await CacheService.instance.init(_session!.id);
     _setStatus(AuthStatus.loggedIn);
   }
 
@@ -85,13 +93,31 @@ class AuthProvider extends ChangeNotifier {
     _loginError = null;
     notifyListeners();
     final result = await _api.login(email, password);
-    if (result.user == null) {
+    if (result.user == null || result.token == null) {
       _loginError = result.error ?? 'Unbekannter Fehler.';
       notifyListeners();
       return false;
     }
-    await CacheService.instance.init(result.user!['id'] as String);
-    _user = result.user;
+    return _completeAuth(result.user!, result.token!);
+  }
+
+  /// J5: gemeinsamer Erfolgs-Pfad für login UND signup. Ein einziger
+  /// Aufruf statt des früheren refreshUser+init-Tanzes im SignupScreen.
+  Future<bool> completeSignup(
+      Map<String, dynamic> user, String token) async {
+    _loginError = null;
+    return _completeAuth(user, token);
+  }
+
+  Future<bool> _completeAuth(Map<String, dynamic> user, String token) async {
+    final session = AuthSession.fromUserMap(user, token);
+    if (session == null) {
+      _loginError = 'Ungültige Server-Antwort.';
+      notifyListeners();
+      return false;
+    }
+    _session = session;
+    await CacheService.instance.init(session.id);
     _setStatus(AuthStatus.loggedIn);
     return true;
   }
@@ -100,8 +126,8 @@ class AuthProvider extends ChangeNotifier {
     // Close the cache BEFORE flipping state so any post-logout rebuild
     // sees a closed cache rather than the just-logged-out user's data.
     await CacheService.instance.close();
-    await _api.clearToken();
-    _user = null;
+    await _api.clearPersistedToken();
+    _session = null;
     _loginError = null;
     _setStatus(AuthStatus.loggedOut);
   }

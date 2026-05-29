@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
-import '../services/cache_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
@@ -48,6 +47,7 @@ class _SignupScreenState extends State<SignupScreen> {
       _submitting = true;
       _error = null;
     });
+    final auth = context.read<AuthProvider>();
     final result = await ApiService.instance.signup(
       email: _emailCtrl.text.trim(),
       password: _passwordCtrl.text,
@@ -55,27 +55,16 @@ class _SignupScreenState extends State<SignupScreen> {
     );
     if (!mounted) return;
     setState(() => _submitting = false);
-    if (result.user == null) {
+    if (result.user == null || result.token == null) {
       setState(() => _error = result.error ?? 'Unbekannter Fehler.');
       return;
     }
-    // Auto-Login: AuthProvider muss den frisch gesetzten Token + User
-    // übernehmen — wir nutzen denselben Init-Pfad wie boot-time auth.
-    await CacheService.instance.init(result.user!['id'] as String);
+    // J5: ein einziger Provider-Call statt refreshUser+init-Tanz.
+    // completeSignup baut die Session, öffnet den Cache und flippt auf
+    // loggedIn — AuthGate zeigt dann automatisch die AppShell.
+    await auth.completeSignup(result.user!, result.token!);
     if (!mounted) return;
-    // Provider direkt füttern wie LoginScreen via login() das tut.
-    // Wir können login() nicht nutzen (Token ist schon gesetzt). Statt-
-    // dessen refreshUser → AuthProvider holt /auth/me und flippt
-    // intern auf loggedIn — Status-Flip braucht den public setter.
-    // AuthGate watch'd auf den Status, also rufen wir hier explizit.
-    final auth = context.read<AuthProvider>();
-    await auth.refreshUser();
-    // refreshUser füllt _user, aber Status muss noch flippen. Kurz-
-    // schluss: AuthProvider.init() bei vorhandenem Token bringt uns
-    // sauber in loggedIn-Mode.
-    await auth.init();
-    if (!mounted) return;
-    Navigator.pop(context); // SignupScreen schließen, AuthGate zeigt AppShell
+    Navigator.pop(context);
   }
 
   @override

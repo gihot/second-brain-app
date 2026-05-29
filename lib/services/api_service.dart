@@ -19,33 +19,48 @@ class ApiService {
   static const _kServerBaseUrl =
       'https://second-brain-app-production-dcee.up.railway.app';
 
-  String? _token;
   bool _initialized = false;
 
   /// Set by [AuthProvider] so the api layer can trigger logout on any 401.
   void Function()? onUnauthorized;
 
+  /// J5 (Plan v2): Single Source of Truth. ApiService hält den Token
+  /// NICHT selbst — es ruft diesen Callback, der `AuthSession.token`
+  /// zurückgibt. Solange er null liefert, geht kein Authorization-Header
+  /// raus. AuthProvider verdrahtet ihn in seinem init().
+  String? Function()? tokenProvider;
+
   String get baseUrl => _kServerBaseUrl;
 
+  /// Persistenz-only init: keine in-memory Token-Quelle mehr. Reserviert
+  /// für künftige one-time-Setup-Schritte; aktuell no-op (idempotent).
   Future<void> init() async {
-    if (_initialized) return;
-    try {
-      _token = await _storage.read(key: _tokenKey);
-    } catch (_) {
-      _token = null;
-    }
     _initialized = true;
   }
 
-  bool get hasToken => _token != null && _token!.isNotEmpty;
+  String? get _token => tokenProvider?.call();
+  bool get hasToken => (_token ?? '').isNotEmpty;
 
-  Future<void> setToken(String token) async {
-    _token = token;
+  // ── Token-Persistenz (Storage als reines Detail, nicht Truth) ──────────────
+
+  /// Liest den persistierten Token beim App-Boot. AuthProvider nutzt das,
+  /// um die Session zu rehydrieren. Returns null wenn keiner gespeichert.
+  Future<String?> readPersistedToken() async {
+    try {
+      return await _storage.read(key: _tokenKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Persistiert den Token (nach Login/Signup). Setzt KEINE in-memory
+  /// Quelle — die lebt in der AuthSession des AuthProviders.
+  Future<void> persistToken(String token) async {
     await _storage.write(key: _tokenKey, value: token);
   }
 
-  Future<void> clearToken() async {
-    _token = null;
+  /// Löscht den persistierten Token (Logout).
+  Future<void> clearPersistedToken() async {
     try {
       await _storage.delete(key: _tokenKey);
     } catch (_) {}
@@ -53,9 +68,11 @@ class ApiService {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  /// Returns `(user, errorMessage)`: on success `user` is set; on failure
-  /// `user` is null and `errorMessage` carries a user-friendly hint.
-  Future<({Map<String, dynamic>? user, String? error})> login(
+  /// Returns `(user, token, errorMessage)`: on success `user` + `token`
+  /// are set; on failure both null and `error` carries a hint. J5: der
+  /// Token wird persistiert UND zurückgegeben — die Session baut der
+  /// AuthProvider daraus (eine Quelle).
+  Future<({Map<String, dynamic>? user, String? token, String? error})> login(
       String email, String password) async {
     try {
       final response = await http
@@ -67,21 +84,30 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        await setToken(body['token'] as String);
-        return (user: body['user'] as Map<String, dynamic>, error: null);
+        final token = body['token'] as String;
+        await persistToken(token);
+        return (
+          user: body['user'] as Map<String, dynamic>,
+          token: token,
+          error: null,
+        );
       }
       if (response.statusCode == 401) {
-        return (user: null, error: 'E-Mail oder Passwort falsch.');
+        return (user: null, token: null, error: 'E-Mail oder Passwort falsch.');
       }
-      return (user: null, error: 'Anmeldung fehlgeschlagen (HTTP ${response.statusCode}).');
+      return (
+        user: null,
+        token: null,
+        error: 'Anmeldung fehlgeschlagen (HTTP ${response.statusCode}).',
+      );
     } catch (e) {
-      return (user: null, error: 'Server nicht erreichbar.');
+      return (user: null, token: null, error: 'Server nicht erreichbar.');
     }
   }
 
-  /// Plan 4.3: Signup mit Einladungs-Code. Returns dieselbe shape wie
-  /// login() — (user, error). Token wird bei Erfolg automatisch gesetzt.
-  Future<({Map<String, dynamic>? user, String? error})> signup({
+  /// Plan 4.3: Signup mit Einladungs-Code. Returns (user, token, error).
+  /// J5: Token persistiert + zurückgegeben, Session baut der AuthProvider.
+  Future<({Map<String, dynamic>? user, String? token, String? error})> signup({
     required String email,
     required String password,
     required String inviteCode,
@@ -100,24 +126,31 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        await setToken(body['token'] as String);
-        return (user: body['user'] as Map<String, dynamic>, error: null);
+        final token = body['token'] as String;
+        await persistToken(token);
+        return (
+          user: body['user'] as Map<String, dynamic>,
+          token: token,
+          error: null,
+        );
       }
       try {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         return (
           user: null,
+          token: null,
           error: body['detail']?.toString() ??
               'Registrierung fehlgeschlagen (HTTP ${response.statusCode}).',
         );
       } catch (_) {
         return (
           user: null,
+          token: null,
           error: 'Registrierung fehlgeschlagen (HTTP ${response.statusCode}).',
         );
       }
     } catch (_) {
-      return (user: null, error: 'Server nicht erreichbar.');
+      return (user: null, token: null, error: 'Server nicht erreichbar.');
     }
   }
 
