@@ -2,9 +2,7 @@ import 'dart:convert';
 import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
-import 'package:web/web.dart' as web;
 
-import '../models/note_model.dart';
 import 'api_service.dart';
 import 'cache_service.dart';
 
@@ -27,19 +25,14 @@ extension type _SbPush._(JSObject _) implements JSObject {
 /// Echte, server-getriebene Notifications: Subscription via Service-
 /// Worker, Zustellung durch den Server (auch bei geschlossener App).
 /// Ersetzt die alte client-only web.Notification, die nur bei offenem
-/// Tab feuerte. `checkAndNotify` bleibt als Sofort-Fallback bei offenem
-/// Tab erhalten (zeigt fällige Reminder ohne auf den ~10-Min-Cron zu
-/// warten).
+/// Tab feuerte (und überfällige Reminder beim Laden fälschlich als
+/// "neu" zeigte). Reminder-Zustellung läuft jetzt ausschließlich über
+/// Server-Push; fällige Reminder sind zusätzlich visuell im Dashboard.
 class NotificationService {
   static final NotificationService instance = NotificationService._();
   NotificationService._();
 
-  final Set<String> _notifiedIds = {};
-
-  Future<void> init() async {
-    if (!kIsWeb) return;
-    _notifiedIds.addAll(CacheService.instance.getNotifiedReminderIds());
-  }
+  Future<void> init() async {}
 
   // ── Permission / Support ───────────────────────────────────────────────────
 
@@ -151,6 +144,41 @@ class NotificationService {
   /// Test-Push über den Server an alle eigenen Geräte. Returns Anzahl.
   Future<int> sendTest() => ApiService.instance.testPush();
 
+  /// Problem-B-Härtung: iOS verwirft die Push-Subscription, wenn die PWA
+  /// länger zu war — der Server pusht dann an einen toten Endpoint und
+  /// nichts kommt an. Beim App-Start (wenn Push aktiviert ist) prüfen ob
+  /// noch eine Subscription existiert; wenn nicht, still neu subscriben
+  /// (Permission ist ja schon erteilt — kein Prompt). Best-effort.
+  Future<void> refreshSubscription() async {
+    if (!kIsWeb || !notificationsEnabled || !isSupported) return;
+    if (!isGranted) return;
+    final sb = _sbPush;
+    if (sb == null) return;
+    try {
+      final existing = await sb.getExisting().toDart;
+      if (existing != null && existing.isA<JSString>()) {
+        // Subscription lebt noch — sicherheitshalber server-seitig
+        // re-registrieren (idempotenter Upsert), falls sie dort fehlt.
+        final parsed = _parseSubscription((existing as JSString).toDart);
+        if (parsed != null) {
+          await ApiService.instance
+              .subscribePush(parsed.endpoint, parsed.keys);
+        }
+        return;
+      }
+      // Weg (von iOS verworfen) → neu subscriben.
+      final vapidKey = await ApiService.instance.getVapidPublicKey();
+      if (vapidKey == null || vapidKey.isEmpty) return;
+      final subJson = (await sb.subscribe(vapidKey).toDart).toDart;
+      final parsed = _parseSubscription(subJson);
+      if (parsed != null) {
+        await ApiService.instance.subscribePush(parsed.endpoint, parsed.keys);
+      }
+    } catch (_) {
+      // best-effort — Reminder erscheinen zur Not visuell im Dashboard.
+    }
+  }
+
   ({String endpoint, Map<String, dynamic> keys})? _parseSubscription(
       String json) {
     try {
@@ -162,45 +190,5 @@ class NotificationService {
     } catch (_) {
       return null;
     }
-  }
-
-  // ── In-App-Sofort-Fallback (Tab offen) ──────────────────────────────────────
-
-  /// Zeigt fällige Reminder sofort, wenn der Tab offen ist — ergänzt den
-  /// Server-Push (der bei geschlossener App greift, aber bis zu ~10 Min
-  /// Cron-Latenz hat).
-  Future<void> checkAndNotify(List<Note> dueReminders) async {
-    if (!kIsWeb || !isGranted || !notificationsEnabled) return;
-    for (final note in dueReminders) {
-      if (_notifiedIds.contains(note.id)) continue;
-      _notifiedIds.add(note.id);
-      CacheService.instance.saveNotifiedReminderIds(_notifiedIds.toList());
-      _showNotification(title: '⏰ Erinnerung fällig', body: note.title);
-    }
-  }
-
-  void prunePrematureNotifications(List<Note> allNotes) {
-    if (_notifiedIds.isEmpty) return;
-    final now = DateTime.now();
-    final stillFuture = <String>{};
-    for (final n in allNotes) {
-      if (n.thoughtType != ThoughtType.reminder) continue;
-      if (n.remindAt == null) continue;
-      if (!_notifiedIds.contains(n.id)) continue;
-      final dt = DateTime.tryParse(n.remindAt!);
-      if (dt != null && dt.isAfter(now)) stillFuture.add(n.id);
-    }
-    if (stillFuture.isEmpty) return;
-    _notifiedIds.removeAll(stillFuture);
-    CacheService.instance.saveNotifiedReminderIds(_notifiedIds.toList());
-  }
-
-  void _showNotification({required String title, required String body}) {
-    try {
-      web.Notification(
-        title,
-        web.NotificationOptions(body: body, icon: 'icons/Icon-192.png'),
-      );
-    } catch (_) {}
   }
 }

@@ -6,6 +6,7 @@ import '../providers/background_provider.dart';
 import '../providers/glass_settings_provider.dart';
 import '../providers/resurfacing_provider.dart';
 import '../providers/vault_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/brain_colors.dart';
 import 'app_shell.dart';
 import 'login_screen.dart';
@@ -46,6 +47,9 @@ class _AuthGateState extends State<AuthGate> {
           // Wave 3: Resurfacing erst nach Login holen — vorher kein
           // Token, gäbe nur 401. init() ist idempotent (1h-Throttle).
           context.read<ResurfacingProvider>().init();
+          // Push-Subscription auffrischen (iOS verwirft sie bei längerer
+          // Inaktivität — siehe Problem B). No-op wenn Push aus.
+          NotificationService.instance.refreshSubscription();
         });
       }
       if (status == AuthStatus.loggedOut) {

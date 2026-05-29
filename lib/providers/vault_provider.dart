@@ -7,7 +7,6 @@ import '../models/note_model.dart';
 import '../models/vault_status_model.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
-import '../services/notification_service.dart';
 import '../utils/note_diff.dart' as note_diff;
 
 /// Central state for the vault: all notes, inbox count, sync status.
@@ -205,12 +204,11 @@ class VaultProvider extends ChangeNotifier {
       isServerReachable: _isServerReachable,
     );
     notifyListeners();
-    // Heal legacy bug: any reminder whose remindAt is still in the future
-    // but was wrongly marked notified gets un-marked here so it fires when
-    // its actual time arrives.
-    NotificationService.instance.prunePrematureNotifications(_notes);
-    // Fire-and-forget: show browser notification for any newly due reminders.
-    NotificationService.instance.checkAndNotify(dueReminders);
+    // Notifications-Phase 1: das In-App-Feuern fälliger Reminder ist
+    // ENTFERNT. Es ploppte beim Laden jede überfällige Erinnerung auf
+    // (auch tage-alte) — Lärm. Echte Zustellung macht jetzt der Server-
+    // Push (einmalig zur richtigen Zeit, Phase 2). Fällige Reminder sind
+    // weiterhin visuell auf dem Dashboard sichtbar (dueReminders).
   }
 
   Future<void> _checkServerAndSync() async {

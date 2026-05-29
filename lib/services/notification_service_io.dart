@@ -6,8 +6,6 @@
 /// Symbol-Namen verwenden können.
 library;
 
-import '../models/note_model.dart';
-
 class NotificationService {
   static final NotificationService instance = NotificationService._();
   NotificationService._();
@@ -27,7 +25,5 @@ class NotificationService {
       (ok: false, error: 'Nur im Browser verfügbar.');
   Future<void> disablePush() async {}
   Future<int> sendTest() async => 0;
-
-  Future<void> checkAndNotify(List<Note> dueReminders) async {}
-  void prunePrematureNotifications(List<Note> allNotes) {}
+  Future<void> refreshSubscription() async {}
 }
