@@ -1,8 +1,14 @@
-name: Deploy Flutter Web to GitHub Pages
+name: CI + Deploy
+
+# T2 (Plan v2): Test-Gate vor jedem Produktions-Deploy. Vorher deployte
+# jeder Push auf master ungetestet nach GitHub Pages. Jetzt: `test` läuft
+# auf jedem Push + PR; `build-and-deploy` hängt via `needs: test` davon ab
+# und feuert nur auf master-Push — rote Tests blockieren den Deploy.
 
 on:
   push:
     branches: [master]
+  pull_request:
 
 permissions:
   contents: read
@@ -14,7 +20,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Flutter: analyze + test ──
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Flutter pub get
+        run: flutter pub get
+      # --no-fatal-infos: blockt auf warnings+errors, lässt die ~40
+      # pre-existing Style-infos durch (deren Sanierung ist eigener Scope).
+      - name: Flutter analyze
+        run: flutter analyze --no-fatal-infos
+      - name: Flutter test
+        run: flutter test
+
+      # ── Python: pytest ──
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install server deps (incl. test deps)
+        run: pip install -r server/requirements-dev.txt
+      - name: Pytest
+        run: python -m pytest server/
+
   build-and-deploy:
+    needs: test
+    # Nur auf master-Push deployen — PRs laufen nur durch `test`.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

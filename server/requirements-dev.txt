@@ -1,0 +1,4 @@
+# Test-/Dev-only Abhängigkeiten (nicht im Produktions-Image).
+# Installiert in CI zusätzlich zu requirements.txt.
+-r requirements.txt
+pytest==9.0.3
