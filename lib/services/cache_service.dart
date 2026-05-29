@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/note_model.dart';
 import '../models/offline_capture_model.dart';
@@ -79,6 +80,33 @@ class CacheService {
     }
 
     _currentUserId = userId;
+  }
+
+  /// J1 (Plan v2): Test-only Hook. Erlaubt es Test-Code, Hive selber
+  /// mit `Hive.init(<tmpdir>)` + Adapter-Registrierung aufzusetzen
+  /// und CacheService.init() das `Hive.initFlutter()` überspringen zu
+  /// lassen (path_provider ist im `flutter test` nicht verfügbar).
+  ///
+  /// Aufruf-Reihenfolge im Test:
+  ///   1. Hive.init(tmpDir)
+  ///   2. Adapter registrieren
+  ///   3. CacheService.markHiveInitializedForTesting()
+  ///   4. CacheService.instance.init('test-user') — geht direkt zu openBox
+  @visibleForTesting
+  static void markHiveInitializedForTesting() {
+    instance._hiveInitialized = true;
+  }
+
+  /// Test-only: setzt den Initialisierungs-Status zurück, damit ein
+  /// nachfolgender Test seinen eigenen Hive-State aufbauen kann.
+  @visibleForTesting
+  static void resetForTesting() {
+    final inst = instance;
+    inst._hiveInitialized = false;
+    inst._notes = null;
+    inst._captureQueue = null;
+    inst._meta = null;
+    inst._currentUserId = null;
   }
 
   /// Close all open boxes. Called on logout so the next user's [init]

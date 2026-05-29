@@ -13,8 +13,14 @@ enum CaptureState { idle, capturing, success, error }
 /// 2. Send to server (Scribe agent) when online → update local note with AI title/tags
 /// 3. Queue for later sync if offline
 class CaptureProvider extends ChangeNotifier {
-  final CacheService _cache = CacheService.instance;
-  final ApiService _api = ApiService.instance;
+  /// J1 (Plan v2): Constructor-Injection für Tests. Default-Args
+  /// fallen auf die Singletons zurück.
+  CaptureProvider(this._vault, {CacheService? cache, ApiService? api})
+      : _cache = cache ?? CacheService.instance,
+        _api = api ?? ApiService.instance;
+
+  final CacheService _cache;
+  final ApiService _api;
   final VaultProvider _vault;
 
   CaptureState _state = CaptureState.idle;
@@ -29,8 +35,6 @@ class CaptureProvider extends ChangeNotifier {
   /// nächsten capture() überschrieben (immer das Ergebnis der jüngsten
   /// Speicherung — auch wenn das eine leere Liste ist).
   List<CaptureSimilar> get lastSimilarNotes => _lastSimilarNotes;
-
-  CaptureProvider(this._vault);
 
   /// Captures a thought. Always succeeds locally.
   /// If server is reachable, the Scribe agent enriches with AI title + tags.

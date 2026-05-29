@@ -11,8 +11,16 @@ import '../services/notification_service.dart';
 
 /// Central state for the vault: all notes, inbox count, sync status.
 class VaultProvider extends ChangeNotifier {
-  final CacheService _cache = CacheService.instance;
-  final ApiService _api = ApiService.instance;
+  /// J1 (Plan v2): Constructor-Injection für Tests. Default-Args
+  /// fallen auf die Singletons zurück, sodass main.dart's `VaultProvider()`
+  /// unverändert weiter funktioniert. Tests injizieren `FakeApiService`
+  /// + Test-Cache.
+  VaultProvider({CacheService? cache, ApiService? api})
+      : _cache = cache ?? CacheService.instance,
+        _api = api ?? ApiService.instance;
+
+  final CacheService _cache;
+  final ApiService _api;
 
   List<Note> _notes = [];
   VaultStatus _status = const VaultStatus();

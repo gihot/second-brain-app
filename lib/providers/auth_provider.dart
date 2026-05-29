@@ -11,7 +11,10 @@ enum AuthStatus { loading, loggedOut, loggedIn }
 /// Wired in [main.dart] as the first provider so the AppShell can gate
 /// every downstream provider (Vault, Capture, etc.) on `loggedIn`.
 class AuthProvider extends ChangeNotifier {
-  final ApiService _api = ApiService.instance;
+  /// J1 (Plan v2): Constructor-Injection für Tests.
+  AuthProvider({ApiService? api}) : _api = api ?? ApiService.instance;
+
+  final ApiService _api;
 
   AuthStatus _status = AuthStatus.loading;
   Map<String, dynamic>? _user;
