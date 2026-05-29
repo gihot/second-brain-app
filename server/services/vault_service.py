@@ -202,7 +202,11 @@ class VaultService:
         new_fm = "---\n" + "\n".join(f"{k}: {v}" for k, v in merged) + "\n---\n\n"
         new_text = new_fm + new_body
 
-        # If para changed, move file to new folder
+        # If para changed, move file to new folder.
+        # J4 (Plan v2): git commit+push wird NICHT mehr hier gemacht —
+        # der Router schedult ihn als BackgroundTask, damit der Request
+        # nicht auf GitHub wartet. File-Write + Index bleiben synchron
+        # (das ist die Garantie die der Client braucht).
         if para is not None:
             dest_folder = self._safe_path(para)
             dest_folder.mkdir(parents=True, exist_ok=True)
@@ -210,13 +214,11 @@ class VaultService:
             if dest != src:
                 src.unlink()
                 dest.write_text(new_text, encoding="utf-8")
-                self._git_commit(f"update: {src.name} → {para}")
                 rel = str(dest.relative_to(self._vault))
                 self._index_note(rel)
                 return rel
 
         src.write_text(new_text, encoding="utf-8")
-        self._git_commit(f"update: {src.name}")
         rel = str(src.relative_to(self._vault))
         self._index_note(rel)
         return rel
@@ -250,8 +252,7 @@ class VaultService:
                 content = re.sub(r"^modified: .+$", f"modified: {datetime.now(timezone.utc).isoformat()}", content, flags=re.MULTILINE)
                 f.write_text(content, encoding="utf-8")
                 updated += 1
-        if updated:
-            self._git_commit(f"rename-wing: {old_wing} → {new_normalized}")
+        # J4: git push wird vom Router als BackgroundTask geschedult.
         return updated
 
     def delete_note(self, file_path: str) -> None:
@@ -264,7 +265,7 @@ class VaultService:
         except Exception as e:
             print(f"Index removal skipped for {file_path}: {e}")
         src.unlink()
-        self._git_commit(f"delete: {src.name}")
+        # J4: git push wird vom Router als BackgroundTask geschedult.
 
     def move_note(self, file_path: str, new_para: str, new_status: str) -> str:
         """Move a note to a different PARA folder."""
@@ -284,7 +285,7 @@ class VaultService:
 
         src.unlink()
         dest.write_text(content, encoding="utf-8")
-        self._git_commit(f"move: {src.name} → {new_para}")
+        # J4: git push wird vom Router als BackgroundTask geschedult.
         rel = str(dest.relative_to(self._vault))
         self._index_note(rel)
         return rel
@@ -373,6 +374,10 @@ class VaultService:
     # ── Git ────────────────────────────────────────────────────────────────────
 
     def git_commit_and_push(self, message: str) -> None:
+        """Stage + commit + push the whole vault. J4 (Plan v2): wird für
+        alle Mutationen vom Router als BackgroundTask geschedult, nie
+        mehr synchron im Request-Handler. Idempotent — no-op wenn kein
+        .git (lokaler Test-/Single-File-Modus) oder nichts dirty."""
         if not (self._vault / ".git").exists():
             return
         repo = git.Repo(self._vault)
@@ -380,9 +385,6 @@ class VaultService:
         if repo.is_dirty(index=True, working_tree=False):
             repo.index.commit(message)
             repo.remotes.origin.push()
-
-    def _git_commit(self, message: str) -> None:
-        self.git_commit_and_push(message)
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 

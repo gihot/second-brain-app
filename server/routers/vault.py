@@ -1,7 +1,7 @@
 """Vault routes: status, full read, sync, and per-note write/delete."""
 import asyncio
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth import verify_token
@@ -49,9 +49,14 @@ async def get_all_notes(
 @router.put("/notes")
 async def update_note(
     req: NoteUpdateRequest,
+    background: BackgroundTasks,
     payload: dict = Depends(verify_token),
 ):
-    """Update an existing note's frontmatter and/or content."""
+    """Update an existing note's frontmatter and/or content.
+
+    J4 (Plan v2): File-Write + Index synchron, git commit+push als
+    BackgroundTask — der Request wartet nicht mehr auf GitHub.
+    """
     vault = VaultService.for_user(payload["sub"])
     try:
         new_path = await asyncio.to_thread(
@@ -67,6 +72,9 @@ async def update_note(
             thought_type=req.thought_type,
             remind_at=req.remind_at,
         )
+        background.add_task(
+            vault.git_commit_and_push, f"update: {new_path}"
+        )
         return {"file_path": new_path}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -77,12 +85,16 @@ async def update_note(
 @router.delete("/notes")
 async def delete_note(
     req: NoteDeleteRequest,
+    background: BackgroundTasks,
     payload: dict = Depends(verify_token),
 ):
-    """Permanently delete a note from the vault."""
+    """Permanently delete a note from the vault. J4: git push async."""
     vault = VaultService.for_user(payload["sub"])
     try:
         await asyncio.to_thread(vault.delete_note, req.file_path)
+        background.add_task(
+            vault.git_commit_and_push, f"delete: {req.file_path}"
+        )
         return {"deleted": req.file_path}
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -103,11 +115,19 @@ class WingRenameRequest(BaseModel):
 @router.put("/wings/rename")
 async def rename_wing(
     req: WingRenameRequest,
+    background: BackgroundTasks,
     payload: dict = Depends(verify_token),
 ):
-    """Rename a wing across all notes."""
+    """Rename a wing across all notes. J4: git push async."""
     vault = VaultService.for_user(payload["sub"])
-    count = vault.rename_wing(req.old_wing, req.new_wing)
+    count = await asyncio.to_thread(
+        vault.rename_wing, req.old_wing, req.new_wing
+    )
+    if count:
+        background.add_task(
+            vault.git_commit_and_push,
+            f"rename-wing: {req.old_wing} → {req.new_wing}",
+        )
     return {"updated": count, "new_wing": req.new_wing}
 
 
