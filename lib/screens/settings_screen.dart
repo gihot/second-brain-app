@@ -16,6 +16,7 @@ import 'settings/dialogs/change_password_dialog.dart';
 import 'settings/dialogs/clear_cache_dialog.dart';
 import 'settings/dialogs/delete_account_dialog.dart';
 import 'settings/sheets/invites_sheet.dart';
+import 'settings/sheets/soft_deleted_sheet.dart';
 import 'settings/sheets/offline_queue_sheet.dart';
 import 'settings/sheets/pending_writes_sheet.dart';
 import 'settings/widgets/background_image_tile.dart';
@@ -397,6 +398,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: '',
                     onTap: () => _confirmClearCache(context),
                   ),
+                  // J2: Recovery-Bin — nur sichtbar wenn was drin ist.
+                  if (context.watch<VaultProvider>().softDeletedCount > 0)
+                    SettingsTile(
+                      icon: Icons.restore_from_trash_outlined,
+                      label: 'Gelöschte Notizen',
+                      value:
+                          '${context.watch<VaultProvider>().softDeletedCount}',
+                      onTap: () => _openSoftDeleted(context),
+                    ),
                 ],
               ),
             ],
@@ -700,8 +710,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openSoftDeleted(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: BrainColors.surfaceLow,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const SoftDeletedSheet(),
+    );
+  }
+
   void _confirmClearCache(BuildContext context) {
     final unsynced = CacheService.instance.unsyncedCount;
+    // J2: Provider vor dem async-Dialog greifen — vermeidet
+    // context-across-async-gap im onConfirmed-Closure.
+    final vault = context.read<VaultProvider>();
 
     // Block clear entirely if there are unsynced items — would orphan data.
     if (unsynced > 0) {
@@ -751,14 +776,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Backup failed — proceed anyway, user confirmed twice.
           }
           try {
-            await CacheService.instance.dangerouslyClearAllNotes();
+            // J2: Soft-Clear statt physischem Wipe — Notizen bleiben
+            // 30 Tage in der Recovery (Settings → "Gelöschte Notizen").
+            await vault.softDeleteAllNotes();
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   backupName != null
-                      ? 'Cache geleert. Backup: $backupName'
-                      : 'Cache geleert (Backup fehlgeschlagen)',
+                      ? 'Cache geleert (30 Tage wiederherstellbar). Backup: $backupName'
+                      : 'Cache geleert (30 Tage wiederherstellbar, Backup fehlgeschlagen)',
                 ),
                 duration: const Duration(seconds: 4),
               ),

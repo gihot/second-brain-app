@@ -117,6 +117,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// J2: Konflikt-Auflösungs-Sheet. Pro Konflikt-Fork zwei Aktionen:
+  /// "Verwerfen" (löscht die lokale Kopie) und "Als neue Notiz behalten"
+  /// (entfernt den Konflikt-Marker aus dem Titel, Notiz bleibt lokal).
+  void _showConflictSheet(List<Note> conflicts) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: BrainColors.surfaceLow,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => _ConflictSheet(
+        conflicts: conflicts,
+        onDiscard: (note) async {
+          await context.read<VaultProvider>().deleteNote(note.id);
+          if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+        },
+        onKeep: (note) async {
+          // Konflikt-Marker aus dem Titel strippen, Notiz bleibt local.
+          final cleanTitle = note.title
+              .replaceAll(RegExp(r'\s*\(Konflikt[^)]*\)\s*$'), '')
+              .trim();
+          await context
+              .read<VaultProvider>()
+              .updateNote(note.copyWith(title: cleanTitle));
+          if (sheetCtx.mounted) Navigator.pop(sheetCtx);
+        },
+      ),
+    );
+  }
+
   /// Tap auf eine Resurface-Karte: erst Engaged-Signal (Provider entfernt
   /// die Karte optimistisch + pausiert 30 Tage server-seitig), dann
   /// Navigation. Reihenfolge irrelevant — Navigator wartet nicht auf den
@@ -171,6 +202,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: _PendingDeletionBanner(
               deletionAtIso: auth.pendingDeletionAt!,
               onRestore: () => auth.cancelPendingDeletion(),
+            ),
+          ),
+        // 0b. Konflikt-Banner — J2: lokale Konflikt-Forks aus dem Sync.
+        //     Tap öffnet das Auflösungs-Sheet.
+        if (vault.conflictCopies.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _ConflictBanner(
+              count: vault.conflictCopies.length,
+              onTap: () => _showConflictSheet(vault.conflictCopies),
             ),
           ),
         // 1. Hero — Identität + Begrüßung + konditionelle Status-Zeile
@@ -552,6 +592,169 @@ class _PendingDeletionBanner extends StatelessWidget {
                 style: BrainTypography.button.copyWith(
                   color: BrainColors.primary,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// J2 (Plan v2): Banner für lokale Konflikt-Forks. Tertiär-getönt
+/// (nicht rot wie Pending-Deletion — Konflikte sind kein Notfall,
+/// nur "schau mal drüber"). Tap öffnet das Auflösungs-Sheet.
+class _ConflictBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _ConflictBanner({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        BrainSpacing.screenPadding,
+        BrainSpacing.sm,
+        BrainSpacing.screenPadding,
+        0,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BrainSpacing.radiusMd,
+        child: Container(
+          padding: const EdgeInsets.all(BrainSpacing.md),
+          decoration: BoxDecoration(
+            color: BrainColors.tertiary.withValues(alpha: 0.10),
+            borderRadius: BrainSpacing.radiusMd,
+            border: Border.all(
+              color: BrainColors.tertiary.withValues(alpha: 0.35),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.merge_type_rounded,
+                  size: 20, color: BrainColors.tertiary),
+              const SizedBox(width: BrainSpacing.sm),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? '1 Sync-Konflikt zu prüfen'
+                      : '$count Sync-Konflikte zu prüfen',
+                  style: BrainTypography.bodyMd.copyWith(
+                    color: BrainColors.onSurface,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 20, color: BrainColors.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// J2: Auflösungs-Sheet. Pro Konflikt-Fork: Titel + Excerpt + zwei
+/// Aktionen. "Verwerfen" (löscht lokal) und "Behalten" (entfernt den
+/// Konflikt-Marker, Notiz bleibt lokal).
+class _ConflictSheet extends StatelessWidget {
+  final List<Note> conflicts;
+  final Future<void> Function(Note) onDiscard;
+  final Future<void> Function(Note) onKeep;
+
+  const _ConflictSheet({
+    required this.conflicts,
+    required this.onDiscard,
+    required this.onKeep,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(BrainSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Sync-Konflikte', style: BrainTypography.titleMd),
+            const SizedBox(height: BrainSpacing.xs),
+            Text(
+              'Diese Versionen kamen vom Server, während du lokal andere '
+              'Änderungen hattest. Beide wurden behalten — entscheide pro '
+              'Eintrag.',
+              style: BrainTypography.bodySm.copyWith(
+                color: BrainColors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: BrainSpacing.md),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: conflicts.length,
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: BrainSpacing.sm),
+                itemBuilder: (_, i) {
+                  final note = conflicts[i];
+                  return Container(
+                    padding: const EdgeInsets.all(BrainSpacing.md),
+                    decoration: BoxDecoration(
+                      color: BrainColors.surfaceHigh,
+                      borderRadius: BrainSpacing.radiusSm,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          note.title,
+                          style: BrainTypography.bodyMd.copyWith(
+                            color: BrainColors.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (note.excerpt.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            note.excerpt,
+                            style: BrainTypography.bodySm,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: BrainSpacing.sm),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => onDiscard(note),
+                              child: Text(
+                                'Verwerfen',
+                                style: BrainTypography.button.copyWith(
+                                  color: BrainColors.error,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: BrainSpacing.sm),
+                            TextButton(
+                              onPressed: () => onKeep(note),
+                              child: Text(
+                                'Behalten',
+                                style: BrainTypography.button.copyWith(
+                                  color: BrainColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],

@@ -46,6 +46,14 @@ class Note extends HiveObject {
   @HiveField(13)
   String? remindAt; // ISO-8601, only set when thoughtType == reminder
 
+  // J2 (Plan v2): Soft-Delete-Timestamp. Wenn gesetzt, ist die Notiz
+  // "gelöscht" aber physisch noch da — Recovery bis 30 Tage. getAllNotes
+  // filtert sie raus; ein Prune beim App-Start räumt > 30d alte weg.
+  // ISO-8601 String (kein DateTime) für Konsistenz mit remindAt + um
+  // Hive-Adapter-DateTime-Edge-Cases zu vermeiden.
+  @HiveField(14)
+  String? deletedAt;
+
   Note({
     required this.id,
     required this.title,
@@ -60,7 +68,11 @@ class Note extends HiveObject {
     this.wing,
     this.thoughtType = ThoughtType.standard,
     this.remindAt,
+    this.deletedAt,
   });
+
+  /// True wenn die Notiz soft-gelöscht ist (in der 30-Tage-Recovery).
+  bool get isDeleted => deletedAt != null;
 
   Note copyWith({
     String? title,
@@ -76,6 +88,8 @@ class Note extends HiveObject {
     ThoughtType? thoughtType,
     String? remindAt,
     bool clearRemindAt = false,
+    String? deletedAt,
+    bool clearDeletedAt = false,
   }) {
     return Note(
       id: id,
@@ -91,6 +105,7 @@ class Note extends HiveObject {
       wing: clearWing ? null : (wing ?? this.wing),
       thoughtType: thoughtType ?? this.thoughtType,
       remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
+      deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
     );
   }
 

@@ -40,6 +40,9 @@ class _AuthGateState extends State<AuthGate> {
           context.read<BackgroundProvider>().init();
           context.read<GlassSettingsProvider>().init();
           context.read<VaultProvider>().refresh();
+          // J2: soft-deleted Notizen die > 30 Tage alt sind physisch
+          // wegräumen. Fire-and-forget, blockiert den Login nicht.
+          context.read<VaultProvider>().pruneSoftDeleted();
           // Wave 3: Resurfacing erst nach Login holen — vorher kein
           // Token, gäbe nur 401. init() ist idempotent (1h-Throttle).
           context.read<ResurfacingProvider>().init();

@@ -157,16 +157,26 @@ class CacheService {
 
   // ── Notes ──────────────────────────────────
 
+  /// All live notes — soft-deleted ones (deletedAt != null) are excluded.
+  /// J2 (Plan v2): use [getSoftDeletedNotes] to see the recovery bin.
   List<Note> getAllNotes() {
     if (!_initialized) return [];
-    return _notes!.values.toList()
+    return _notes!.values.where((n) => n.deletedAt == null).toList()
       ..sort((a, b) => b.modified.compareTo(a.modified));
+  }
+
+  /// J2: soft-deleted notes (in der 30-Tage-Recovery), neueste Löschung
+  /// zuerst.
+  List<Note> getSoftDeletedNotes() {
+    if (!_initialized) return [];
+    return _notes!.values.where((n) => n.deletedAt != null).toList()
+      ..sort((a, b) => (b.deletedAt ?? '').compareTo(a.deletedAt ?? ''));
   }
 
   List<Note> getInboxNotes() {
     if (!_initialized) return const [];
     return _notes!.values
-        .where((n) => n.status == NoteStatus.inbox)
+        .where((n) => n.status == NoteStatus.inbox && n.deletedAt == null)
         .toList()
           ..sort((a, b) => b.created.compareTo(a.created));
   }
@@ -201,9 +211,10 @@ class CacheService {
     final lower = query.toLowerCase();
     return _notes!.values
         .where((n) =>
-            n.title.toLowerCase().contains(lower) ||
-            n.content.toLowerCase().contains(lower) ||
-            n.tags.any((t) => t.toLowerCase().contains(lower)))
+            n.deletedAt == null &&
+            (n.title.toLowerCase().contains(lower) ||
+                n.content.toLowerCase().contains(lower) ||
+                n.tags.any((t) => t.toLowerCase().contains(lower))))
         .toList()
           ..sort((a, b) => b.modified.compareTo(a.modified));
   }
@@ -216,21 +227,57 @@ class CacheService {
         getPendingWrites().length;
   }
 
-  /// Wipes the local Notes cache (does NOT touch the offline capture queue
-  /// or the meta box). The wrapper name is intentionally scary — call sites
-  /// must guard with confirmation UI.
+  /// J2 (Plan v2): Soft-Clear statt physischem Wipe. Setzt deletedAt auf
+  /// allen aktuell sichtbaren Notizen — Recovery bis 30 Tage über
+  /// [restoreSoftDeleted], physischer Prune über [pruneSoftDeletedOlderThan].
+  /// Selbe Datensicherheits-Klasse wie der Account-Soft-Delete (Wave 4.2):
+  /// der Klick ist nicht mehr sofort unwiderruflich.
   ///
-  /// Throws [StateError] if there are pending captures or pending writes
-  /// that would be orphaned by clearing notes. The caller must replay or
-  /// discard those first.
-  Future<void> dangerouslyClearAllNotes() async {
+  /// Throws [StateError] wenn pending captures/writes existieren, die
+  /// durch den Clear verwaist würden — der Caller muss erst replay/discard.
+  Future<void> softDeleteAllNotes() async {
     if (!_initialized) return;
     if (unsyncedCount > 0) {
       throw StateError(
           'Refusing to clear: $unsyncedCount unsynced item(s) in queue. '
           'Replay or discard them first.');
     }
-    await _notes!.clear();
+    final now = DateTime.now().toIso8601String();
+    final updates = <dynamic, Note>{};
+    for (final k in _notes!.keys) {
+      final n = _notes!.get(k);
+      if (n != null && n.deletedAt == null) {
+        updates[k] = n.copyWith(deletedAt: now);
+      }
+    }
+    await _notes!.putAll(updates);
+  }
+
+  /// Hebt einen Soft-Delete wieder auf (Recovery).
+  Future<void> restoreSoftDeleted(String id) async {
+    if (!_initialized) return;
+    final note = getNoteById(id);
+    if (note == null || note.deletedAt == null) return;
+    await _notes!.put(note.id, note.copyWith(clearDeletedAt: true));
+  }
+
+  /// Löscht soft-deleted Notizen physisch, deren deletedAt älter als
+  /// [maxAge] ist. Returns Anzahl entfernter Notizen. Beim App-Start
+  /// aufgerufen (siehe VaultProvider.pruneSoftDeleted).
+  Future<int> pruneSoftDeletedOlderThan(Duration maxAge) async {
+    if (!_initialized) return 0;
+    final cutoff = DateTime.now().subtract(maxAge);
+    final toDrop = <dynamic>[];
+    for (final k in _notes!.keys) {
+      final n = _notes!.get(k);
+      if (n?.deletedAt == null) continue;
+      final deletedAt = DateTime.tryParse(n!.deletedAt!);
+      if (deletedAt != null && deletedAt.isBefore(cutoff)) {
+        toDrop.add(k);
+      }
+    }
+    if (toDrop.isNotEmpty) await _notes!.deleteAll(toDrop);
+    return toDrop.length;
   }
 
   // ── Offline Capture Queue ──────────────────

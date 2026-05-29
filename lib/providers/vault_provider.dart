@@ -8,6 +8,7 @@ import '../models/vault_status_model.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
+import '../utils/note_diff.dart' as note_diff;
 
 /// Central state for the vault: all notes, inbox count, sync status.
 class VaultProvider extends ChangeNotifier {
@@ -33,6 +34,20 @@ class VaultProvider extends ChangeNotifier {
 
   List<Note> get notes => _notes;
   List<Note> get recentNotes => _notes.take(5).toList();
+
+  /// J2 (Plan v2): local-only Konflikt-Forks (Title enthält "(Konflikt "
+  /// und kein filePath, weil sie nie zum Server gingen). Treibt den
+  /// Dashboard-Banner "N Konflikte zu prüfen".
+  List<Note> get conflictCopies => _notes
+      .where((n) =>
+          n.filePath == null && n.title.contains('(Konflikt '))
+      .toList();
+
+  /// J2: soft-gelöschte Notizen in der 30-Tage-Recovery. getAllNotes
+  /// filtert sie aus dem normalen [notes] raus — diese Liste macht sie
+  /// für die "Gelöschte Notizen"-Settings-Sektion sichtbar.
+  List<Note> get softDeletedNotes => _cache.getSoftDeletedNotes();
+  int get softDeletedCount => softDeletedNotes.length;
 
   /// Count of notes created since local midnight — the dashboard's
   /// "heute erfasst" pulse.
@@ -296,10 +311,12 @@ class VaultProvider extends ChangeNotifier {
         continue;
       }
 
-      // Local has unsynced edits. Only flag a conflict if the bodies
+      // Local has unsynced edits. Only flag a conflict if the notes
       // actually differ — otherwise the server version is just our own
-      // unsynced edit echoed back and we can keep local.
-      if (_notesEffectivelyEqual(local, remote)) continue;
+      // unsynced edit echoed back and we can keep local. J2: the
+      // comparison now covers status/para/hall/wing/thoughtType/remindAt,
+      // not just title/content/tags (see utils/note_diff.dart).
+      if (note_diff.notesEffectivelyEqual(local, remote)) continue;
 
       // Fork: keep local untouched, write a separate Konflikt-Copy.
       final conflictCopy = remote.copyWith(
@@ -326,13 +343,6 @@ class VaultProvider extends ChangeNotifier {
     if (toSave.isNotEmpty) {
       await _cache.saveNotes(toSave);
     }
-  }
-
-  bool _notesEffectivelyEqual(Note a, Note b) {
-    if (a.title.trim() != b.title.trim()) return false;
-    if (a.content.trim() != b.content.trim()) return false;
-    if (a.tags.join(',') != b.tags.join(',')) return false;
-    return true;
   }
 
   String _stamp(DateTime dt) {
@@ -467,6 +477,32 @@ class VaultProvider extends ChangeNotifier {
   /// Used after bulk-imports (vault recovery, ZIP-import) so the UI reflects
   /// the freshly-written notes immediately.
   void reloadFromCache() => _loadFromCache();
+
+  // ── Soft-Delete (J2, Plan v2) ─────────────────────────────────────────────
+
+  /// Markiert ALLE Notizen als soft-deleted (statt physisch zu löschen).
+  /// Recovery bis 30 Tage über [restoreSoftDeleted]. Selbe Datensicher-
+  /// heitsklasse wie der Account-Soft-Delete aus Wave 4.2 — der Klick
+  /// ist nicht mehr sofort unwiderruflich.
+  Future<void> softDeleteAllNotes() async {
+    await _cache.softDeleteAllNotes();
+    _loadFromCache();
+  }
+
+  /// Hebt einen Soft-Delete wieder auf (Recovery aus den Settings).
+  Future<void> restoreSoftDeleted(String id) async {
+    await _cache.restoreSoftDeleted(id);
+    _loadFromCache();
+  }
+
+  /// Räumt soft-deleted Notizen die älter als [maxAge] sind physisch weg.
+  /// Beim App-Start aufgerufen. Default 30 Tage.
+  Future<int> pruneSoftDeleted(
+      {Duration maxAge = const Duration(days: 30)}) async {
+    final removed = await _cache.pruneSoftDeletedOlderThan(maxAge);
+    if (removed > 0) _loadFromCache();
+    return removed;
+  }
 
   /// Manual replay of pending writes. Pings the server first; if reachable,
   /// drains; returns counts so the UI can show progress.
