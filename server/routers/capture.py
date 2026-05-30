@@ -1,6 +1,6 @@
 """POST /capture — Scribe agent processes raw text into a titled, tagged note."""
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -22,6 +22,10 @@ _SIMILAR_LIMIT = 3
 class CaptureRequest(BaseModel):
     text: str
     note_id: str | None = None  # Client-generated UUID for idempotency
+    # Minuten-Offset der User-Zeitzone (z.B. 120 für CEST). Damit löst
+    # Scribe „heute Abend" in LOKALER Zeit auf und der Server konvertiert
+    # nach UTC. Default 0 (UTC) für Alt-Clients ohne das Feld.
+    tz_offset_minutes: int = 0
 
 
 class SimilarNote(BaseModel):
@@ -82,7 +86,8 @@ async def capture(
     hall = meta.get("hall") or "unclassified"
     suggested_wing = meta.get("suggested_wing") or ""
     thought_type = meta.get("thought_type") or "standard"
-    remind_at = meta.get("remind_at") or None
+    # Scribe liefert remind_at lokal-naiv → deterministisch nach UTC.
+    remind_at = _local_remind_to_utc(meta.get("remind_at"), req.tz_offset_minutes)
 
     # Normalize wing: lowercase kebab-case
     if suggested_wing:
@@ -144,3 +149,24 @@ def _fallback_title(text: str) -> str:
     if len(first_line) <= 60:
         return first_line or "Untitled"
     return " ".join(first_line.split()[:8]) + "..."
+
+
+def _local_remind_to_utc(raw: str | None, tz_offset_minutes: int) -> str | None:
+    """Konvertiert Scribes lokal-naive remind_at (z.B. "2026-05-30T18:00:00")
+    nach UTC-ISO. Robust gegen LLM-Abweichungen:
+      - bereits mit tz-Info (Z/+hh:mm) → unverändert als UTC interpretiert
+      - leer/None/unparsebar → None
+    """
+    if not raw or not str(raw).strip():
+        return None
+    s = str(raw).strip()
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        # LLM hat trotz Anweisung eine Zeitzone gesetzt — als gegeben nehmen.
+        return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    # naiv = lokale Zeit → UTC = lokal − offset
+    utc_dt = (dt - timedelta(minutes=tz_offset_minutes)).replace(tzinfo=timezone.utc)
+    return utc_dt.strftime("%Y-%m-%dT%H:%M:%S+00:00")

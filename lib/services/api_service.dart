@@ -313,7 +313,13 @@ class ApiService {
 
   /// Returns null on failure (offline / server down).
   Future<CaptureResult?> capture(String text, {String? noteId}) async {
-    final body = await _post('/capture', {'text': text, if (noteId != null) 'note_id': noteId});
+    // tz-Offset mitschicken, damit Scribe „heute Abend" lokal auflöst
+    // und der Server korrekt nach UTC konvertiert.
+    final body = await _post('/capture', {
+      'text': text,
+      if (noteId != null) 'note_id': noteId,
+      'tz_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
+    });
     if (body == null) return null;
     final hallStr = (body['hall'] as String? ?? 'unclassified').toLowerCase();
     final hall = switch (hallStr) {

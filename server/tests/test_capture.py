@@ -69,3 +69,40 @@ def test_capture_rejects_empty_text(temp_vault, mock_anthropic, mock_openai):
     with pytest.raises(HTTPException) as exc:
         _call_capture("   ", note_id="n1")
     assert exc.value.status_code == 422
+
+
+# ── remind_at local→UTC Konvertierung (deterministisch, kein LLM) ──────────────
+
+def test_local_remind_to_utc_subtracts_offset():
+    from routers.capture import _local_remind_to_utc
+    # 18:00 lokal bei CEST (+120) → 16:00 UTC
+    assert _local_remind_to_utc("2026-05-30T18:00:00", 120) == \
+        "2026-05-30T16:00:00+00:00"
+
+
+def test_local_remind_to_utc_offset_zero_unchanged():
+    from routers.capture import _local_remind_to_utc
+    assert _local_remind_to_utc("2026-05-30T18:00:00", 0) == \
+        "2026-05-30T18:00:00+00:00"
+
+
+def test_local_remind_to_utc_handles_explicit_tz():
+    from routers.capture import _local_remind_to_utc
+    # LLM hat trotz Anweisung Z gesetzt → als UTC interpretieren, nicht
+    # nochmal verschieben.
+    assert _local_remind_to_utc("2026-05-30T16:00:00Z", 120) == \
+        "2026-05-30T16:00:00+00:00"
+
+
+def test_local_remind_to_utc_none_and_garbage():
+    from routers.capture import _local_remind_to_utc
+    assert _local_remind_to_utc(None, 120) is None
+    assert _local_remind_to_utc("", 120) is None
+    assert _local_remind_to_utc("not a date", 120) is None
+
+
+def test_local_remind_to_utc_negative_offset():
+    from routers.capture import _local_remind_to_utc
+    # z.B. US-Westküste (-420) → 18:00 lokal = 01:00 UTC nächster Tag
+    assert _local_remind_to_utc("2026-05-30T18:00:00", -420) == \
+        "2026-05-31T01:00:00+00:00"
