@@ -7,6 +7,7 @@ import '../models/note_model.dart';
 import '../models/vault_status_model.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import '../utils/note_diff.dart' as note_diff;
 
 /// Central state for the vault: all notes, inbox count, sync status.
@@ -204,11 +205,12 @@ class VaultProvider extends ChangeNotifier {
       isServerReachable: _isServerReachable,
     );
     notifyListeners();
-    // Notifications-Phase 1: das In-App-Feuern fälliger Reminder ist
-    // ENTFERNT. Es ploppte beim Laden jede überfällige Erinnerung auf
-    // (auch tage-alte) — Lärm. Echte Zustellung macht jetzt der Server-
-    // Push (einmalig zur richtigen Zeit, Phase 2). Fällige Reminder sind
-    // weiterhin visuell auf dem Dashboard sichtbar (dueReminders).
+    // In-App-Zustellung (App offen): feuert gerade fällig gewordene
+    // Reminder über den Service-Worker (iOS-kompatibel). Recency-guard
+    // (≤2h) + dedup verhindern das alte „tage-alte ploppen beim Laden".
+    // Auf iOS ist das die zuverlässige Zustellung, weil Background-Push
+    // an die geschlossene PWA nicht klappt.
+    NotificationService.instance.fireDueReminders(dueReminders);
   }
 
   Future<void> _checkServerAndSync() async {

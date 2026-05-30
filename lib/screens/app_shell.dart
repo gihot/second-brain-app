@@ -22,7 +22,7 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final List<Widget> _screens;
   // Incremented each time the user taps the MIC tab — CaptureScreen
@@ -33,8 +33,21 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _voiceTrigger.dispose();
     super.dispose();
+  }
+
+  /// Sync beim Zurückkehren in den Vordergrund. Ohne das holte die App
+  /// neue Gedanken (z.B. vom PC erfasst) nur alle 5 Min per Timer — auf
+  /// iOS-PWA im Hintergrund unzuverlässig, also taucht ein frischer
+  /// Gedanke beim Öffnen oft nicht auf. Der Sync triggert auch das
+  /// In-App-Feuern gerade fälliger Reminder (_loadFromCache).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<VaultProvider>().refresh();
+    }
   }
 
   /// Combines `?title=`, `?text=`, `?url=` from the URL into a single
@@ -88,6 +101,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final initialCaptureText = _captureTextFromQuery();
     final voiceImmediate = _voiceImmediateFromQuery();
     // Beide Pfade landen auf dem Capture-Tab. Wenn Text geteilt wurde

@@ -26,4 +26,5 @@ class NotificationService {
   Future<void> disablePush() async {}
   Future<int> sendTest() async => 0;
   Future<void> refreshSubscription() async {}
+  Future<void> fireDueReminders(List<dynamic> dueReminders) async {}
 }
