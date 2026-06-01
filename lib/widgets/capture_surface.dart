@@ -234,6 +234,72 @@ class _CaptureSurfaceState extends State<CaptureSurface>
     }
   }
 
+  /// Sinnvolle Default-Zeit beim Aktivieren ohne Kalender: heute 18:00,
+  /// sonst (schon vorbei) morgen 18:00 — passt zur „heute Abend"-Logik.
+  DateTime _defaultReminderTime() {
+    final now = DateTime.now();
+    var t = DateTime(now.year, now.month, now.day, 18, 0);
+    if (!t.isAfter(now)) t = t.add(const Duration(days: 1));
+    return t;
+  }
+
+  /// Tap aufs Reminder-Chip:
+  /// - inaktiv → sofort aktivieren (grün) mit Default-Zeit, KEIN Kalender.
+  /// - aktiv → Sheet: Zeit ändern (Kalender) oder ausschalten.
+  void _onReminderTap() {
+    if (!_isReminder) {
+      setState(() {
+        _isReminder = true;
+        _remindAt = _defaultReminderTime();
+      });
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: BrainColors.surfaceLow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: BrainSpacing.sm),
+            ListTile(
+              leading:
+                  Icon(Icons.schedule_rounded, color: BrainColors.onSurface),
+              title: Text('Zeit ändern',
+                  style: BrainTypography.bodyMd
+                      .copyWith(color: BrainColors.onSurface)),
+              subtitle: _remindAt != null
+                  ? Text(_formatRemindAt(_remindAt!),
+                      style: BrainTypography.labelSm)
+                  : null,
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                _pickRemindAt();
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.alarm_off_rounded, color: BrainColors.error),
+              title: Text('Erinnerung ausschalten',
+                  style: BrainTypography.bodyMd
+                      .copyWith(color: BrainColors.error)),
+              onTap: () {
+                Navigator.pop(sheetCtx);
+                setState(() {
+                  _isReminder = false;
+                  _remindAt = null;
+                });
+              },
+            ),
+            const SizedBox(height: BrainSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickRemindAt() async {
     final now = DateTime.now();
     final initial = _remindAt ?? now.add(const Duration(hours: 1));
@@ -562,16 +628,7 @@ class _CaptureSurfaceState extends State<CaptureSurface>
               label: _isReminder && _remindAt != null
                   ? _formatRemindAt(_remindAt!)
                   : 'Erinnerung',
-              onTap: () {
-                if (_isReminder) {
-                  setState(() {
-                    _isReminder = false;
-                    _remindAt = null;
-                  });
-                } else {
-                  _pickRemindAt();
-                }
-              },
+              onTap: _onReminderTap,
             ),
             const Spacer(),
             if (hasText)
@@ -685,14 +742,14 @@ class _ReminderChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? BrainColors.tertiary : BrainColors.onSurfaceVariant;
+    final color = active ? BrainColors.secondary : BrainColors.onSurfaceVariant;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: active
-              ? BrainColors.tertiary.withValues(alpha: 0.15)
+              ? BrainColors.secondary.withValues(alpha: 0.15)
               : BrainColors.innerSurface,
           borderRadius: BrainSpacing.radiusFull,
         ),
@@ -700,7 +757,7 @@ class _ReminderChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              active ? Icons.alarm_rounded : Icons.alarm_add_outlined,
+              active ? Icons.alarm_on_rounded : Icons.alarm_add_outlined,
               size: 15,
               color: color,
             ),

@@ -43,6 +43,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   late final TextEditingController _wingCtrl;
   bool _editing = false;
   bool _dirty = false;
+  bool _closing = false;
 
   List<Map<String, dynamic>> _connections = [];
   bool _loadingConnections = false;
@@ -181,6 +182,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    setState(() => _closing = true);
     await context.read<VaultProvider>().deleteNote(widget.noteId);
     if (!mounted) return;
     Navigator.pop(context);
@@ -279,6 +281,8 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
     }
 
     if (note == null) {
+      // _closing: we just deleted, Navigator.pop is on its way — no back button.
+      if (_closing) return const Scaffold(backgroundColor: BrainColors.base);
       return Scaffold(
         appBar: AppBar(backgroundColor: BrainColors.base),
         body: const Center(child: Text('Gedanke nicht gefunden')),
