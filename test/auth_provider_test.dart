@@ -121,6 +121,19 @@ void main() {
     expect(api.persistedToken, isNull);
   });
 
+  test('verbundener Vault öffnet sich auch beim Offline-Start', () async {
+    final api = FakeApiService()
+      ..persistedToken = 'stored-token'
+      ..rememberedProfile = {'id': 'u1', 'email': 'u1@test.de'};
+    final auth = AuthProvider(api: api);
+
+    await auth.init();
+
+    expect(auth.isLoggedIn, isTrue);
+    expect(CacheService.instance.isReadyFor('u1'), isTrue);
+    expect(api.persistedToken, 'stored-token');
+  });
+
   test('pendingDeletionAt kommt aus der Session', () async {
     final api = FakeApiService()
       ..persistedToken = 'tok'

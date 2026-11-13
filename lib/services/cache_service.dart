@@ -31,6 +31,7 @@ class CacheService {
   Box<dynamic>? _meta;
 
   String? _currentUserId;
+  String? get workspaceId => _currentUserId;
   bool _hiveInitialized = false;
 
   /// True iff a user is logged in and their boxes are open.
@@ -45,7 +46,7 @@ class CacheService {
   ///
   /// Runs a one-time migration from the legacy global boxes to the new
   /// per-user boxes (see [_migrateLegacyIfNeeded]).
-  Future<void> init(String userId) async {
+  Future<void> init(String userId, {bool migrateLegacy = true}) async {
     if (_currentUserId == userId && _notes != null) return;
     if (_currentUserId != null) {
       await close();
@@ -73,7 +74,7 @@ class CacheService {
     // migrations leave the legacy box on disk for later cleanup or
     // export, but never gate the rest of the app.
     try {
-      await _migrateLegacyIfNeeded();
+      if (migrateLegacy) await _migrateLegacyIfNeeded();
     } catch (e, st) {
       // ignore: avoid_print
       print('Legacy cache migration skipped due to error: $e\n$st');

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import '../models/auth_session.dart';
 import '../models/note_model.dart';
 
 /// HTTP client for the Second Brain Cloud Bridge.
@@ -13,11 +14,14 @@ class ApiService {
 
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'api_token';
+  static const _profileKey = 'vault_profile';
 
   // Server URL is a build-time constant — that's not a secret, just a
   // deployment detail. Updating the URL means a new release.
-  static const _kServerBaseUrl =
-      'https://second-brain-app-production-dcee.up.railway.app';
+  static const _kServerBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://second-brain-app-production-dcee.up.railway.app',
+  );
 
   /// Set by [AuthProvider] so the api layer can trigger logout on any 401.
   void Function()? onUnauthorized;
@@ -56,12 +60,44 @@ class ApiService {
     await _storage.write(key: _tokenKey, value: token);
   }
 
+  Future<Map<String, dynamic>?> readRememberedProfile(String token) async {
+    try {
+      final raw = await _storage.read(key: _profileKey);
+      if (raw == null) return null;
+      final profile = jsonDecode(raw) as Map<String, dynamic>;
+      if (profile.remove('token') != token) return null;
+      return profile;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> rememberProfile(AuthSession session) async {
+    try {
+      await _storage.write(key: _profileKey, value: jsonEncode({
+        'token': session.token,
+        'id': session.id,
+        'email': session.email,
+        'pending_deletion_at': session.pendingDeletionAt,
+      }));
+    } catch (_) {}
+  }
+
   /// Löscht den persistierten Token (Logout).
   Future<void> clearPersistedToken() async {
     try {
       await _storage.delete(key: _tokenKey);
+      await _storage.delete(key: _profileKey);
     } catch (_) {}
   }
+
+  Future<Map<String, dynamic>?> getReminderSettings() => _get('/reminders/settings');
+
+  Future<bool> setReminderEmail(bool enabled) async =>
+      await _put('/reminders/settings', {'email_enabled': enabled}) != null;
+
+  Future<bool> testReminderEmail() async =>
+      (await _post('/reminders/test-email', const {}))?['sent'] == true;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -305,19 +341,24 @@ class ApiService {
   /// Returns the current user from the server. `null` on any failure
   /// (incl. 401 — caller should treat that as "log out").
   Future<Map<String, dynamic>?> getMe() async {
-    final body = await _get('/auth/me');
+    final body = await _get('/auth/me', timeout: const Duration(seconds: 4));
     return body?['user'] as Map<String, dynamic>?;
   }
 
   // ── Capture ───────────────────────────────────────────────────────────────
 
   /// Returns null on failure (offline / server down).
-  Future<CaptureResult?> capture(String text, {String? noteId}) async {
+  Future<CaptureResult?> capture(
+    String text, {
+    String? noteId,
+    String? remindAt,
+  }) async {
     // tz-Offset mitschicken, damit Scribe „heute Abend" lokal auflöst
     // und der Server korrekt nach UTC konvertiert.
     final body = await _post('/capture', {
       'text': text,
       if (noteId != null) 'note_id': noteId,
+      if (remindAt != null) 'remind_at': remindAt,
       'tz_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
     });
     if (body == null) return null;
@@ -350,6 +391,7 @@ class ApiService {
       para: body['para'] as String,
       hall: hall,
       suggestedWing: body['suggested_wing'] as String?,
+      remindAt: body['remind_at'] as String?,
       similarNotes: similarNotes,
     );
   }
@@ -589,16 +631,20 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>?> _get(String path) async {
-    if (!hasToken) return null;
+  Future<Map<String, dynamic>?> _get(
+    String path, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final token = _token;
+    if (token == null || token.isEmpty) return null;
     try {
       final response = await http
           .get(Uri.parse('$baseUrl$path'), headers: _headers)
-          .timeout(const Duration(seconds: 15));
+          .timeout(timeout);
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-      _handle401(response.statusCode);
+      if (_token == token) _handle401(response.statusCode);
       debugPrint('ApiService GET $path → ${response.statusCode}');
       return null;
     } catch (e) {
@@ -683,6 +729,7 @@ class CaptureResult {
   /// Plan 2.1: Nachbarn der gerade gespeicherten Notiz (≥ 0.75 cosine,
   /// max 3). Leer wenn Embedding-Index aus oder nichts über Schwelle.
   final List<CaptureSimilar> similarNotes;
+  final String? remindAt;
 
   const CaptureResult({
     required this.noteId,
@@ -693,6 +740,7 @@ class CaptureResult {
     this.hall = MemoryHall.unclassified,
     this.suggestedWing,
     this.similarNotes = const [],
+    this.remindAt,
   });
 }
 

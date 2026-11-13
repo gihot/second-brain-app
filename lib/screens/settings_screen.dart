@@ -12,6 +12,7 @@ import '../services/vault_import_service.dart';
 import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
 import '../theme/brain_typography.dart';
+import 'login_screen.dart';
 import 'settings/dialogs/change_password_dialog.dart';
 import 'settings/dialogs/clear_cache_dialog.dart';
 import 'settings/dialogs/delete_account_dialog.dart';
@@ -21,7 +22,7 @@ import 'settings/sheets/offline_queue_sheet.dart';
 import 'settings/sheets/pending_writes_sheet.dart';
 import 'settings/widgets/background_image_tile.dart';
 import 'settings/widgets/glass_settings_tile.dart';
-import 'settings/widgets/notification_toggle_tile.dart';
+import 'settings/widgets/reminder_delivery_settings.dart';
 import 'settings/widgets/settings_section.dart';
 import 'settings/widgets/settings_tile.dart';
 
@@ -37,51 +38,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _checking = false;
   final _identityCtrl = TextEditingController();
   bool _identitySaving = false;
-  bool _notificationsEnabled = false;
-  String _notificationPermission = 'default';
 
   @override
   void initState() {
     super.initState();
     _checkServer();
     _loadIdentity();
-    _loadNotificationState();
-  }
-
-  void _loadNotificationState() {
-    final ns = NotificationService.instance;
-    setState(() {
-      _notificationsEnabled = ns.notificationsEnabled;
-      _notificationPermission = ns.permissionState;
-    });
-  }
-
-  Future<void> _handleNotificationToggle(bool value) async {
-    final ns = NotificationService.instance;
-    final messenger = ScaffoldMessenger.of(context);
-    if (value) {
-      // Voller Web-Push-Flow: Permission → VAPID → Subscribe → Server.
-      final result = await ns.enablePush();
-      if (!result.ok) {
-        if (mounted) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(result.error ?? 'Aktivierung fehlgeschlagen.'),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-        return;
-      }
-    } else {
-      await ns.disablePush();
-    }
-    if (mounted) {
-      setState(() {
-        _notificationsEnabled = value;
-        _notificationPermission = ns.permissionState;
-      });
-    }
   }
 
   @override
@@ -127,6 +89,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final vault = context.watch<VaultProvider>();
+    final auth = context.watch<AuthProvider>();
 
     return CustomScrollView(
       slivers: [
@@ -148,39 +111,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               // ── Konto ───────────────────────────────────────────────
               SettingsSection(
-                title: 'KONTO',
+                title: 'VAULT-VERBINDUNG',
                 items: [
-                  SettingsTile(
-                    icon: Icons.account_circle_outlined,
-                    label: 'Angemeldet als',
-                    value: context.watch<AuthProvider>().email,
-                  ),
-                  SettingsTile(
-                    icon: Icons.lock_outline_rounded,
-                    label: 'Passwort ändern',
-                    value: '',
-                    onTap: () => _changePassword(context),
-                  ),
-                  SettingsTile(
-                    icon: Icons.person_add_alt_rounded,
-                    label: 'Freund einladen',
-                    value: '',
-                    onTap: () => _openInvites(context),
-                  ),
-                  SettingsTile(
-                    icon: Icons.logout_rounded,
-                    label: 'Abmelden',
-                    value: '',
-                    valueColor: BrainColors.error,
-                    onTap: () => _confirmLogout(context),
-                  ),
-                  SettingsTile(
-                    icon: Icons.delete_forever_outlined,
-                    label: 'Account löschen',
-                    value: '',
-                    valueColor: BrainColors.error,
-                    onTap: () => _deleteAccount(context),
-                  ),
+                  if (auth.isLoggedIn) ...[
+                    SettingsTile(
+                      icon: Icons.account_circle_outlined,
+                      label: 'Verbunden als',
+                      value: auth.email,
+                    ),
+                    SettingsTile(
+                      icon: Icons.lock_outline_rounded,
+                      label: 'Passwort ändern',
+                      value: '',
+                      onTap: () => _changePassword(context),
+                    ),
+                    SettingsTile(
+                      icon: Icons.person_add_alt_rounded,
+                      label: 'Freund einladen',
+                      value: '',
+                      onTap: () => _openInvites(context),
+                    ),
+                    SettingsTile(
+                      icon: Icons.logout_rounded,
+                      label: 'Dieses Gerät trennen',
+                      value: '',
+                      valueColor: BrainColors.error,
+                      onTap: () => _confirmLogout(context),
+                    ),
+                    SettingsTile(
+                      icon: Icons.delete_forever_outlined,
+                      label: 'Account löschen',
+                      value: '',
+                      valueColor: BrainColors.error,
+                      onTap: () => _deleteAccount(context),
+                    ),
+                  ] else
+                    SettingsTile(
+                      icon: Icons.cloud_sync_outlined,
+                      label: 'Vorhandenen Vault verbinden',
+                      value: 'Nur lokal',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                      ),
+                    ),
                 ],
               ),
 
@@ -238,37 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: BrainSpacing.lg),
 
-              // ── Notifications ───────────────────────────────────────
-              SettingsSection(
-                title: 'BENACHRICHTIGUNGEN',
-                items: [
-                  NotificationToggleTile(
-                    enabled: _notificationsEnabled,
-                    permission: _notificationPermission,
-                    onToggle: _handleNotificationToggle,
-                    onRequestPermission: () async {
-                      final granted = await NotificationService.instance
-                          .requestPermission();
-                      if (mounted) {
-                        setState(() {
-                          _notificationPermission =
-                              NotificationService.instance.permissionState;
-                          if (granted) _notificationsEnabled = true;
-                        });
-                      }
-                    },
-                  ),
-                  // Phase 1: Test-Push zur Geräte-Validierung. Nur sichtbar
-                  // wenn Notifications aktiviert sind.
-                  if (_notificationsEnabled)
-                    SettingsTile(
-                      icon: Icons.notifications_active_outlined,
-                      label: 'Test-Notification senden',
-                      value: '',
-                      onTap: () => _sendTestNotification(context),
-                    ),
-                ],
-              ),
+              const ReminderDeliverySettings(),
 
               const SizedBox(height: BrainSpacing.lg),
 
@@ -502,8 +445,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    await context.read<AuthProvider>().logout();
-    // AuthGate re-renders into LoginScreen automatically.
+    final auth = context.read<AuthProvider>();
+    if (NotificationService.instance.notificationsEnabled) {
+      await NotificationService.instance.disablePush();
+    }
+    if (mounted) await auth.logout();
   }
 
   Future<void> _runConnectionTest(BuildContext context) async {
@@ -716,22 +662,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           await CacheService.instance.markCaptureSynced(capture.id);
           await CacheService.instance.clearSyncedCaptures();
         },
-      ),
-    );
-  }
-
-  Future<void> _sendTestNotification(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final sent = await NotificationService.instance.sendTest();
-    if (!mounted) return;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          sent > 0
-              ? 'Test-Push an $sent Gerät(e) gesendet — schau auf den Sperrbildschirm.'
-              : 'Kein Push gesendet (keine aktive Subscription / nicht konfiguriert).',
-        ),
-        duration: const Duration(seconds: 4),
       ),
     );
   }

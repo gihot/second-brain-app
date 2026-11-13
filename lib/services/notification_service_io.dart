@@ -10,8 +10,6 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
   NotificationService._();
 
-  Future<void> init() async {}
-
   String get permissionState => 'denied';
   bool get isGranted => false;
   bool get isSupported => false;
@@ -26,5 +24,4 @@ class NotificationService {
   Future<void> disablePush() async {}
   Future<int> sendTest() async => 0;
   Future<void> refreshSubscription() async {}
-  Future<void> fireDueReminders(List<dynamic> dueReminders) async {}
 }

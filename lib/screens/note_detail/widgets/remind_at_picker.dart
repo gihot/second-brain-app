@@ -17,15 +17,17 @@ class RemindAtPicker extends StatelessWidget {
 
   Future<void> _pick(BuildContext context) async {
     final now = DateTime.now();
-    final initial = value != null
-        ? (DateTime.tryParse(value!)?.toLocal() ?? now)
+    final previous = DateTime.tryParse(value ?? '')?.toLocal();
+    final last = now.add(const Duration(days: 365 * 2));
+    final initial = previous != null && !previous.isBefore(now) && !previous.isAfter(last)
+        ? previous
         : now;
 
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
       firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 2)),
+      lastDate: last,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: ColorScheme.dark(
@@ -51,10 +53,16 @@ class RemindAtPicker extends StatelessWidget {
         child: child!,
       ),
     );
-    if (time == null) return;
+    if (time == null || !context.mounted) return;
 
     final combined = DateTime(
         date.year, date.month, date.day, time.hour, time.minute);
+    if (!combined.isAfter(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Wähle einen Zeitpunkt in der Zukunft.')),
+      );
+      return;
+    }
     onChanged(combined.toUtc().toIso8601String());
   }
 

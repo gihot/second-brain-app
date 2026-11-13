@@ -2,9 +2,8 @@
 PushService — Web-Push-Subscriptions + Versand (Notifications-Phase 1).
 
 Speichert pro User die Push-Subscriptions (Browser-Endpoint + Keys) und
-sendet Notifications via pywebpush/VAPID. Die eigentliche Reminder-
-Auswahl (welche Notiz ist fällig) kommt in Phase 2 — hier nur die
-Zustell-Mechanik + ein Test-Versand.
+sendet Notifications via pywebpush/VAPID. ReminderService entscheidet,
+wann eine fällige Erinnerung gesendet wird.
 
 Graceful degradation: ohne VAPID-Keys (ENV nicht gesetzt) ist `enabled`
 False und alle Sends sind no-ops. Tabelle lebt in derselben auth.db.
@@ -17,8 +16,25 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
 from config import get_settings
+
+
+def is_browser_push_endpoint(endpoint: str) -> bool:
+    try:
+        url = urlsplit(endpoint)
+        host = url.hostname or ""
+        supported = (
+            host in {"fcm.googleapis.com", "updates.push.services.mozilla.com"}
+            or host.endswith((".push.apple.com", ".notify.windows.com", ".wns.windows.com"))
+        )
+        return (
+            supported and url.scheme == "https" and url.port in (None, 443)
+            and url.username is None and url.password is None and not url.fragment
+        )
+    except ValueError:
+        return False
 
 
 class PushService:
@@ -118,7 +134,7 @@ class PushService:
 
     @classmethod
     def send_to_user(cls, user_id: str, title: str, body: str,
-                     url: str = "/") -> int:
+                     url: str = "/", *, endpoint: str | None = None) -> int:
         """Sendet eine Notification an alle Subscriptions des Users.
         Returns die Anzahl erfolgreicher Sends. Abgelaufene Subscriptions
         (404/410) werden automatisch gelöscht. No-op wenn nicht enabled."""
@@ -129,17 +145,21 @@ class PushService:
         from py_vapid import Vapid
 
         s = get_settings()
-        vapid = Vapid.from_pem(s.vapid_private_key.encode("utf-8"))
+        vapid = Vapid.from_pem(s.vapid_private_key.replace("\\n", "\n").encode("utf-8"))
         payload = json.dumps({"title": title, "body": body, "url": url})
 
         sent = 0
         for sub in cls.get_subscriptions(user_id):
+            if endpoint is not None and sub["endpoint"] != endpoint:
+                continue
             try:
                 webpush(
                     subscription_info=sub,
                     data=payload,
                     vapid_private_key=vapid,
                     vapid_claims={"sub": s.vapid_subject},
+                    ttl=3600,
+                    timeout=10,
                 )
                 sent += 1
             except WebPushException as e:

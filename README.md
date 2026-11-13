@@ -33,15 +33,14 @@ VAULT_PATH=/tmp/vault
 ```
 
 ```bash
-uvicorn main:app --reload
+uvicorn main:app --reload --env-file .env
 # → http://localhost:8000
 ```
 
 ### Flutter-Web
 
 ```bash
-# lib/services/api_service.dart: baseUrl auf http://localhost:8000 setzen
-flutter run -d chrome --web-port 3000
+flutter run -d chrome --web-port 3000 --dart-define=API_BASE_URL=http://localhost:8000
 ```
 
 ---

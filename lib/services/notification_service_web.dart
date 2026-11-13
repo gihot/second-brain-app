@@ -3,7 +3,6 @@ import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
 
-import '../models/note_model.dart';
 import 'api_service.dart';
 import 'cache_service.dart';
 
@@ -19,22 +18,12 @@ extension type _SbPush._(JSObject _) implements JSObject {
   external JSPromise<JSString> subscribe(String vapidPublicKey);
   external JSPromise<JSAny?> getExisting();
   external JSPromise<JSAny?> unsubscribe();
-  external JSPromise<JSAny?> showLocal(String title, String body);
 }
 
-/// Web Push (Notifications Phase 1).
-///
-/// Echte, server-getriebene Notifications: Subscription via Service-
-/// Worker, Zustellung durch den Server (auch bei geschlossener App).
-/// Ersetzt die alte client-only web.Notification, die nur bei offenem
-/// Tab feuerte (und überfällige Reminder beim Laden fälschlich als
-/// "neu" zeigte). Reminder-Zustellung läuft jetzt ausschließlich über
-/// Server-Push; fällige Reminder sind zusätzlich visuell im Dashboard.
+/// Manages the browser subscription for server-delivered reminders.
 class NotificationService {
   static final NotificationService instance = NotificationService._();
   NotificationService._();
-
-  Future<void> init() async {}
 
   // ── Permission / Support ───────────────────────────────────────────────────
 
@@ -178,40 +167,6 @@ class NotificationService {
       }
     } catch (_) {
       // best-effort — Reminder erscheinen zur Not visuell im Dashboard.
-    }
-  }
-
-  /// Feuert lokale Notifications für gerade fällige Reminder, solange die
-  /// App offen ist (Foreground). Das ist die zuverlässige Zustellung auf
-  /// iOS, wo Background-Push an die geschlossene PWA nicht klappt.
-  ///
-  /// Schutz gegen das alte „tage-alte Reminder ploppen beim Laden":
-  /// nur Reminder feuern, die in den letzten 2h fällig wurden (recency-
-  /// guard), und jeden nur einmal (persistierte dedup-IDs). Ältere
-  /// überfällige bleiben rein visuell im Dashboard.
-  Future<void> fireDueReminders(List<Note> dueReminders) async {
-    if (!kIsWeb || !isGranted || !notificationsEnabled) return;
-    final sb = _sbPush;
-    if (sb == null) return;
-    final now = DateTime.now();
-    final notified = CacheService.instance.getNotifiedReminderIds().toSet();
-    var changed = false;
-    for (final n in dueReminders) {
-      if (n.remindAt == null) continue;
-      final dt = DateTime.tryParse(n.remindAt!)?.toLocal();
-      if (dt == null) continue;
-      final overdue = now.difference(dt);
-      if (overdue.isNegative) continue; // noch nicht fällig
-      if (overdue > const Duration(hours: 2)) continue; // zu alt → Dashboard
-      if (notified.contains(n.id)) continue;
-      notified.add(n.id);
-      changed = true;
-      try {
-        sb.showLocal('⏰ Erinnerung', n.title);
-      } catch (_) {}
-    }
-    if (changed) {
-      CacheService.instance.saveNotifiedReminderIds(notified.toList());
     }
   }
 

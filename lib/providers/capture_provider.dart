@@ -24,6 +24,13 @@ class CaptureProvider extends ChangeNotifier {
   final VaultProvider _vault;
 
   CaptureState _state = CaptureState.idle;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
   String? _error;
   List<CaptureSimilar> _lastSimilarNotes = const [];
 
@@ -43,7 +50,8 @@ class CaptureProvider extends ChangeNotifier {
   /// given ISO-8601 timestamp. Overrides whatever Scribe may have decided
   /// about thought_type.
   Future<bool> capture(String text, {String? remindAtIso}) async {
-    if (text.trim().isEmpty) return false;
+    if (text.trim().isEmpty || isCapturing || _disposed) return false;
+    final workspace = _cache.workspaceId;
 
     _state = CaptureState.capturing;
     _error = null;
@@ -55,28 +63,18 @@ class CaptureProvider extends ChangeNotifier {
     try {
       final noteId = const Uuid().v4();
 
-      // 1. Create locally immediately
-      final localNote = await _vault.createLocalNote(text.trim(), id: noteId);
-
-      // 2. Try server (Scribe agent) — non-blocking on failure
-      final serverResult = await _api.capture(text.trim(), noteId: noteId);
-
-      Note workingNote = localNote;
-      if (serverResult != null) {
-        _lastSimilarNotes = serverResult.similarNotes;
-        // Update local note with AI-generated title, tags, hall + wing
-        workingNote = localNote.copyWith(
-          title: serverResult.title,
-          tags: serverResult.tags,
-          filePath: serverResult.filePath,
-          hall: serverResult.hall,
-          wing: serverResult.suggestedWing?.isNotEmpty == true
-              ? serverResult.suggestedWing
-              : null,
-        );
-        await _vault.updateNote(workingNote);
+      final localNote = await _vault.createLocalNote(
+        text.trim(), id: noteId, remindAt: remindAtIso,
+      );
+      if (_disposed || workspace != _cache.workspaceId) return false;
+      final result = await _api.capture(
+        text.trim(), noteId: noteId, remindAt: remindAtIso,
+      );
+      if (_disposed || workspace != _cache.workspaceId) return false;
+      if (result != null) {
+        _lastSimilarNotes = result.similarNotes;
+        await _saveCaptureResult(localNote, result);
       } else {
-        // Queue for sync when server comes back online
         await _cache.queueCapture(OfflineCapture(
           id: noteId,
           text: text.trim(),
@@ -84,23 +82,18 @@ class CaptureProvider extends ChangeNotifier {
         ));
       }
 
-      // User-specified reminder overrides Scribe's classification.
-      if (remindAtIso != null && remindAtIso.isNotEmpty) {
-        await _vault.updateNote(workingNote.copyWith(
-          thoughtType: ThoughtType.reminder,
-          remindAt: remindAtIso,
-        ));
-      }
-
+      if (_disposed) return false;
       _state = CaptureState.success;
       notifyListeners();
 
       await Future.delayed(const Duration(milliseconds: 800));
+      if (_disposed) return true;
       _state = CaptureState.idle;
       notifyListeners();
 
       return true;
     } catch (e) {
+      if (_disposed) return false;
       _state = CaptureState.error;
       _error = e.toString();
       notifyListeners();
@@ -118,27 +111,42 @@ class CaptureProvider extends ChangeNotifier {
     await _vault.createLocalNote(capture.text, id: capture.id);
   }
 
-  /// Sync pending offline captures when server becomes reachable.
-  Future<void> syncOfflineQueue() async {
-    final pending = _cache.getPendingCaptures();
-    if (pending.isEmpty) return;
+  bool _syncing = false;
 
-    for (final capture in pending) {
-      final result = await _api.capture(capture.text, noteId: capture.id);
-      if (result != null) {
-        // Update local note with AI enrichment
+  Future<void> syncOfflineQueue() async {
+    if (_syncing || !_api.hasToken) return;
+    final workspace = _cache.workspaceId;
+    _syncing = true;
+    try {
+      for (final capture in _cache.getPendingCaptures()) {
         final note = _cache.getNoteById(capture.id);
-        if (note != null) {
-          await _vault.updateNote(note.copyWith(
-            title: result.title,
-            tags: result.tags,
-            filePath: result.filePath,
-          ));
-        }
+        if (note == null) continue;
+        final result = await _api.capture(
+          note.content, noteId: note.id, remindAt: note.remindAt,
+        );
+        if (_disposed || _cache.workspaceId != workspace) return;
+        if (result == null) continue;
+        await _saveCaptureResult(note, result);
+        if (_disposed || _cache.workspaceId != workspace) return;
         await _cache.markCaptureSynced(capture.id);
       }
+      await _cache.clearSyncedCaptures();
+    } finally {
+      _syncing = false;
     }
-    await _cache.clearSyncedCaptures();
+  }
+
+  Future<void> _saveCaptureResult(Note note, CaptureResult result) {
+    final remindAt = note.remindAt ?? result.remindAt;
+    return _vault.updateNote(note.copyWith(
+      title: result.title,
+      tags: result.tags,
+      filePath: result.filePath,
+      hall: result.hall,
+      wing: result.suggestedWing?.isNotEmpty == true ? result.suggestedWing : null,
+      thoughtType: remindAt == null ? note.thoughtType : ThoughtType.reminder,
+      remindAt: remindAt,
+    ));
   }
 
   void reset() {

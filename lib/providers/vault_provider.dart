@@ -7,7 +7,6 @@ import '../models/note_model.dart';
 import '../models/vault_status_model.dart';
 import '../services/cache_service.dart';
 import '../services/api_service.dart';
-import '../services/notification_service.dart';
 import '../utils/note_diff.dart' as note_diff;
 
 /// Central state for the vault: all notes, inbox count, sync status.
@@ -29,6 +28,10 @@ class VaultProvider extends ChangeNotifier {
   String? _error;
   bool _isServerReachable = false;
   Timer? _autoPullTimer;
+  Timer? _reminderTimer;
+  bool _disposed = false;
+  Future<void>? _sync;
+  Future<void> Function()? syncCaptures;
 
   static const Duration _autoPullInterval = Duration(minutes: 5);
 
@@ -58,12 +61,39 @@ class VaultProvider extends ChangeNotifier {
   }
   List<Note> get inboxNotes =>
       _notes.where((n) => n.status == NoteStatus.inbox).toList();
-  /// Reminders whose [remindAt] is at-or-before now (i.e. actually due).
-  /// Future reminders are NOT included — those wait until their time arrives.
-  List<Note> get dueReminders => _notes.where((n) =>
-      n.thoughtType == ThoughtType.reminder &&
-      n.remindAt != null &&
-      !(DateTime.tryParse(n.remindAt!)?.isAfter(DateTime.now()) ?? true)).toList();
+  List<Note> get dueReminders {
+    final now = DateTime.now();
+    return _notes.where((note) {
+      final due = _reminderDate(note);
+      return due != null && !due.isAfter(now);
+    }).toList()..sort((a, b) => _reminderDate(a)!.compareTo(_reminderDate(b)!));
+  }
+
+  DateTime? _reminderDate(Note note) {
+    if (note.thoughtType != ThoughtType.reminder ||
+        note.status == NoteStatus.archived || note.remindAt == null) {
+      return null;
+    }
+    return DateTime.tryParse(note.remindAt!);
+  }
+
+  void _scheduleReminderRefresh() {
+    _reminderTimer?.cancel();
+    final now = DateTime.now();
+    DateTime? nextDue;
+    for (final note in _notes) {
+      final due = _reminderDate(note);
+      if (due == null || !due.isAfter(now)) continue;
+      if (nextDue == null || due.isBefore(nextDue)) nextDue = due;
+    }
+    if (nextDue == null) return;
+    final delay = nextDue.difference(now);
+    const maxDelay = Duration(days: 1);
+    _reminderTimer = Timer(delay > maxDelay ? maxDelay : delay, () {
+      notifyListeners();
+      _scheduleReminderRefresh();
+    });
+  }
 
   /// PARA distribution for the stats chart.
   /// PARA distribution — excludes Inbox (not a real PARA category;
@@ -166,9 +196,7 @@ class VaultProvider extends ChangeNotifier {
 
     try {
       await _api.init();
-      // Cache may already be open (post-login init() raced ahead) or not
-      // yet (pre-login boot). Either way: load whatever's there. If
-      // nothing, _notes stays empty until the AuthGate calls refresh().
+      if (_disposed) return;
       _loadFromCache();
 
       _checkServerAndSync();
@@ -177,7 +205,7 @@ class VaultProvider extends ChangeNotifier {
       _error = e.toString();
     } finally {
       _loading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -193,6 +221,8 @@ class VaultProvider extends ChangeNotifier {
   @override
   void dispose() {
     _autoPullTimer?.cancel();
+    _reminderTimer?.cancel();
+    _disposed = true;
     super.dispose();
   }
 
@@ -205,32 +235,52 @@ class VaultProvider extends ChangeNotifier {
       isServerReachable: _isServerReachable,
     );
     notifyListeners();
-    // In-App-Zustellung (App offen): feuert gerade fällig gewordene
-    // Reminder über den Service-Worker (iOS-kompatibel). Recency-guard
-    // (≤2h) + dedup verhindern das alte „tage-alte ploppen beim Laden".
-    // Auf iOS ist das die zuverlässige Zustellung, weil Background-Push
-    // an die geschlossene PWA nicht klappt.
-    NotificationService.instance.fireDueReminders(dueReminders);
+    _scheduleReminderRefresh();
   }
 
   Future<void> _checkServerAndSync() async {
+    final existing = _sync;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final workspace = _cache.workspaceId;
+    final sync = _syncWorkspace(workspace);
+    _sync = sync;
+    try {
+      await sync;
+    } finally {
+      _sync = null;
+    }
+  }
+
+  bool _isCurrent(String? workspace) =>
+      !_disposed && _cache.workspaceId == workspace;
+
+  Future<void> _syncWorkspace(String? workspace) async {
+    if (!_api.hasToken) {
+      if (_isCurrent(workspace)) _loadFromCache();
+      return;
+    }
     _isServerReachable = await _api.ping();
+    if (!_isCurrent(workspace)) return;
     if (_isServerReachable) {
-      await _drainPendingWrites();
-      await _syncFromServer();
-      // Whenever the server was successfully pinged, stamp lastSync —
-      // even if vault-status endpoint is missing/broken, the ping itself
-      // proves a recent connection.
+      await syncCaptures?.call();
+      if (!_isCurrent(workspace)) return;
+      await _drainPendingWrites(workspace);
+      if (!_isCurrent(workspace)) return;
+      await _syncFromServer(workspace);
+      if (!_isCurrent(workspace)) return;
       await _cache.setLastSync(DateTime.now());
     }
-    _loadFromCache();
+    if (_isCurrent(workspace)) _loadFromCache();
   }
 
   /// Flush queued edits/deletes to the server. Tries every entry
   /// independently — one failure (e.g. 404 on a note that never reached
   /// the server) doesn't block the rest. Failed entries stay in the queue
   /// for the user to inspect and discard manually.
-  Future<void> _drainPendingWrites() async {
+  Future<void> _drainPendingWrites(String? workspace) async {
     final pending = _cache.getPendingWrites();
     if (pending.isEmpty) return;
 
@@ -250,9 +300,14 @@ class VaultProvider extends ChangeNotifier {
           tags: (entry['tags'] as List?)?.cast<String>(),
           status: entry['status'] as String?,
           para: entry['para'] as String?,
+          hall: entry['hall'] as String?,
+          wing: entry['wing'] as String?,
+          thoughtType: entry['thought_type'] as String?,
+          remindAt: entry['remind_at'] as String?,
         );
         ok = result != null;
       }
+      if (!_isCurrent(workspace)) return;
       if (ok) {
         await _cache.removePendingWrite(filePath);
       }
@@ -261,9 +316,10 @@ class VaultProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _syncFromServer() async {
+  Future<void> _syncFromServer(String? workspace) async {
     // Pull all notes from vault into local cache
     final remoteNotes = await _api.getVaultNotes();
+    if (!_isCurrent(workspace)) return;
     if (remoteNotes != null) {
       final notes = remoteNotes
           .map(_noteFromServerMap)
@@ -275,7 +331,9 @@ class VaultProvider extends ChangeNotifier {
       }
     }
 
+    if (!_isCurrent(workspace)) return;
     final serverStatus = await _api.getVaultStatus();
+    if (!_isCurrent(workspace)) return;
     if (serverStatus != null) {
       await _cache.setLastSync(DateTime.now());
       _status = _status.copyWith(
@@ -370,7 +428,11 @@ class VaultProvider extends ChangeNotifier {
   }
 
   /// Creates a note locally. Called by CaptureProvider.
-  Future<Note> createLocalNote(String rawText, {String? id}) async {
+  Future<Note> createLocalNote(
+    String rawText, {
+    String? id,
+    String? remindAt,
+  }) async {
     final now = DateTime.now();
     final note = Note(
       id: id ?? const Uuid().v4(),
@@ -380,9 +442,12 @@ class VaultProvider extends ChangeNotifier {
       modified: now,
       status: NoteStatus.inbox,
       para: ParaCategory.inbox,
+      thoughtType: remindAt == null ? ThoughtType.standard : ThoughtType.reminder,
+      remindAt: remindAt,
     );
+    final workspace = _cache.workspaceId;
     await _cache.saveNote(note);
-    _loadFromCache();
+    if (_isCurrent(workspace)) _loadFromCache();
     return note;
   }
 
@@ -391,14 +456,18 @@ class VaultProvider extends ChangeNotifier {
   /// is queued for retry on the next successful `_checkServerAndSync`.
   Future<void> updateNote(Note updated) async {
     final next = updated.copyWith(modified: DateTime.now());
+    final workspace = _cache.workspaceId;
     await _cache.saveNote(next);
+    if (!_isCurrent(workspace)) return;
     _loadFromCache();
     await _syncNoteToServer(next);
   }
 
   Future<void> _syncNoteToServer(Note note) async {
     if (note.filePath == null) return; // local-only note, nothing to sync
+    final workspace = _cache.workspaceId;
     final payload = noteToServerMap(note);
+    payload['remind_at'] = note.remindAt ?? '';
 
     if (!_isServerReachable) {
       await _cache.queueWrite(payload);
@@ -414,8 +483,9 @@ class VaultProvider extends ChangeNotifier {
       hall: payload['hall'] as String,
       wing: note.wing,
       thoughtType: payload['thought_type'] as String,
-      remindAt: note.remindAt,
+      remindAt: payload['remind_at'] as String,
     );
+    if (!_isCurrent(workspace)) return;
     if (result == null) {
       await _cache.queueWrite(payload);
     } else if (result != note.filePath) {
@@ -516,7 +586,7 @@ class VaultProvider extends ChangeNotifier {
     if (!_isServerReachable) {
       return (drained: 0, remaining: before, serverReachable: false);
     }
-    await _drainPendingWrites();
+    await _drainPendingWrites(_cache.workspaceId);
     final after = _cache.getPendingWrites().length;
     _loadFromCache();
     return (

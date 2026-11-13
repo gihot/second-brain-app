@@ -9,6 +9,7 @@ class DiscoveryProvider extends ChangeNotifier {
   Map<String, dynamic>? _connection; // {note_a_title, note_b_title, explanation, connection_type}
   bool _loading = false;
   bool _loaded = false;
+  bool _disposed = false;
 
   Map<String, dynamic>? get connection => _connection;
   bool get loading => _loading;
@@ -49,6 +50,7 @@ class DiscoveryProvider extends ChangeNotifier {
     notifyListeners();
 
     final result = await ApiService.instance.getDiscovery();
+    if (_disposed) return;
     _loading = false;
 
     if (result != null) {
@@ -61,7 +63,13 @@ class DiscoveryProvider extends ChangeNotifier {
       }));
     }
 
-    notifyListeners();
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   /// "Wisch weg" — pauses this pair for 14 days on the server, clears

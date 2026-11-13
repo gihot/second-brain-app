@@ -1,0 +1,28 @@
+name: Send due reminders
+
+on:
+  schedule:
+    - cron: '3,13,23,33,43,53 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: reminder-delivery
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: vars.REMINDER_SERVER_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Request reminder delivery
+        env:
+          REMINDER_SERVER_URL: ${{ vars.REMINDER_SERVER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            -X POST -H "X-Cron-Secret: $CRON_SECRET" \
+            "${REMINDER_SERVER_URL%/}/reminders/dispatch"

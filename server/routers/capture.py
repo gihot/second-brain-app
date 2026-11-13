@@ -1,8 +1,10 @@
 """POST /capture — Scribe agent processes raw text into a titled, tagged note."""
 import asyncio
+import json
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel, Field
 
 from auth import verify_token
 from services.vault_service import VaultService
@@ -21,11 +23,12 @@ _SIMILAR_LIMIT = 3
 
 class CaptureRequest(BaseModel):
     text: str
-    note_id: str | None = None  # Client-generated UUID for idempotency
+    note_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,128}$")
     # Minuten-Offset der User-Zeitzone (z.B. 120 für CEST). Damit löst
     # Scribe „heute Abend" in LOKALER Zeit auf und der Server konvertiert
     # nach UTC. Default 0 (UTC) für Alt-Clients ohne das Feld.
-    tz_offset_minutes: int = 0
+    tz_offset_minutes: int = Field(default=0, ge=-840, le=840)
+    remind_at: AwareDatetime | None = None
 
 
 class SimilarNote(BaseModel):
@@ -60,9 +63,23 @@ async def capture(
     if not req.text.strip():
         raise HTTPException(status_code=422, detail="Text cannot be empty")
 
-    import uuid
-    note_id = req.note_id or str(uuid.uuid4())
+    note_id = req.note_id or str(uuid4())
     user_id = payload["sub"]
+    vault = VaultService.for_user(user_id)
+    if req.note_id is not None:
+        existing = await asyncio.to_thread(vault.note_by_id, note_id)
+        if existing is not None:
+            return CaptureResponse(
+                note_id=note_id,
+                title=existing.get("title") or _fallback_title(req.text),
+                tags=_stored_tags(existing.get("tags")),
+                file_path=existing["file_path"],
+                para=existing.get("para") or "00-Inbox",
+                hall=existing.get("hall") or "unclassified",
+                suggested_wing=existing.get("wing") or "",
+                thought_type=existing.get("thought_type") or "standard",
+                remind_at=existing.get("remind_at"),
+            )
 
     # Run Scribe agent to generate title + tags
     now_utc = datetime.now(timezone.utc)
@@ -74,6 +91,7 @@ async def capture(
             "note_id": note_id,
             "today_utc": now_utc.strftime("%Y-%m-%d"),
             "now_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%S"),
+            "now_local": (now_utc + timedelta(minutes=req.tz_offset_minutes)).strftime("%Y-%m-%dT%H:%M:%S"),
         },
         user_id=user_id,
         endpoint="capture",
@@ -89,12 +107,15 @@ async def capture(
     # Scribe liefert remind_at lokal-naiv → deterministisch nach UTC.
     remind_at = _local_remind_to_utc(meta.get("remind_at"), req.tz_offset_minutes)
 
+    if req.remind_at is not None:
+        remind_at = req.remind_at.astimezone(timezone.utc).isoformat()
+        thought_type = "reminder"
+
     # Normalize wing: lowercase kebab-case
     if suggested_wing:
         import re
         suggested_wing = re.sub(r"[^a-z0-9]+", "-", suggested_wing.lower()).strip("-")
 
-    vault = VaultService.for_user(user_id)
     file_path = await asyncio.to_thread(
         vault.write_note,
         note_id, title, req.text, tags, para,
@@ -142,6 +163,18 @@ async def capture(
         remind_at=remind_at,
         similar_notes=similar_notes,
     )
+
+
+def _stored_tags(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        tags = json.loads(value)
+        if isinstance(tags, list):
+            return [str(tag) for tag in tags]
+    except ValueError:
+        pass
+    return [tag.strip().strip("\"'") for tag in value.strip("[]").split(",") if tag.strip()]
 
 
 def _fallback_title(text: str) -> str:

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth import verify_token
-from services.push_service import PushService
+from services.push_service import PushService, is_browser_push_endpoint
 
 router = APIRouter()
 
@@ -38,6 +38,8 @@ async def subscribe(
     req: SubscribeRequest,
     payload: dict = Depends(verify_token),
 ):
+    if not is_browser_push_endpoint(req.endpoint):
+        raise HTTPException(status_code=400, detail="Unsupported browser push endpoint")
     try:
         await asyncio.to_thread(
             PushService.save_subscription,

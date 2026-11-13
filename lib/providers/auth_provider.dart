@@ -19,10 +19,12 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider({ApiService? api}) : _api = api ?? ApiService.instance;
 
   final ApiService _api;
+  static const _localWorkspace = 'local-device';
 
   AuthStatus _status = AuthStatus.loading;
   AuthSession? _session;
   String? _loginError;
+  bool _rejectedDuringStartup = false;
 
   AuthStatus get status => _status;
   AuthSession? get session => _session;
@@ -49,43 +51,46 @@ class AuthProvider extends ChangeNotifier {
     final me = await _api.getMe();
     final token = _session?.token;
     if (me != null && token != null) {
-      _session = AuthSession.fromUserMap(me, token);
+      final session = AuthSession.fromUserMap(me, token);
+      if (session == null || _session?.token != token) return;
+      _session = session;
+      await _api.rememberProfile(session);
       notifyListeners();
     }
   }
 
-  /// Boot-time: persistierten Token lesen, Session provisorisch setzen
-  /// (damit tokenProvider sofort liefert), via GET /auth/me verifizieren.
-  /// Jeder Fehler (kein Token, expired, unknown user) → logged out.
-  ///
-  /// Öffnet bei Erfolg den per-User-Hive-Cache **vor** dem Flip auf
-  /// `loggedIn`, damit die AppShell nie einen stale (other-user) Cache
-  /// sieht.
   Future<void> init() async {
-    // tokenProvider + 401-callback zuerst verdrahten, damit jeder
-    // Request den aktuellen Session-Token liest.
     _api.tokenProvider = () => _session?.token;
     _api.onUnauthorized = _onUnauthorized;
     await _api.init();
 
     final token = await _api.readPersistedToken();
-    if (token == null || token.isEmpty) {
-      _setStatus(AuthStatus.loggedOut);
-      return;
-    }
-    // Provisorische Session — nur der Token zählt für die /me-Verifikation.
-    _session = AuthSession(id: '', email: '', token: token);
-
-    final me = await _api.getMe();
-    if (me == null) {
-      // Token invalid / server unreachable → logged-out.
+    if (token != null && token.isNotEmpty) {
+      _session = AuthSession(id: '', email: '', token: token);
+      final me = await _api.getMe();
+      final verified = AuthSession.fromUserMap(
+        me ?? (_rejectedDuringStartup ? null : await _api.readRememberedProfile(token)),
+        token,
+      );
+      if (verified != null) {
+        await _openSession(verified);
+        return;
+      }
       _session = null;
       await _api.clearPersistedToken();
-      _setStatus(AuthStatus.loggedOut);
-      return;
     }
-    _session = AuthSession.fromUserMap(me, token);
-    await CacheService.instance.init(_session!.id);
+    await _openLocalWorkspace();
+  }
+
+  Future<void> _openLocalWorkspace() async {
+    await CacheService.instance.init(_localWorkspace, migrateLegacy: false);
+    _setStatus(AuthStatus.loggedOut);
+  }
+
+  Future<void> _openSession(AuthSession session) async {
+    await CacheService.instance.init(session.id);
+    _session = session;
+    await _api.rememberProfile(session);
     _setStatus(AuthStatus.loggedIn);
   }
 
@@ -116,25 +121,26 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-    _session = session;
-    await CacheService.instance.init(session.id);
-    _setStatus(AuthStatus.loggedIn);
+    _setStatus(AuthStatus.loading);
+    await _openSession(session);
     return true;
   }
 
   Future<void> logout() async {
-    // Close the cache BEFORE flipping state so any post-logout rebuild
-    // sees a closed cache rather than the just-logged-out user's data.
-    await CacheService.instance.close();
-    await _api.clearPersistedToken();
     _session = null;
     _loginError = null;
-    _setStatus(AuthStatus.loggedOut);
+    _setStatus(AuthStatus.loading);
+    await _api.clearPersistedToken();
+    await _openLocalWorkspace();
   }
 
   /// Called by ApiService on any 401 — invoked from anywhere in the app.
   void _onUnauthorized() {
-    if (_status == AuthStatus.loggedOut) return; // already there
+    if (_status == AuthStatus.loading) {
+      _rejectedDuringStartup = true;
+      return;
+    }
+    if (_status != AuthStatus.loggedIn) return;
     // Fire and forget — logout() itself does no network I/O.
     logout();
   }

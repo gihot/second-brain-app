@@ -106,3 +106,21 @@ def test_local_remind_to_utc_negative_offset():
     # z.B. US-Westküste (-420) → 18:00 lokal = 01:00 UTC nächster Tag
     assert _local_remind_to_utc("2026-05-30T18:00:00", -420) == \
         "2026-05-31T01:00:00+00:00"
+
+
+def test_capture_keeps_explicit_reminder_and_reuses_note_on_retry(
+    temp_vault, mock_anthropic, mock_openai
+):
+    req = CaptureRequest(
+        text="Erinnere mich an den Termin",
+        note_id="reminder-1",
+        remind_at="2027-01-11T17:00:00+01:00",
+    )
+    first = asyncio.run(capture(req, BackgroundTasks(), {"sub": "u1"}))
+    retry = asyncio.run(capture(req, BackgroundTasks(), {"sub": "u1"}))
+
+    assert first.remind_at == retry.remind_at == "2027-01-11T16:00:00+00:00"
+    assert first.thought_type == retry.thought_type == "reminder"
+    assert first.tags == retry.tags
+    assert first.file_path == retry.file_path
+    assert len(VaultService.for_user("u1").get_all_notes()) == 1

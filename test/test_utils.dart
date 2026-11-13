@@ -14,6 +14,7 @@ import 'dart:io';
 
 import 'package:hive/hive.dart';
 
+import 'package:second_brain/models/auth_session.dart';
 import 'package:second_brain/models/note_model.dart';
 import 'package:second_brain/models/offline_capture_model.dart';
 import 'package:second_brain/providers/auth_provider.dart';
@@ -86,6 +87,16 @@ class FakeApiService implements ApiService {
 
   /// In-memory Token-Storage für Tests (statt FlutterSecureStorage).
   String? persistedToken;
+  Map<String, dynamic>? rememberedProfile;
+
+  @override
+  Future<Map<String, dynamic>?> readRememberedProfile(String token) async =>
+      token == persistedToken ? rememberedProfile : null;
+
+  @override
+  Future<void> rememberProfile(AuthSession session) async {
+    rememberedProfile = {'id': session.id, 'email': session.email};
+  }
 
   @override
   Future<String?> readPersistedToken() async => persistedToken;
@@ -103,7 +114,7 @@ class FakeApiService implements ApiService {
   void Function()? onUnauthorized;
 
   @override
-  Future<CaptureResult?> capture(String text, {String? noteId}) async {
+  Future<CaptureResult?> capture(String text, {String? noteId, String? remindAt}) async {
     capturedTexts.add(text);
     return captureResponse;
   }

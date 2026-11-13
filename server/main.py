@@ -14,13 +14,14 @@ from slowapi.errors import RateLimitExceeded
 from config import get_settings
 from rate_limit import limiter
 from routers import (
-    admin, agent, auth, capture, discovery, inbox, push, resurfacing,
+    admin, agent, auth, capture, discovery, inbox, push, reminders, resurfacing,
     search, vault,
 )
 from services.index_service import IndexService
 from services.invite_service import InviteService
 from services.paused_pairs_service import PausedPairsService
 from services.push_service import PushService
+from services.reminder_service import ReminderService
 from services.resurfacing_service import ResurfacingService
 from services.token_usage_service import TokenUsageService
 from services.user_service import UserService
@@ -44,6 +45,7 @@ def purge_due_user_data(data_root: Path) -> int:
             lambda: TokenUsageService.delete_user_data(uid),
             lambda: InviteService.delete_user_data(uid),
             lambda: PushService.delete_user_data(uid),
+            lambda: ReminderService.delete_user_data(uid),
         ):
             try:
                 fn()
@@ -80,6 +82,7 @@ async def lifespan(app: FastAPI):
     TokenUsageService.init(data_root / "auth.db")
     InviteService.init(data_root / "auth.db")
     PushService.init(data_root / "auth.db")
+    ReminderService.init(data_root / "auth.db")
 
     # Wave 4.2: Einmal beim Server-Start fällige Hard-Deletes abräumen.
     # Lazy-Variante in /auth/login behandelt den „nie wieder Server-
@@ -168,6 +171,7 @@ app.include_router(discovery.router, prefix="/discovery", tags=["discovery"])
 app.include_router(resurfacing.router, prefix="/resurfacing", tags=["resurfacing"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
 app.include_router(push.router, prefix="/push", tags=["push"])
+app.include_router(reminders.router, prefix="/reminders", tags=["reminders"])
 
 
 @app.get("/health")

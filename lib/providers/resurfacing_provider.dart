@@ -20,6 +20,7 @@ class ResurfacingProvider extends ChangeNotifier {
   List<String> _noteIds = const [];
   bool _loading = false;
   bool _loadedOnce = false;
+  bool _disposed = false;
   DateTime? _loadedAt;
 
   List<String> get noteIds => _noteIds;
@@ -44,6 +45,7 @@ class ResurfacingProvider extends ChangeNotifier {
     notifyListeners();
 
     final ids = await ApiService.instance.getResurfacingToday(limit: 3);
+    if (_disposed) return;
 
     _loading = false;
     if (ids != null) {
@@ -52,6 +54,12 @@ class ResurfacingProvider extends ChangeNotifier {
       _loadedAt = DateTime.now();
     }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   /// Optimistic remove + server-Pause. „Geöffnet"-Signal — die Karte

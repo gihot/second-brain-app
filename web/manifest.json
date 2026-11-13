@@ -6,7 +6,6 @@
     "background_color": "#111319",
     "theme_color": "#111319",
     "description": "Persönliches zweites Gehirn — reibungslos erfassen, semantisch wiederfinden.",
-    "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "share_target": {
         "action": ".",

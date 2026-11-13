@@ -88,6 +88,9 @@ class VaultService:
 
     # ── Write ──────────────────────────────────────────────────────────────────
 
+    def note_by_id(self, note_id: str) -> Optional[dict]:
+        return next((note for note in self._iter_notes() if note.get("id") == note_id), None)
+
     def write_note(self, note_id: str, title: str, content: str,
                    tags: list[str], para: str = "00-Inbox",
                    hall: str = "unclassified",
@@ -100,6 +103,8 @@ class VaultService:
         folder = self._safe_path(para)
         folder.mkdir(parents=True, exist_ok=True)
         filepath = folder / filename
+        if filepath.exists():
+            filepath = folder / f"{safe_title or 'note'}-{note_id}.md"
 
         now = datetime.now(timezone.utc).isoformat()
         tag_list = ", ".join(f'"{t}"' for t in tags)
@@ -121,7 +126,16 @@ class VaultService:
         if remind_at:
             frontmatter += f"remind_at: {remind_at}\n"
         frontmatter += f"---\n\n"
-        filepath.write_text(frontmatter + content, encoding="utf-8")
+        try:
+            with filepath.open("x", encoding="utf-8") as target:
+                target.write(frontmatter + content)
+        except FileExistsError:
+            existing = self.note_by_id(note_id)
+            if existing:
+                return existing["file_path"]
+            filepath = folder / f"{safe_title or 'note'}-{note_id}.md"
+            with filepath.open("x", encoding="utf-8") as target:
+                target.write(frontmatter + content)
         rel = str(filepath.relative_to(self._vault))
         self._index_note(rel)
         return rel
@@ -175,8 +189,10 @@ class VaultService:
             meta["wing"] = re.sub(r"[^a-z0-9]+", "-", wing.lower()).strip("-")
         if thought_type is not None:
             meta["thought_type"] = thought_type
-        if remind_at is not None:
+        if remind_at:
             meta["remind_at"] = remind_at
+        elif remind_at == "":
+            meta.pop("remind_at", None)
 
         new_body = content if content is not None else body
         new_text = serialize_frontmatter(meta, new_body)
@@ -327,6 +343,22 @@ class VaultService:
 
         scored.sort(key=lambda x: x[0], reverse=True)
         return [m for _, m in scored[:limit]]
+
+    def _iter_notes(self):
+        for path in self._vault.rglob("*.md"):
+            if ".git" in path.parts or path.is_symlink():
+                continue
+            note = self._parse_frontmatter(path)
+            if note:
+                yield note
+
+    def iter_reminders(self):
+        for note in self._iter_notes():
+            if (note.get("id") and note.get("remind_at")
+                    and note.get("thought_type") == "reminder"
+                    and note.get("status") != "archived"
+                    and note.get("para") != "04-Archive"):
+                yield note
 
     def get_all_notes(self, limit: int = 200) -> list[dict]:
         """Return all notes from every PARA folder as dicts."""

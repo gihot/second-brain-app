@@ -75,8 +75,28 @@
         _reg: function () {
           // Auf unsere Sub-Scope-Registration warten (kann nach Boot
           // kurz noch nicht da sein).
-          if (window.__sbPushReg) return Promise.resolve(window.__sbPushReg);
-          return navigator.serviceWorker.register('brain_sw.js', { scope: './push/' });
+          const waitForActive = function (reg) {
+            if (reg.active) return Promise.resolve(reg);
+            const worker = reg.installing || reg.waiting;
+            return new Promise(function (resolve, reject) {
+              if (!worker) {
+                reject(new Error('Push-Service-Worker fehlt.'));
+                return;
+              }
+              const stateChanged = function () {
+                if (worker.state !== 'activated' && worker.state !== 'redundant') return;
+                worker.removeEventListener('statechange', stateChanged);
+                if (worker.state === 'activated') resolve(reg);
+                else reject(new Error('Push-Service-Worker konnte nicht aktiviert werden.'));
+              };
+              worker.addEventListener('statechange', stateChanged);
+              stateChanged();
+            });
+          };
+          return (window.__sbPushReg
+            ? Promise.resolve(window.__sbPushReg)
+            : navigator.serviceWorker.register('brain_sw.js', { scope: './push/' }))
+            .then(waitForActive);
         },
         _urlB64ToUint8Array: function (base64) {
           const padding = '='.repeat((4 - (base64.length % 4)) % 4);
@@ -100,18 +120,6 @@
           return window.sbPush._reg()
             .then(function (reg) { return reg.pushManager.getSubscription(); })
             .then(function (sub) { return sub ? JSON.stringify(sub) : null; });
-        },
-        // Lokale Notification (App offen) — MUSS über die SW-Registration
-        // laufen, nicht über new Notification(): iOS-PWAs unterstützen den
-        // Notification-Konstruktor nicht, nur registration.showNotification.
-        showLocal: function (title, body) {
-          return window.sbPush._reg().then(function (reg) {
-            return reg.showNotification(title, {
-              body: body,
-              icon: 'icons/Icon-192.png',
-              badge: 'icons/Icon-192.png',
-            });
-          });
         },
         unsubscribe: function () {
           return window.sbPush._reg()

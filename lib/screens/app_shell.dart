@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/background_provider.dart';
 import '../providers/vault_provider.dart';
+import '../theme/brain_colors.dart';
 import '../theme/brain_spacing.dart';
+import '../theme/brain_typography.dart';
 import '../widgets/brain_bottom_nav.dart';
 import 'capture_screen.dart';
 import 'dashboard_screen.dart';
@@ -30,6 +32,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final ValueNotifier<int> _voiceTrigger = ValueNotifier<int>(0);
 
   static const int _captureTabIndex = 4;
+  static const double _desktopBreakpoint = 900;
+  static const double _desktopContentWidth = 920;
 
   @override
   void dispose() {
@@ -41,8 +45,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// Sync beim Zurückkehren in den Vordergrund. Ohne das holte die App
   /// neue Gedanken (z.B. vom PC erfasst) nur alle 5 Min per Timer — auf
   /// iOS-PWA im Hintergrund unzuverlässig, also taucht ein frischer
-  /// Gedanke beim Öffnen oft nicht auf. Der Sync triggert auch das
-  /// In-App-Feuern gerade fälliger Reminder (_loadFromCache).
+  /// Gedanke beim Öffnen oft nicht auf.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
@@ -108,7 +111,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     // (Share-Target), gewinnt Text — der User hat Inhalt mitgebracht,
     // wir starten keine Voice-Session „über" den Text drüber.
     if (initialCaptureText != null || voiceImmediate) {
-      _currentIndex = 4; // jump to Capture tab (new rightmost position)
+      _currentIndex = _captureTabIndex;
     }
     _screens = [
       const DashboardScreen(),
@@ -131,71 +134,100 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
+  void _selectTab(int index, {bool startVoice = false}) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _currentIndex = index);
+    if (startVoice) _voiceTrigger.value++;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bgBytes = context.watch<BackgroundProvider>().bytes;
-    final hasBg = bgBytes != null;
+    final background = context.watch<BackgroundProvider>().bytes;
+    final inboxCount = context.watch<VaultProvider>().status.inboxCount;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (hasBg) ...[
-          // Background image (covers full screen, behind everything)
-          Positioned.fill(
-            child: Image.memory(
-              bgBytes,
-              fit: BoxFit.cover,
-              gaplessPlayback: true,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= _desktopBreakpoint;
+        final content = Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: desktop ? _desktopContentWidth : BrainSpacing.maxContentWidth,
             ),
+            child: IndexedStack(index: _currentIndex, children: _screens),
           ),
-          // 60% dark overlay so cards/text stay readable
-          Positioned.fill(
-            child: Container(color: Colors.black.withValues(alpha: 0.60)),
-          ),
-        ],
-        Scaffold(
-      backgroundColor: hasBg ? Colors.transparent : const Color(0xFF111319),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide =
-              constraints.maxWidth > BrainSpacing.maxContentWidth + 48;
+        );
 
-          Widget content = IndexedStack(
-            index: _currentIndex,
-            children: _screens,
-          );
-
-          if (isWide) {
-            content = Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                    maxWidth: BrainSpacing.maxContentWidth),
-                child: content,
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            if (background != null) ...[
+              Image.memory(background, fit: BoxFit.cover, gaplessPlayback: true),
+              ColoredBox(color: Colors.black.withValues(alpha: 0.60)),
+            ],
+            Scaffold(
+              backgroundColor: background == null ? BrainColors.base : Colors.transparent,
+              body: Row(
+                children: [
+                  if (desktop)
+                    NavigationRail(
+                      backgroundColor: BrainColors.surfaceLowest,
+                      minExtendedWidth: 204,
+                      extended: true,
+                      selectedIndex: _currentIndex,
+                      onDestinationSelected: _selectTab,
+                      groupAlignment: -1,
+                      leading: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: BrainSpacing.lg),
+                        child: Text('Second Brain', style: BrainTypography.titleMd),
+                      ),
+                      destinations: [
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.home_outlined),
+                          selectedIcon: Icon(Icons.home_rounded),
+                          label: Text('Home'),
+                        ),
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.search_rounded),
+                          label: Text('Suche'),
+                        ),
+                        NavigationRailDestination(
+                          icon: Badge(
+                            isLabelVisible: inboxCount > 0,
+                            label: Text('$inboxCount'),
+                            child: const Icon(Icons.inbox_outlined),
+                          ),
+                          label: const Text('Inbox'),
+                        ),
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.settings_outlined),
+                          selectedIcon: Icon(Icons.settings_rounded),
+                          label: Text('Einstellungen'),
+                        ),
+                        const NavigationRailDestination(
+                          icon: Icon(Icons.edit_outlined),
+                          selectedIcon: Icon(Icons.edit_rounded),
+                          label: Text('Gedanke erfassen'),
+                        ),
+                      ],
+                    ),
+                  Expanded(key: const ValueKey('workspace-content'), child: content),
+                ],
               ),
-            );
-          }
-
-          return content;
-        },
-      ),
-      bottomNavigationBar: BrainBottomNav(
-        currentIndex: _currentIndex,
-        onTap: (i) {
-          setState(() => _currentIndex = i);
-          // Tap auf MIC startet immer eine neue Voice-Session — auch wenn
-          // wir schon auf dem Capture-Tab waren (User-Intent „jetzt sprechen").
-          if (i == _captureTabIndex) _voiceTrigger.value++;
-        },
-        // Plan 1.1: Long-Press auf MIC = Escape-Hatch für Tipper.
-        // Öffnet Capture-Tab ohne Voice-Trigger → User landet im Text-
-        // Eingabefeld statt im sofortigen Sprach-Modus.
-        onCaptureLongPress: () {
-          setState(() => _currentIndex = _captureTabIndex);
-        },
-        inboxCount: context.watch<VaultProvider>().status.inboxCount,
-      ),
-    ),
-      ],
+              bottomNavigationBar: desktop
+                  ? null
+                  : BrainBottomNav(
+                      currentIndex: _currentIndex,
+                      onTap: (index) => _selectTab(
+                        index,
+                        startVoice: index == _captureTabIndex,
+                      ),
+                      onCaptureLongPress: () => _selectTab(_captureTabIndex),
+                      inboxCount: inboxCount,
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

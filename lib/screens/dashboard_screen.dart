@@ -35,85 +35,50 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _tagsExpanded = false;
 
-  void _showRemindersSheet(List<Note> reminders) {
+  void _showRemindersSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: BrainColors.surfaceLow,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetCtx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(BrainSpacing.md),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: BrainColors.outlineVariant.withValues(alpha: 0.30),
-                    borderRadius: BorderRadius.circular(2),
+      builder: (sheetCtx) {
+        final reminders = sheetCtx.watch<VaultProvider>().dueReminders;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(BrainSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Fällige Erinnerungen', style: BrainTypography.headlineSm),
+                const SizedBox(height: BrainSpacing.sm),
+                if (reminders.isEmpty)
+                  Text('Gerade ist keine Erinnerung fällig.', style: BrainTypography.bodyMd),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: reminders.length,
+                    itemBuilder: (_, index) {
+                      final note = reminders[index];
+                      return ListTile(
+                        leading: const Icon(Icons.alarm_rounded, color: BrainColors.tertiary),
+                        title: Text(note.title),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.pop(sheetCtx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => NoteDetailScreen(noteId: note.id)),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
-              ),
-              const SizedBox(height: BrainSpacing.md),
-              Text('Fällige Erinnerungen',
-                  style: BrainTypography.headlineSm),
-              const SizedBox(height: BrainSpacing.sm),
-              ...reminders.map((note) => Padding(
-                    padding: const EdgeInsets.only(bottom: BrainSpacing.sm),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(sheetCtx);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                NoteDetailScreen(noteId: note.id),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: BrainSpacing.paddingCard,
-                        decoration: BoxDecoration(
-                          color: BrainColors.tertiary.withValues(alpha: 0.08),
-                          borderRadius: BrainSpacing.radiusMd,
-                          border: Border.all(
-                            color:
-                                BrainColors.tertiary.withValues(alpha: 0.25),
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.alarm_rounded,
-                                size: 16, color: BrainColors.tertiary),
-                            const SizedBox(width: BrainSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                note.title,
-                                style: BrainTypography.bodyMd.copyWith(
-                                  color: BrainColors.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Icon(Icons.arrow_forward_ios_rounded,
-                                size: 12, color: BrainColors.tertiary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -219,7 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             greeting: _greeting,
             statusLine: statusLine,
             onStatusTap: vault.dueReminders.isNotEmpty
-                ? () => _showRemindersSheet(vault.dueReminders)
+                ? _showRemindersSheet
                 : null,
           ),
         ),

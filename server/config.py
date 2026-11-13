@@ -61,9 +61,13 @@ class Settings:
     vapid_public_key: str = os.environ.get("VAPID_PUBLIC_KEY", "")
     vapid_subject: str = os.environ.get("VAPID_SUBJECT", "mailto:admin@example.com")
 
-    # Shared-Secret das der GitHub-Actions-Cron im Header mitschickt,
-    # um /cron/* aufzurufen (Phase 2). Leer → Cron-Endpoints geschlossen.
+    # Reminder dispatch endpoint and SMTP submission via STARTTLS.
     cron_secret: str = os.environ.get("CRON_SECRET", "")
+    smtp_host: str = os.environ.get("SMTP_HOST", "")
+    smtp_port: int = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user: str = os.environ.get("SMTP_USER", "")
+    smtp_password: str = os.environ.get("SMTP_PASSWORD", "")
+    smtp_from: str = os.environ.get("SMTP_FROM", "")
 
 
 @lru_cache

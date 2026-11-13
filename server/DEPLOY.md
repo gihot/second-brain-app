@@ -124,3 +124,24 @@ Test: `curl http://localhost:8000/health` should return 200.
 3. Switch the app's API URL → done. No data migration needed; the vault
    repo on GitHub is the source of truth.
 4. (Optional) Delete the dead Railway service.
+
+## Erinnerungen bei geschlossener App
+
+Das Dashboard zeigt fällige Termine direkt aus dem Vault. Für Push und E-Mail
+ruft der Workflow **Send due reminders** alle zehn Minuten
+`POST /reminders/dispatch` auf. Hinterlege `REMINDER_SERVER_URL` als
+GitHub-Actions-Variable und denselben zufälligen Wert als `CRON_SECRET` im
+Backend und in den GitHub-Actions-Secrets. Der Workflow lässt sich zum Test
+manuell starten. Geplante GitHub-Workflows können verzögert starten.
+
+- **Push** verwendet `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` und
+  `VAPID_SUBJECT`. Auf dem iPhone die App zum Home-Bildschirm hinzufügen,
+  über das Symbol öffnen und dort Push in den Einstellungen aktivieren.
+- **E-Mail** verwendet `SMTP_HOST`, `SMTP_PORT` (standardmäßig 587),
+  `SMTP_FROM` und bei Bedarf `SMTP_USER` und `SMTP_PASSWORD`.
+  Der SMTP-Server muss STARTTLS anbieten. Gesendet wird an die Konto-Adresse
+  des Nutzers, wenn er den Kanal in den Einstellungen aktiviert hat.
+
+Ein Kanal bekommt nur Termine, die ab seiner Aktivierung fällig werden.
+Erfolgreiche Zustellungen werden pro Notiz, Termin und Ziel gespeichert.
+Der Zeitplan und die Zustellhistorie bleiben auf dem bestehenden Datenvolume.
